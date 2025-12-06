@@ -57,10 +57,17 @@ const userSchema: Schema = new Schema({
     type: String,
     required: false,
   },
-  refreshToken: {
-    type: String,
-    required: false,
-  },
+  refreshTokens: [
+    {
+      jti: { type: String, required: true },
+      tokenHash: { type: String, required: true },
+      userAgent: { type: String, required: false },
+      ip: { type: String, required: false },
+      deviceName: { type: String, required: false },
+      createdAt: { type: Date, required: true },
+      expiresAt: { type: Date, required: true },
+    },
+  ],
 });
 
 const userModel = model<User & Document>('User', userSchema);

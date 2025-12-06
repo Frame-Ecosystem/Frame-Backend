@@ -265,6 +265,47 @@ paths:
         404:
           description: User not found
 
+# [POST] refresh-token
+  /refresh-token:
+    post:
+      tags:
+      - auth
+      summary: Refresh Access Token
+      description: Generate a new access token using a refresh token.
+      parameters:
+      - name: body
+        in: body
+        description: Refresh token
+        required: true
+        schema:
+          type: object
+          properties:
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        200:
+          description: Access token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      token:
+                        type: string
+                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                      expiresIn:
+                        type: number
+                        example: 3600
+                  message:
+                    type: string
+                    example: "refresh token"
+        401:
+          description: Invalid refresh token
+
 # definitions
 definitions:
   location:
@@ -339,3 +380,12 @@ definitions:
 schemes:
  - https
  - http
+
+securityDefinitions:
+  bearerAuth:
+    type: apiKey
+    name: Authorization
+    in: header
+
+security:
+  - bearerAuth: []

@@ -5,6 +5,7 @@ import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import upload from '@middlewares/image-upload.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 
 class UsersRoute implements Routes {
   public path = '/users';
@@ -16,15 +17,19 @@ class UsersRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get(`${this.path}`, authMiddleware, this.usersController.getUsers);
-    this.router.get(`${this.path}/:id`, authMiddleware, this.usersController.getUserById);
-    this.router.post(`${this.path}`, validationMiddleware(CreateUserDto, 'body'), this.usersController.createUser);
-    this.router.put(`${this.path}/:id`, authMiddleware, validationMiddleware(CreateUserDto, 'body', true), this.usersController.updateUser);
-    this.router.delete(`${this.path}/:id`, authMiddleware, this.usersController.deleteUser);
-    this.router.put(`${this.path}/:id/location`, authMiddleware, validationMiddleware(LocationDto, 'body'), this.usersController.updateUserLocation);
-    this.router.get(`${this.path}/:id/profile-image`, authMiddleware, this.usersController.getProfileImage);
-    this.router.post(`${this.path}/:id/upload-profile-image`, authMiddleware, upload.single('profileImage'), this.usersController.uploadProfileImage);
-    this.router.get('/user/token', authMiddleware, this.usersController.getUserByToken);
+    // Mounted at `/users`, so define routes relative to that base
+    // GET routes don't need CSRF protection (safe methods)
+    this.router.get(`/`, authMiddleware, this.usersController.getUsers);
+    this.router.get(`/:id`, authMiddleware, this.usersController.getUserById);
+    this.router.get(`/:id/profile-image`, authMiddleware, this.usersController.getProfileImage);
+    this.router.get(`/user/token`, authMiddleware, this.usersController.getUserByToken);
+
+    // State-changing routes need both auth and CSRF protection
+    this.router.post(`/`, authMiddleware, csrfMiddleware, validationMiddleware(CreateUserDto, 'body'), this.usersController.createUser);
+    this.router.put(`/:id`, authMiddleware, csrfMiddleware, validationMiddleware(CreateUserDto, 'body', true), this.usersController.updateUser);
+    this.router.delete(`/:id`, authMiddleware, csrfMiddleware, this.usersController.deleteUser);
+    this.router.put(`/:id/location`, authMiddleware, csrfMiddleware, validationMiddleware(LocationDto, 'body'), this.usersController.updateUserLocation);
+    this.router.post(`/:id/upload-profile-image`, authMiddleware, csrfMiddleware, upload.single('profileImage'), this.usersController.uploadProfileImage);
   }
 }
 

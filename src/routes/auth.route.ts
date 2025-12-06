@@ -18,7 +18,12 @@ class AuthRoute implements Routes {
     this.router.post(`${this.path}signup`, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
     this.router.post(`${this.path}login`, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
     this.router.post(`${this.path}logout`, authMiddleware, this.authController.logOut);
-    this.router.post(`${this.path}refresh-token`, this.authController.refreshToken);
+    this.router.post(`${this.path}logout-all`, authMiddleware, this.authController.logOutAllDevices);
+    this.router.post(`${this.path}refresh-token`, this.authController.refreshToken); // No auth - used when access token expires
+
+    // Session management
+    this.router.get(`${this.path}sessions`, authMiddleware, this.authController.getActiveSessions);
+    this.router.delete(`${this.path}sessions/:jti`, authMiddleware, this.authController.revokeSession);
   }
 }
 

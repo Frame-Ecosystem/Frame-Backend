@@ -12,7 +12,7 @@ class IndexRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get(`${this.path}`, this.indexController.index);
+    this.router.get(`${this.path}`, require('@middlewares/auth.middleware').default, this.indexController.index);
   }
 }
 

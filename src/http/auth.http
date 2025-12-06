@@ -7,8 +7,8 @@ POST {{ baseURL }}/signup
 Content-Type: application/json
 
 {
-    "email": "example@email.com",
-    "password": "password"
+    "email": "admin@medab.com",
+    "password": "azerty"
 }
 
 ###
@@ -17,8 +17,8 @@ POST {{ baseURL }}/login
 Content-Type: application/json
 
 {
-    "email": "example@email.com",
-    "password": "password"
+    "email": "admin@medab.com",
+    "password": "azerty"
 }
 
 ###

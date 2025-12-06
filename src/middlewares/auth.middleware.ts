@@ -1,31 +1,113 @@
 import { NextFunction, Response } from 'express';
-import { verify } from 'jsonwebtoken';
+import { verify, JsonWebTokenError, TokenExpiredError, NotBeforeError } from 'jsonwebtoken';
 import { SECRET_KEY } from '@config';
 import { HttpException } from '@exceptions/HttpException';
 import { DataStoredInToken, RequestWithUser } from '@interfaces/auth.interface';
 import userModel from '@models/users.model';
+import { logSecurityEvent } from '@utils/logger';
+
+// Generic error message for client (security: don't leak internal details)
+const AUTH_ERROR_MESSAGE = 'Authentication failed';
 
 const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFunction) => {
   try {
-    const Authorization = req.cookies['Authorization'] || (req.header('Authorization') ? req.header('Authorization').split('Bearer ')[1] : null);
+    // Support both: Authorization header (Bearer token) and accessToken cookie
+    const headerAuth = req.header('Authorization') || '';
+    const cookieAuth = req.cookies['accessToken'] || '';
 
-    if (Authorization) {
-      const secretKey: string = SECRET_KEY;
-      const verificationResponse = (await verify(Authorization, secretKey)) as DataStoredInToken;
-      const userId = verificationResponse._id;
-      const findUser = await userModel.findById(userId);
-
-      if (findUser) {
-        req.user = findUser;
-        next();
-      } else {
-        next(new HttpException(401, 'Wrong authentication token'));
-      }
-    } else {
-      next(new HttpException(404, 'Authentication token missing'));
+    let token = '';
+    let tokenSource = '';
+    if (headerAuth) {
+      token = headerAuth.startsWith('Bearer ') ? headerAuth.slice(7).trim() : headerAuth.trim();
+      tokenSource = 'header';
+    } else if (cookieAuth) {
+      token = cookieAuth.trim();
+      tokenSource = 'cookie';
     }
+
+    if (!token) {
+      logSecurityEvent({
+        event: 'INVALID_TOKEN',
+        reason: 'No token provided',
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        path: req.path,
+        method: req.method,
+      });
+      return next(new HttpException(401, AUTH_ERROR_MESSAGE));
+    }
+
+    const secretKey: string = SECRET_KEY;
+    let verificationResponse: DataStoredInToken;
+
+    try {
+      verificationResponse = verify(token, secretKey) as DataStoredInToken;
+    } catch (jwtError) {
+      // Detailed internal logging for JWT-specific errors
+      const baseLogData = {
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        path: req.path,
+        method: req.method,
+        tokenSource,
+      };
+
+      if (jwtError instanceof TokenExpiredError) {
+        logSecurityEvent({
+          event: 'INVALID_TOKEN',
+          reason: 'Access token expired',
+          expiredAt: jwtError.expiredAt?.toISOString(),
+          ...baseLogData,
+        });
+      } else if (jwtError instanceof JsonWebTokenError) {
+        logSecurityEvent({
+          event: 'INVALID_TOKEN',
+          reason: `JWT error: ${jwtError.message}`,
+          ...baseLogData,
+        });
+      } else if (jwtError instanceof NotBeforeError) {
+        logSecurityEvent({
+          event: 'INVALID_TOKEN',
+          reason: 'Token not yet valid',
+          ...baseLogData,
+        });
+      } else {
+        logSecurityEvent({
+          event: 'INVALID_TOKEN',
+          reason: `Unknown JWT error: ${jwtError.message}`,
+          ...baseLogData,
+        });
+      }
+
+      return next(new HttpException(401, AUTH_ERROR_MESSAGE));
+    }
+
+    const userId = verificationResponse._id;
+    const findUser = await userModel.findById(userId);
+
+    if (!findUser) {
+      logSecurityEvent({
+        event: 'INVALID_TOKEN',
+        reason: 'User not found for valid token',
+        userId,
+        ip: req.ip || req.socket?.remoteAddress,
+        userAgent: req.headers['user-agent'],
+        path: req.path,
+      });
+      return next(new HttpException(401, AUTH_ERROR_MESSAGE));
+    }
+
+    req.user = findUser;
+    return next();
   } catch (error) {
-    next(new HttpException(401, 'Wrong authentication token'));
+    logSecurityEvent({
+      event: 'INVALID_TOKEN',
+      reason: `Unexpected error: ${error.message}`,
+      ip: req.ip || req.socket?.remoteAddress,
+      userAgent: req.headers['user-agent'],
+      path: req.path,
+    });
+    return next(new HttpException(401, AUTH_ERROR_MESSAGE));
   }
 };
 

@@ -3,6 +3,10 @@ import { hash } from 'bcrypt';
 import { logger } from '@utils/logger';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
 
+// Admin defaults
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const ADMIN_PHONE = process.env.ADMIN_PHONE || '21650922140';
+
 /**
  * Ensure the users collection and indexes exist in MongoDB.
  * This forces Mongoose to create the schema upfront so it appears in Compass.
@@ -44,7 +48,13 @@ export async function ensureAdminExists(): Promise<void> {
     const hashed = await hash(adminPassword, 10);
 
     try {
-      const created = await userModel.create({ email: adminEmail, password: hashed, role: 'admin' });
+      const created = await userModel.create({
+        email: adminEmail,
+        password: hashed,
+        role: 'admin',
+        username: ADMIN_USERNAME,
+        phoneNumber: ADMIN_PHONE,
+      });
       logger.info(`Default admin user created: ${adminEmail} (id=${created._id})`);
     } catch (createErr: any) {
       // If creation fails, provide diagnostics

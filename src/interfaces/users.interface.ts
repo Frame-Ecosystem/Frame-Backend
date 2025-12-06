@@ -5,6 +5,16 @@ export interface Location {
   placeId: string;
 }
 
+export interface RefreshTokenSession {
+  jti: string;
+  tokenHash: string;
+  userAgent?: string;
+  ip?: string;
+  deviceName?: string;
+  createdAt: Date;
+  expiresAt: Date;
+}
+
 export interface User {
   _id: string;
   email: string;
@@ -15,5 +25,5 @@ export interface User {
   gender: 'male' | 'female' | 'other';
   location?: Location;
   profileImage?: string;
-  refreshToken?: string;
+  refreshTokens?: RefreshTokenSession[]; // Multi-device session support
 }

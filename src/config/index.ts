@@ -12,6 +12,7 @@ export const {
   DB_PORT,
   DB_DATABASE,
   SECRET_KEY,
+  REFRESH_TOKEN_SECRET = SECRET_KEY, // Fallback to SECRET_KEY if not set
   LOG_FORMAT,
   LOG_DIR,
   ORIGIN,

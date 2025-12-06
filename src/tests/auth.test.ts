@@ -37,7 +37,7 @@ describe('Testing Auth', () => {
   });
 
   describe('[POST] /login', () => {
-    it('response should have the Set-Cookie header with the Authorization token', async () => {
+    it('response should have the Set-Cookie header with the accessToken', async () => {
       const userData: CreateUserDto = {
         email: 'test@email.com',
         password: 'q1w2e3r4!',
@@ -57,7 +57,7 @@ describe('Testing Auth', () => {
       return request(app.getServer())
         .post(`${authRoute.path}login`)
         .send(userData)
-        .expect('Set-Cookie', /^Authorization=.+/);
+        .expect('Set-Cookie', /^accessToken=.+/);
     });
   });
 
