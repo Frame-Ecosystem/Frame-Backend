@@ -15,4 +15,5 @@ export interface User {
   gender: 'male' | 'female' | 'other';
   location?: Location;
   profileImage?: string;
+  refreshToken?: string;
 }

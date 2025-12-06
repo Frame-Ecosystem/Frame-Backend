@@ -76,6 +76,26 @@ class AuthService {
   public createCookie(tokenData: TokenData): string {
     return `Authorization=${tokenData.token}; HttpOnly; Max-Age=${tokenData.expiresIn};`;
   }
+
+  public async generateRefreshToken(user: User): Promise<string> {
+    const refreshToken = sign({ _id: user._id }, SECRET_KEY, { expiresIn: '7d' });
+    // Store the refresh token securely (e.g., in a database or cache)
+    await this.users.findByIdAndUpdate(user._id, { refreshToken });
+    return refreshToken;
+  }
+
+  public async refreshAccessToken(refreshToken: string): Promise<TokenData> {
+    try {
+      const decoded = verify(refreshToken, SECRET_KEY) as DataStoredInToken;
+      const user = await this.users.findById(decoded._id);
+      if (!user || user.refreshToken !== refreshToken) {
+        throw new HttpException(401, 'Invalid refresh token');
+      }
+      return this.createToken(user);
+    } catch (error) {
+      throw new HttpException(401, 'Invalid refresh token');
+    }
+  }
 }
 
 export default AuthService;
