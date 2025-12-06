@@ -1,5 +1,5 @@
 import { hash, compare } from 'bcrypt';
-import { sign } from 'jsonwebtoken';
+import { sign, verify } from 'jsonwebtoken';
 import { SECRET_KEY } from '@config';
 import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import { HttpException } from '@exceptions/HttpException';
@@ -12,7 +12,7 @@ class AuthService {
   public users = userModel;
 
   public async signup(userData: CreateUserDto): Promise<User> {
-    if (isEmpty(userData)) throw new HttpException(400, "userData is empty");
+    if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     const findUser: User = await this.users.findOne({ email: userData.email });
     if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
@@ -24,20 +24,17 @@ class AuthService {
   }
 
   public async login(userData: LoginUserDto): Promise<{ cookie: string; findUser: User }> {
-    if (isEmpty(userData)) throw new HttpException(400, "userData is empty");
+    if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     // Find user by email or username
     const findUser: User = await this.users.findOne({
-      $or: [
-        { email: userData.emailOrUsername },
-        { username: userData.emailOrUsername }
-      ]
+      $or: [{ email: userData.emailOrUsername }, { username: userData.emailOrUsername }],
     });
 
     if (!findUser) throw new HttpException(409, `User with email or username "${userData.emailOrUsername}" was not found`);
 
     const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
-    if (!isPasswordMatching) throw new HttpException(409, "Password is not matching");
+    if (!isPasswordMatching) throw new HttpException(409, 'Password is not matching');
 
     const tokenData = this.createToken(findUser);
     const cookie = this.createCookie(tokenData);
@@ -46,12 +43,26 @@ class AuthService {
   }
 
   public async logout(userData: User): Promise<User> {
-    if (isEmpty(userData)) throw new HttpException(400, "userData is empty");
+    if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     const findUser: User = await this.users.findOne({ email: userData.email, password: userData.password });
     if (!findUser) throw new HttpException(409, `This email ${userData.email} was not found`);
 
     return findUser;
+  }
+
+  public async getUserByToken(token: string): Promise<User> {
+    try {
+      const secretKey: string = SECRET_KEY;
+      const decodedToken = verify(token, secretKey) as DataStoredInToken;
+
+      const user: User = await this.users.findById(decodedToken._id);
+      if (!user) throw new HttpException(404, 'User not found');
+
+      return user;
+    } catch (error) {
+      throw new HttpException(401, 'Invalid token');
+    }
   }
 
   public createToken(user: User): TokenData {

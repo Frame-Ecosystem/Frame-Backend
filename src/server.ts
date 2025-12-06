@@ -27,13 +27,18 @@ import UsersRoute from '@routes/users.route';
 
 console.log('[SERVER] imports done, creating app...');
 
-const app = new App([new IndexRoute(), new UsersRoute(), new AuthRoute()]);
+try {
+  const app = new App([new IndexRoute(), new UsersRoute(), new AuthRoute()]);
 
-console.log('[SERVER] app created, calling listen...');
+  console.log('[SERVER] app created, calling listen...');
 
-app.listen();
+  app.listen();
 
-console.log('[SERVER] listen called');
+  console.log('[SERVER] listen called');
+} catch (error) {
+  console.error('[SERVER] Error during app creation:', error);
+  process.exit(1);
+}
 
 // Catch any unhandled promise rejections or errors
 process.on('unhandledRejection', (reason, promise) => {

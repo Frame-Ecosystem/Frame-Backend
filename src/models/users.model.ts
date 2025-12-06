@@ -53,6 +53,10 @@ const userSchema: Schema = new Schema({
     },
     required: false,
   },
+  profileImage: {
+    type: String,
+    required: false,
+  },
 });
 
 const userModel = model<User & Document>('User', userSchema);

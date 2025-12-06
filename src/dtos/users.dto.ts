@@ -52,6 +52,10 @@ export class CreateUserDto {
   @ValidateNested()
   @Type(() => LocationDto)
   public location?: LocationDto;
+
+  @IsOptional()
+  @IsString()
+  public profileImage?: string;
 }
 
 export class LoginUserDto {

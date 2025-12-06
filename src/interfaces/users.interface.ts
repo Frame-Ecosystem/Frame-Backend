@@ -14,4 +14,5 @@ export interface User {
   phoneNumber: string;
   gender: 'male' | 'female' | 'other';
   location?: Location;
+  profileImage?: string;
 }

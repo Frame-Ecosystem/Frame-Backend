@@ -189,6 +189,82 @@ paths:
         500:
           description: 'Server Error'
 
+# [GET] users/id/profile-image
+  /users/{id}/profile-image:
+    get:
+      tags:
+      - users
+      summary: Get User Profile Image
+      parameters:
+      - name: id
+        in: path
+        description: user Id
+        required: true
+      responses:
+        200:
+          description: 'OK'
+        400:
+          description: 'Bad Request'
+        409:
+          description: 'Conflict'
+        500:
+          description: 'Server Error'
+
+# [POST] users/id/upload-profile-image
+  /users/{id}/upload-profile-image:
+    post:
+      tags:
+      - users
+      summary: Upload User Profile Image
+      consumes:
+        - multipart/form-data
+      parameters:
+      - name: id
+        in: path
+        description: user Id
+        required: true
+      - name: profileImage
+        in: formData
+        description: Profile image file (jpeg, png, gif, webp - max 5MB)
+        required: true
+        type: file
+      responses:
+        200:
+          description: 'OK'
+        400:
+          description: 'Bad Request'
+        500:
+          description: 'Server Error'
+
+# [GET] users/token
+  /user/token:
+    get:
+      tags:
+      - users
+      summary: Get user by token
+      description: Retrieve user details using a JWT token.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/User'
+                  message:
+                    type: string
+                    example: User retrieved successfully
+        400:
+          description: Token is missing
+        401:
+          description: Invalid token
+        404:
+          description: User not found
+
 # definitions
 definitions:
   location:
@@ -256,6 +332,9 @@ definitions:
       location:
         $ref: '#/definitions/location'
         description: user Location object
+      profileImage:
+        type: string
+        description: URL to user's profile image on Cloudinary
 
 schemes:
  - https

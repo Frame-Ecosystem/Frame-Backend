@@ -14,7 +14,7 @@ class UserService {
   }
 
   public async findUserById(userId: string): Promise<User> {
-    if (isEmpty(userId)) throw new HttpException(400, "UserId is empty");
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
 
     const findUser: User = await this.users.findOne({ _id: userId });
     if (!findUser) throw new HttpException(409, "User doesn't exist");
@@ -23,7 +23,7 @@ class UserService {
   }
 
   public async createUser(userData: CreateUserDto): Promise<User> {
-    if (isEmpty(userData)) throw new HttpException(400, "userData is empty");
+    if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     const findUser: User = await this.users.findOne({ email: userData.email });
     if (findUser) throw new HttpException(409, `This email ${userData.email} already exists`);
@@ -35,7 +35,7 @@ class UserService {
   }
 
   public async updateUser(userId: string, userData: CreateUserDto): Promise<User> {
-    if (isEmpty(userData)) throw new HttpException(400, "userData is empty");
+    if (isEmpty(userData)) throw new HttpException(400, 'userData is empty');
 
     if (userData.email) {
       const findUser: User = await this.users.findOne({ email: userData.email });
@@ -60,19 +60,35 @@ class UserService {
     return deleteUserById;
   }
 
-  public async updateUserLocation(userId: string, locationData: LocationDto): Promise<User> {
-    if (isEmpty(userId)) throw new HttpException(400, "UserId is empty");
-    if (isEmpty(locationData)) throw new HttpException(400, "Location data is empty");
+  public async updateProfileImage(userId: string, imageUrl: string): Promise<User> {
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
+    if (isEmpty(imageUrl)) throw new HttpException(400, 'Image URL is empty');
 
-    const updatedUser: User = await this.users.findByIdAndUpdate(
-      userId,
-      { location: locationData },
-      { new: true }
-    );
+    const updatedUser: User = await this.users.findByIdAndUpdate(userId, { profileImage: imageUrl }, { new: true });
 
     if (!updatedUser) throw new HttpException(409, "User doesn't exist");
 
     return updatedUser;
+  }
+
+  public async updateUserLocation(userId: string, locationData: LocationDto): Promise<User> {
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
+    if (isEmpty(locationData)) throw new HttpException(400, 'Location data is empty');
+
+    const updatedUser: User = await this.users.findByIdAndUpdate(userId, { location: locationData }, { new: true });
+
+    if (!updatedUser) throw new HttpException(409, "User doesn't exist");
+
+    return updatedUser;
+  }
+
+  public async getUserProfileImage(userId: string): Promise<{ profileImage: string | null }> {
+    if (isEmpty(userId)) throw new HttpException(400, 'UserId is empty');
+
+    const user: User = await this.users.findOne({ _id: userId }, { profileImage: 1 });
+    if (!user) throw new HttpException(409, "User doesn't exist");
+
+    return { profileImage: user.profileImage || null };
   }
 }
 
