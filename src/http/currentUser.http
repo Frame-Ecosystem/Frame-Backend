@@ -1,59 +1,5 @@
+
 # ============================================
-# CHANGE PASSWORD
-# ============================================
-###
-# Change password (valid)
-POST http://localhost:3000/v1/me/change-password
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-Authorization: Bearer {{accessToken}}
-
-{
-    "currentPassword": "OldP@ssword123",
-    "newPassword": "NewSecureP@ss456",
-    "newPasswordConfirm": "NewSecureP@ss456"
-}
-
-###
-# Change password (wrong current password)
-POST http://localhost:3000/v1/me/change-password
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-Authorization: Bearer {{accessToken}}
-
-{
-    "currentPassword": "WrongPassword",
-    "newPassword": "NewSecureP@ss456",
-    "newPasswordConfirm": "NewSecureP@ss456"
-}
-
-###
-# Change password (mismatched new passwords)
-POST http://localhost:3000/v1/me/change-password
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-Authorization: Bearer {{accessToken}}
-
-{
-    "currentPassword": "OldP@ssword123",
-    "newPassword": "NewSecureP@ss456",
-    "newPasswordConfirm": "DifferentP@ss456"
-}
-
-###
-# Change password (rate limit exceeded)
-# (Simulate by sending >3 requests in an hour)
-POST http://localhost:3000/v1/me/change-password
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-Authorization: Bearer {{accessToken}}
-
-{
-    "currentPassword": "OldP@ssword123",
-    "newPassword": "NewSecureP@ss456",
-    "newPasswordConfirm": "NewSecureP@ss456"
-}
-###
 # CURRENT USER API Tests - REST Client for VS Code
 # ============================================
 # Install "REST Client" extension to use this file
@@ -61,7 +7,7 @@ Authorization: Bearer {{accessToken}}
 # ============================================
 
 @baseURL = http://localhost:3000/v1/me
-
+@accessToken = your_access_token_here
 
 # ============================================
 # GET CURRENT USER
@@ -80,7 +26,6 @@ GET {{baseURL}}
 GET {{baseURL}}ee
 Content-Type: application/json
 
-
 # ============================================
 # UPDATE CURRENT USER PROFILE
 # ============================================
@@ -89,6 +34,7 @@ Content-Type: application/json
 PUT {{baseURL}}
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "email": "updatedme@example.com",
@@ -101,6 +47,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "email": "updatedme@example.com"
@@ -111,6 +58,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}ee
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "email": "updatedme@example.com",
@@ -118,6 +66,61 @@ X-CSRF-Token: dev-bypass
     "phoneNumber": "+21611111111"
 }
 
+# ============================================
+# CHANGE PASSWORD
+# ============================================
+###
+# Change password (valid)
+POST {{baseURL}}/change-password
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
+
+{
+    "currentPassword": "OldP@ssword123",
+    "newPassword": "NewSecureP@ss456",
+    "newPasswordConfirm": "NewSecureP@ss456"
+}
+
+###
+# Change password (wrong current password)
+POST {{baseURL}}/change-password
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
+
+{
+    "currentPassword": "WrongPassword",
+    "newPassword": "NewSecureP@ss456",
+    "newPasswordConfirm": "NewSecureP@ss456"
+}
+
+###
+# Change password (mismatched new passwords)
+POST {{baseURL}}/change-password
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
+
+{
+    "currentPassword": "OldP@ssword123",
+    "newPassword": "NewSecureP@ss456",
+    "newPasswordConfirm": "DifferentP@ss456"
+}
+
+###
+# Change password (rate limit exceeded)
+# (Simulate by sending >3 requests in an hour)
+POST {{baseURL}}/change-password
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
+
+{
+    "currentPassword": "OldP@ssword123",
+    "newPassword": "NewSecureP@ss456",
+    "newPasswordConfirm": "NewSecureP@ss456"
+}
 
 # ============================================
 # DELETE OWN ACCOUNT
@@ -127,6 +130,7 @@ X-CSRF-Token: dev-bypass
 DELETE {{baseURL}}
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "password": "SecureP@ss123"
@@ -137,6 +141,7 @@ X-CSRF-Token: dev-bypass
 DELETE {{baseURL}}
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
 }
@@ -146,11 +151,11 @@ X-CSRF-Token: dev-bypass
 DELETE {{baseURL}}ee
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "password": "SecureP@ss123"
 }
-
 
 # ============================================
 # UPDATE LOCATION
@@ -160,6 +165,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}/location
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "latitude": 36.8065,
@@ -173,6 +179,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}/location
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "latitude": 36.8065
@@ -183,6 +190,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}/loca
 Content-Type: application/json
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 {
     "latitude": 36.8065,
@@ -190,7 +198,6 @@ X-CSRF-Token: dev-bypass
     "address": "123 Main Street, Tunis, Tunisia",
     "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
 }
-
 
 # ============================================
 # UPLOAD PROFILE IMAGE
@@ -200,6 +207,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}/image
 Content-Type: multipart/form-data
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 image: @profile.jpg
 
@@ -208,6 +216,7 @@ image: @profile.jpg
 PUT {{baseURL}}/image
 Content-Type: multipart/form-data
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 # No image file attached
 
@@ -216,6 +225,7 @@ X-CSRF-Token: dev-bypass
 PUT {{baseURL}}/imag
 Content-Type: multipart/form-data
 X-CSRF-Token: dev-bypass
+Authorization: Bearer {{accessToken}}
 
 image: @profile.jpg
 
