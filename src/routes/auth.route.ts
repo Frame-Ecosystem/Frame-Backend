@@ -26,15 +26,6 @@ class AuthRoute implements Routes {
     // Refresh token endpoint protected with CSRF (refresh token is in HttpOnly cookie)
     this.router.post('/refresh-token', refreshTokenRateLimiter, csrfMiddleware, this.authController.refreshToken);
 
-    // Change password - requires auth, CSRF, and strict rate limiting
-    this.router.post(
-      '/change-password',
-      authMiddleware,
-      csrfMiddleware,
-      strictRateLimiter,
-      validationMiddleware(ChangePasswordDto, 'body'),
-      this.authController.changePassword,
-    );
 
     // Session tracking - admin only
     this.router.get('/session-track', authMiddleware, adminMiddleware, this.authController.getSessionTrack);

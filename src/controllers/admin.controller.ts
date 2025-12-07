@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserDto, UpdateUserDto, LocationDto } from '@dtos/users.dto';
+import { CreateUserDto, UpdateUserDto } from '@dtos/users.dto';
 import { User } from '@interfaces/users.interface';
 import AdminService from '@services/admin.service';
 import { stripSensitiveFields } from '@utils/util';
@@ -61,6 +61,20 @@ class AdminController {
     try {
       const onlineUsers = await this.adminService.getOnlineUsers();
       res.status(200).json({ data: onlineUsers, message: 'Online users retrieved' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public changeUserBlockedState = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const userId: string = req.params.id;
+      const { isBlocked } = req.body;
+      if (typeof isBlocked !== 'boolean') {
+        return res.status(400).json({ message: 'isBlocked must be a boolean' });
+      }
+      const user: User = await this.adminService.changeUserBlockedState(userId, isBlocked);
+      res.status(200).json({ data: stripSensitiveFields(user), message: `User ${isBlocked ? 'blocked' : 'unblocked'}` });
     } catch (error) {
       next(error);
     }

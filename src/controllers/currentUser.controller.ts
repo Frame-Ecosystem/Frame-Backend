@@ -6,6 +6,20 @@ import { stripSensitiveFields } from '@utils/util';
 import CurrentUserService from '@/services/currentUser.service';
 
 class CurrentUserController {
+
+    public changePassword = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+      try {
+        const userId = req.user._id.toString();
+        const passwordData = req.body;
+        await this.currentUserService.changePassword(userId, passwordData);
+        res.clearCookie('refreshToken', { path: '/' });
+        // Optionally clear CSRF token if you use it
+        if (res.clearCookie) res.clearCookie('csrf-token', { path: '/' });
+        res.status(200).json({ message: 'Password changed successfully. Please login again.' });
+      } catch (error) {
+        next(error);
+      }
+    };
   public currentUserService = new CurrentUserService();
 
   public getMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {

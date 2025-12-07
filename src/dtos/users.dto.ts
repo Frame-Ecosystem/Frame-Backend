@@ -194,6 +194,9 @@ export class CreateUserDto {
   @IsOptional()
   @IsUrl({}, { message: VALIDATION_MESSAGES.profileImage.invalid })
   public profileImage?: string;
+
+  @IsOptional()
+  public isBlocked?: boolean = false;
 }
 
 // ============================================
@@ -241,6 +244,9 @@ export class UpdateUserDto {
   @IsOptional()
   @IsUrl({}, { message: VALIDATION_MESSAGES.profileImage.invalid })
   public profileImage?: string;
+
+  @IsOptional()
+  public isBlocked?: boolean;
 }
 
 // ============================================

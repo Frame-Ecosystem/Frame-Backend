@@ -8,6 +8,28 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { logger } from '@utils/logger';
 
 class AdminService {
+  /**
+   * Change isBlocked state for a user
+   */
+  public async changeUserBlockedState(userId: string, isBlocked: boolean): Promise<User> {
+    try {
+      if (isEmpty(userId)) {
+        logger.warn('AdminService.changeUserBlockedState: empty userId provided');
+        throw new BadRequestException('Invalid request data');
+      }
+      const updatedUser = await this.users.findByIdAndUpdate(userId, { isBlocked }, { new: true });
+      if (!updatedUser) {
+        logger.info(`AdminService.changeUserBlockedState: user not found: ${userId}`);
+        throw new NotFoundException('User not found');
+      }
+      logger.info(`AdminService.changeUserBlockedState: user ${userId} isBlocked set to ${isBlocked}`);
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`AdminService.changeUserBlockedState error: ${error.message}`, { userId, stack: error.stack });
+      throw new InternalServerException('Operation failed. Please try again');
+    }
+  }
   public users = userModel;
 
   /**
@@ -52,11 +74,11 @@ class AdminService {
    * Create a new user (admin can set role)
    */
   public async createUser(userData: CreateUserDto): Promise<User> {
-          // Prevent creating a second admin
-          if (userData.role && userData.role.toLowerCase() === 'admin' && await this.users.exists({ role: 'admin' })) {
-            logger.warn('AdminService.createUser: attempt to create a second admin');
-            throw new ConflictException('An admin user already exists. Only one admin is allowed.', 'ADMIN_EXISTS');
-          }
+    // Prevent creating a second admin
+    if (userData.role && userData.role.toLowerCase() === 'admin' && (await this.users.exists({ role: 'admin' }))) {
+      logger.warn('AdminService.createUser: attempt to create a second admin');
+      throw new ConflictException('An admin user already exists. Only one admin is allowed.', 'ADMIN_EXISTS');
+    }
     try {
       if (isEmpty(userData)) {
         logger.warn('AdminService.createUser: empty userData provided');

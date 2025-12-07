@@ -17,6 +17,14 @@ class CurrentUserRoute implements Routes {
   }
 
   private initializeRoutes() {
+        // Change password for current user
+        this.router.post(
+          '/change-password',
+          authMiddleware,
+          csrfMiddleware,
+          validationMiddleware(require('../dtos/users.dto').ChangePasswordDto, 'body'),
+          this.currentUserController.changePassword,
+        );
     // GET - Get current user profile
     this.router.get('/', authMiddleware, this.currentUserController.getMe);
 

@@ -53,58 +53,6 @@ Content-Type: application/json
     "password": "MyStrong@Pass1",
     "username": "fulluser",
     "phoneNumber": "+21698765432",
-    "gender": "male",
-    "role": "barber",
-    "location": {
-        "latitude": 36.8065,
-        "longitude": 10.1815,
-        "address": "123 Main Street, Tunis, Tunisia",
-        "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
-    }
-}
-
-###
-# Signup - Test WEAK PASSWORD (should fail)
-# Error: Password missing uppercase, special char
-POST {{baseURL}}/signup
-Content-Type: application/json
-
-{
-    "email": "weakpass@example.com",
-    "password": "password123",
-    "username": "weakpassuser",
-    "phoneNumber": "+21612345678"
-}
-
-###
-# Signup - Test INVALID USERNAME (should fail)
-# Error: Username starts with number
-POST {{baseURL}}/signup
-Content-Type: application/json
-
-{
-    "email": "baduser@example.com",
-    "password": "SecurePass123!",
-    "username": "123invalid",
-    "phoneNumber": "+21612345678"
-}
-
-###
-# Signup - Test INVALID PHONE (should fail)
-# Error: Invalid phone format
-POST {{baseURL}}/signup
-Content-Type: application/json
-
-{
-    "email": "badphone@example.com",
-    "password": "SecurePass123!",
-    "username": "badphoneuser",
-    "phoneNumber": "12345"
-}
-
-###
-# Signup - Test MISSING FIELDS (should fail)
-# Error: Missing username and phoneNumber
 POST {{baseURL}}/signup
 Content-Type: application/json
 

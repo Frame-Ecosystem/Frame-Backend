@@ -2,57 +2,28 @@ swagger: "2.0"
 info:
   title: Barber App API
   version: 1.0.0
-  description: |
-    REST API for the Barber application.
-    
-    ## Authentication
-    - **Access Token**: Short-lived JWT (15 min) - stored in JS memory, sent via `Authorization: Bearer <token>` header
-    - **Refresh Token**: Long-lived JWT (7 days) - stored in HttpOnly cookie, automatically sent with requests
-    - **CSRF Token**: Required for state-changing requests - read from `csrf-token` cookie, sent via `X-CSRF-Token` header
-    
-    ## Swagger UI Testing (Development Only)
-    For testing CSRF-protected endpoints in Swagger UI during development:
-    1. Use `dev-bypass` as the X-CSRF-Token value (only works in development mode)
-    2. Or: First call `/login`, then copy the `csrf-token` cookie value and use it as the X-CSRF-Token
-    
-    **Note**: The `dev-bypass` token does NOT work in production.
-
 host: localhost:3000
 basePath: /
 schemes:
   - http
   - https
-
 consumes:
   - application/json
 produces:
   - application/json
-
 securityDefinitions:
   bearerAuth:
     type: apiKey
     name: Authorization
     in: header
-    description: JWT access token - format "Bearer {token}"
   csrfToken:
     type: apiKey
     name: X-CSRF-Token
     in: header
-    description: |
-      CSRF token for state-changing requests.
-      
-      **Development**: Use `dev-bypass` to skip CSRF validation.
-      
-      **Production**: Read from `csrf-token` cookie (set after login).
-
 tags:
   - name: auth
-    description: Authentication endpoints (signup, login, logout, token refresh, password management)
   - name: admin
-    description: Admin management endpoints (user CRUD operations - admin access required)
   - name: current users
-    description: User self-service endpoints (profile management, current user operations)
-
 paths:
   # ============================================
   # AUTH ENDPOINTS
@@ -63,9 +34,6 @@ paths:
       tags:
         - auth
       summary: Register a new user
-      description: |
-        Create a new user account. All new users are assigned the 'user' role by default.
-        Rate limited to 3 signups per hour per IP.
       parameters:
         - name: body
           in: body
@@ -114,40 +82,20 @@ paths:
       responses:
         201:
           description: User created successfully
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/UserResponse'
-              message:
-                type: string
-                example: signup
         400:
           description: Validation error
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         409:
           description: Email, username, or phone already registered
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         429:
           description: Rate limit exceeded
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         500:
           description: Server error
-          schema:
-            $ref: '#/definitions/ErrorResponse'
 
   /v1/auth/login:
     post:
       tags:
         - auth
       summary: Log in to an existing account
-      description: |
-        Authenticate with email/username and password.
-        Returns access token in response body and sets refresh token as HttpOnly cookie.
-        Rate limited to 5 attempts per 15 minutes per IP.
       parameters:
         - name: body
           in: body
@@ -168,90 +116,43 @@ paths:
                 example: SecureP@ss123
       responses:
         200:
-          description: Login successful (also sets HttpOnly refresh token cookie)
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/UserResponse'
-              token:
-                type: string
-                description: JWT access token (15 min expiry) - store in memory
-              expiresIn:
-                type: integer
-                description: Token expiry in seconds
-                example: 900
-              message:
-                type: string
-                example: login
+          description: Login successful
         401:
           description: Invalid credentials
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         429:
           description: Rate limit exceeded
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         500:
           description: Server error
-          schema:
-            $ref: '#/definitions/ErrorResponse'
 
   /v1/auth/logout:
     post:
       tags:
         - auth
       summary: Log out from current device
-      description: |
-        Invalidates the current session (refresh token).
-        Requires authentication and CSRF token.
       security:
         - bearerAuth: []
         - csrfToken: []
       responses:
         200:
           description: Logged out successfully
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/UserResponse'
-              message:
-                type: string
-                example: logout
         401:
           description: Not authenticated
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         403:
           description: CSRF token missing or invalid
-          schema:
-            $ref: '#/definitions/ErrorResponse'
         500:
           description: Server error
-          schema:
-            $ref: '#/definitions/ErrorResponse'
 
   /v1/auth/logout-all:
     post:
       tags:
         - auth
       summary: Log out from all devices
-      description: |
-        Invalidates all refresh tokens for the user, logging them out from all devices.
-        Requires authentication and CSRF token.
       security:
         - bearerAuth: []
         - csrfToken: []
       responses:
         200:
           description: Logged out from all devices
-          schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: Logged out from all devices
         401:
           description: Not authenticated
         403:
@@ -264,27 +165,11 @@ paths:
       tags:
         - auth
       summary: Refresh access token
-      description: |
-        Generate a new access token using the refresh token from HttpOnly cookie.
-        Implements token rotation - old refresh token is invalidated and new one is issued.
-        Requires CSRF token. Rate limited to 30 requests per 15 minutes.
       security:
         - csrfToken: []
       responses:
         200:
-          description: Token refreshed successfully (also sets new HttpOnly refresh token cookie)
-          schema:
-            type: object
-            properties:
-              token:
-                type: string
-                description: New JWT access token
-              expiresIn:
-                type: integer
-                example: 900
-              message:
-                type: string
-                example: Token refreshed
+          description: Token refreshed successfully
         401:
           description: Refresh token missing, expired, or invalid
         403:
@@ -294,15 +179,11 @@ paths:
         500:
           description: Server error
 
-  /v1/auth/change-password:
+  /v1/me/change-password:
     post:
       tags:
-        - auth
-      summary: Change user password
-      description: |
-        Change the password for the authenticated user.
-        Revokes all refresh tokens (logs out from all devices) for security.
-        Rate limited to 3 attempts per hour.
+        - current users
+      summary: Change current user password
       security:
         - bearerAuth: []
         - csrfToken: []
@@ -334,12 +215,6 @@ paths:
       responses:
         200:
           description: Password changed successfully
-          schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: Password changed successfully. Please login again.
         400:
           description: Validation error or passwords don't match
         401:
@@ -351,44 +226,52 @@ paths:
         500:
           description: Server error
 
-  /v1/auth/session-track:
-    get:
-      tags:
-        - admin
-      summary: Get all online users (Admin only)
-      description: |
-        Retrieve a list of all currently online users with their session information.
-        Admin access required.
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: Online users retrieved
-          schema:
-            type: object
-            properties:
-              data:
-                type: array
-                items:
-                  $ref: '#/definitions/OnlineUserInfo'
-              count:
-                type: integer
-                example: 5
-              message:
-                type: string
-                example: Online users retrieved
-        401:
-          description: Not authenticated
-        403:
-          description: Admin access required
-        500:
-          description: Server error
-
+ 
   # ============================================
-  # USER ENDPOINTS
+  # ADMIN ENDPOINTS
   # ============================================
 
-
+  /v1/admin/users/{id}/block:
+      patch:
+        tags:
+          - admin
+        summary: Block or unblock a user
+        description: |
+          Set the `isBlocked` state for a user. Admins can block or unblock any user by setting `isBlocked` to true or false.
+          A blocked user cannot log in or perform authenticated actions.
+        security:
+          - bearerAuth: []
+          - csrfToken: []
+        parameters:
+          - name: id
+            in: path
+            required: true
+            type: string
+            description: User ID
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              required:
+                - isBlocked
+              properties:
+                isBlocked:
+                  type: boolean
+                  description: Set to true to block, false to unblock
+        responses:
+          200:
+            description: User block state updated successfully
+          400:
+            description: Invalid request or missing isBlocked value
+          401:
+            description: Not authenticated
+          403:
+            description: Admin access required or CSRF token invalid
+          404:
+            description: User not found
+          500:
+            description: Server error
 
   /v1/admin/users:
     get:
@@ -638,7 +521,27 @@ paths:
         500:
           description: Server error
 
-
+  /v1/auth/session-track:
+    get:
+      tags:
+        - admin
+      summary: Get all online users (Admin only)
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Online users retrieved
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required
+        500:
+          description: Server error
+ 
+ 
+  # ============================================
+  # CURRENT USER ENDPOINTS
+  # ============================================
   /v1/me:
     get:
       tags:

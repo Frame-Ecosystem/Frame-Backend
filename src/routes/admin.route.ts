@@ -48,6 +48,8 @@ class AdminRoute implements Routes {
 
     // DELETE - Delete user
     this.router.delete('/users/:id', authMiddleware, adminMiddleware, csrfMiddleware, this.adminController.deleteUser);
+    // PATCH - Block/unblock user
+    this.router.patch('/users/:id/block', authMiddleware, adminMiddleware, csrfMiddleware, this.adminController.changeUserBlockedState);
   }
 }
 

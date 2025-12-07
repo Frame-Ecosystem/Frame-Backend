@@ -58,6 +58,11 @@ const userSchema: Schema = new Schema(
       type: String,
       required: false,
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+      required: false,
+    },
     sessionTrack: {
       isOnline: {
         type: Boolean,

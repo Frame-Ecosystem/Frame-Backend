@@ -323,59 +323,6 @@ class AuthService {
     }
   }
 
-  public async changePassword(userId: string, passwordData: ChangePasswordDto): Promise<void> {
-    try {
-      // Validate that new passwords match
-      if (passwordData.newPassword !== passwordData.newPasswordConfirm) {
-        throw new BadRequestException('New passwords do not match', 'PASSWORD_MISMATCH');
-      }
-
-      // Prevent using same password
-      if (passwordData.currentPassword === passwordData.newPassword) {
-        throw new BadRequestException('New password must be different from current password', 'SAME_PASSWORD');
-      }
-
-      const user = await this.users.findById(userId);
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
-
-      // Verify current password
-      const isPasswordValid = await compare(passwordData.currentPassword, user.password);
-      if (!isPasswordValid) {
-        logSecurityEvent({
-          event: 'LOGIN_FAILED',
-          reason: 'Invalid current password during password change',
-          userId: String(user._id),
-        });
-        throw new UnauthorizedException('Current password is incorrect', 'INVALID_PASSWORD');
-      }
-
-      // Hash new password and update
-      const hashedPassword = await hash(passwordData.newPassword, BCRYPT_ROUNDS);
-      await this.users.findByIdAndUpdate(userId, { password: hashedPassword });
-
-      // Revoke all refresh tokens (force re-login on all devices for security)
-      // Fix #5: Devices will be empty when refreshTokens is empty (consistent)
-      await this.users.findByIdAndUpdate(userId, {
-        refreshTokens: [],
-        'sessionTrack.isOnline': false,
-        'sessionTrack.devices': [],
-      });
-
-      logSecurityEvent({
-        event: 'SESSION_REVOKED',
-        userId: String(user._id),
-        reason: 'Password changed - all sessions revoked',
-      });
-
-      logger.info(`Password changed for user: ${userId}`);
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      logger.error(`ChangePassword error: ${error.message}`, { userId, stack: error.stack });
-      throw new InternalServerException('Failed to change password. Please try again');
-    }
-  }
 
   public async getUserByToken(token: string): Promise<User> {
     try {

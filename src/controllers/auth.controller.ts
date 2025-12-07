@@ -144,22 +144,6 @@ class AuthController {
   /**
    * Change password for authenticated user
    */
-  public changePassword = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-    try {
-      const userData: User = req.user;
-      const passwordData: ChangePasswordDto = req.body;
-
-      await this.authService.changePassword(userData._id, passwordData);
-
-      // Clear refresh token cookie since all sessions are revoked
-      res.clearCookie('refreshToken', { path: '/' });
-      clearCsrfToken(res);
-
-      res.status(200).json({ message: 'Password changed successfully. Please login again.' });
-    } catch (error) {
-      next(error);
-    }
-  };
 
   // ============================================
   // SESSION TRACKING

@@ -1,3 +1,48 @@
+import { ChangePasswordDto } from '../dtos/users.dto';
+import bcrypt from 'bcrypt';
+describe('changePassword', () => {
+  const userId = '1';
+  const user = {
+    _id: userId,
+    password: '$2b$10$saltsaltsaltsaltsaltsaltsaltsaltsaltsalt123456', // bcrypt hash
+    refreshTokens: ['token1'],
+    sessionTrack: { isOnline: true, devices: ['dev1'] },
+  };
+  const validDto: ChangePasswordDto = {
+    currentPassword: 'OldP@ssword123',
+    newPassword: 'NewSecureP@ss456',
+    newPasswordConfirm: 'NewSecureP@ss456',
+  };
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+  it('should change password if valid', async () => {
+    (userModel.findById as jest.Mock).mockResolvedValue(user);
+    (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(user);
+    jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+    jest.spyOn(bcrypt, 'hash').mockImplementation(async () => 'hashed');
+    await expect(currentUserService.changePassword(userId, validDto)).resolves.toBeUndefined();
+  });
+  it('should throw if new passwords do not match', async () => {
+    await expect(currentUserService.changePassword(userId, { ...validDto, newPasswordConfirm: 'nope' })).rejects.toThrow(
+      'New passwords do not match',
+    );
+  });
+  it('should throw if new password is same as current', async () => {
+    await expect(
+      currentUserService.changePassword(userId, { ...validDto, newPassword: validDto.currentPassword, newPasswordConfirm: validDto.currentPassword }),
+    ).rejects.toThrow('New password must be different from current password');
+  });
+  it('should throw if user not found', async () => {
+    (userModel.findById as jest.Mock).mockResolvedValue(null);
+    await expect(currentUserService.changePassword(userId, validDto)).rejects.toThrow('User not found');
+  });
+  it('should throw if current password is incorrect', async () => {
+    (userModel.findById as jest.Mock).mockResolvedValue(user);
+    jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+    await expect(currentUserService.changePassword(userId, validDto)).rejects.toThrow('Current password is incorrect');
+  });
+});
 import CurrentUserService from '../services/currentUser.service';
 import { UpdateUserDto, LocationDto } from '../dtos/users.dto';
 import userModel from '../models/users.model';
