@@ -1,0 +1,176 @@
+###
+# ADMIN API Tests - REST Client for VS Code
+# ============================================
+# Install "REST Client" extension to use this file
+# Click "Send Request" above each request to execute
+# ============================================
+
+@baseURL = http://localhost:3000/v1/admin/users
+
+
+# ============================================
+# GET ALL USERS
+# ============================================
+###
+# Get all users (valid)
+GET {{baseURL}}
+Content-Type: application/json
+
+###
+# Get all users (invalid endpoint)
+GET {{baseURL}}z
+Content-Type: application/json
+
+###
+# Get all users (unauthorized)
+GET {{baseURL}}
+
+
+# ============================================
+# CREATE USER
+# ============================================
+###
+# Create user (valid)
+POST {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "admincreated@example.com",
+    "password": "AdminP@ss123",
+    "username": "admincreated",
+    "phoneNumber": "+21698765432",
+    "role": "user"
+}
+
+###
+# Create user (missing fields)
+POST {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "missingfields@example.com"
+}
+
+###
+# Create user (invalid email)
+POST {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "not-an-email",
+    "password": "AdminP@ss123",
+    "username": "admincreated",
+    "phoneNumber": "+21698765432",
+    "role": "user"
+}
+
+###
+# Create user (weak password)
+POST {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "weakpass@example.com",
+    "password": "password",
+    "username": "weakuser",
+    "phoneNumber": "+21698765432",
+    "role": "user"
+}
+
+
+# ============================================
+# GET USER BY ID
+# ============================================
+###
+# Get user by valid ID
+GET {{baseURL}}/693460380ab78aa43704bea9
+Content-Type: application/json
+
+###
+# Get user by invalid ID
+GET {{baseURL}}/invalidid123
+Content-Type: application/json
+
+###
+# Get user by non-existent ID
+GET {{baseURL}}/507f1f77bcf86cd799439012
+Content-Type: application/json
+
+
+# ============================================
+# UPDATE USER
+# ============================================
+###
+# Update user (valid)
+PUT {{baseURL}}/693460380ab78aa43704bea9
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updated@example.com",
+    "username": "updateduser",
+    "phoneNumber": "+21655555555"
+}
+
+###
+# Update user (missing fields)
+PUT {{baseURL}}/693460380ab78aa43704bea9
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updated@example.com"
+}
+
+###
+# Update user (invalid ID)
+PUT {{baseURL}}/invalidid123
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updated@example.com",
+    "username": "updateduser",
+    "phoneNumber": "+21655555555"
+}
+
+
+# ============================================
+# DELETE USER
+# ============================================
+###
+# Delete user (valid)
+DELETE {{baseURL}}/507f1f77bcf86cd799439011
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+###
+# Delete user (invalid ID)
+DELETE {{baseURL}}/invalidid123
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+###
+# Delete user (non-existent ID)
+DELETE {{baseURL}}/507f1f77bcf86cd799439012
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+
+# ============================================
+# GET ONLINE USERS
+# ============================================
+###
+# Get online users (valid)
+GET {{baseURL}}/online/status
+Content-Type: application/json
+
+###
+# Get online users (invalid endpoint)
+GET {{baseURL}}/online/statuz
+Content-Type: application/json
+

@@ -1,27 +1,207 @@
-# baseURL
-@baseURL = http://localhost:3000
+# ============================================
+# AUTH API Tests - REST Client for VS Code
+# ============================================
+# Install "REST Client" extension to use this file
+# Click "Send Request" above each request to execute
+# ============================================
+
+@baseURL = http://localhost:3000/v1/auth
+
+# Variables - Update these after login
+@accessToken = your_access_token_here
+@refreshToken = your_refresh_token_here
+@sessionJti = session_jti_to_revoke
+@userId = user_id_here
+
+# ============================================
+# SIGNUP - Create new user account
+# ============================================
+# Password Requirements:
+#   - At least 8 characters
+#   - At least one uppercase letter
+#   - At least one lowercase letter  
+#   - At least one number
+#   - At least one special character (@$!%*?&)
+#
+# Username Requirements:
+#   - 3-15 characters
+#   - Must start with a letter
+#   - Only letters, numbers, underscores, hyphens
+#
+# Phone Number: International format (e.g., +21612345678)
+# ============================================
 
 ###
-# User Signup
-POST {{ baseURL }}/signup
+# Signup with all required fields (valid)
+POST {{baseURL}}/signup
 Content-Type: application/json
 
 {
-    "email": "admin@medab.com",
+    "email": "newuser@example.com",
+    "password": "SecurePass123!",
+    "username": "newuser",
+    "phoneNumber": "+21650922140"
+}
+
+###
+# Signup with all fields (including optional)
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "aaa@aaa.aaa",
+    "password": "MyStrong@Pass1",
+    "username": "fulluser",
+    "phoneNumber": "+21698765432",
+    "gender": "male",
+    "role": "barber",
+    "location": {
+        "latitude": 36.8065,
+        "longitude": 10.1815,
+        "address": "123 Main Street, Tunis, Tunisia",
+        "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+    }
+}
+
+###
+# Signup - Test WEAK PASSWORD (should fail)
+# Error: Password missing uppercase, special char
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "weakpass@example.com",
+    "password": "password123",
+    "username": "weakpassuser",
+    "phoneNumber": "+21612345678"
+}
+
+###
+# Signup - Test INVALID USERNAME (should fail)
+# Error: Username starts with number
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "baduser@example.com",
+    "password": "SecurePass123!",
+    "username": "123invalid",
+    "phoneNumber": "+21612345678"
+}
+
+###
+# Signup - Test INVALID PHONE (should fail)
+# Error: Invalid phone format
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "badphone@example.com",
+    "password": "SecurePass123!",
+    "username": "badphoneuser",
+    "phoneNumber": "12345"
+}
+
+###
+# Signup - Test MISSING FIELDS (should fail)
+# Error: Missing username and phoneNumber
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "incomplete@example.com",
+    "password": "SecurePass123!"
+}
+
+###
+# Signup - Test INVALID EMAIL (should fail)
+POST {{baseURL}}/signup
+Content-Type: application/json
+
+{
+    "email": "not-an-email",
+    "password": "SecurePass123!",
+    "username": "invalidemail",
+    "phoneNumber": "+21612345678"
+}
+
+# ============================================
+# LOGIN - Authenticate user
+# ============================================
+###
+# Login with email
+POST {{baseURL}}/login
+Content-Type: application/json
+
+{
+    "emailOrUsername": "admin@medab.com",
     "password": "azerty"
 }
 
 ###
-# User Login
-POST {{ baseURL }}/login
+# Login with username
+POST {{baseURL}}/login
 Content-Type: application/json
 
 {
-    "email": "admin@medab.com",
+    "emailOrUsername": "admin",
     "password": "azerty"
 }
 
 ###
-# User Logout
-POST {{ baseURL }}/logout
+# Login - Test invalid credentials
+POST {{baseURL}}/login
 Content-Type: application/json
+
+{
+    "emailOrUsername": "admin@medab.com",
+    "password": "wrongpassword"
+}
+
+###
+# Login with device name (for session tracking)
+POST {{baseURL}}/login
+Content-Type: application/json
+
+{
+    "emailOrUsername": "admin@medab.com",
+    "password": "azerty",
+    "deviceName": "Chrome on Windows"
+}
+
+# ============================================
+# REFRESH TOKEN - Get new access token
+# ============================================
+###
+# Refresh access token (uses cookie, or pass in body for testing)
+POST {{baseURL}}/refresh-token
+Content-Type: application/json
+Cookie: refreshToken={{refreshToken}}
+
+# ============================================
+# LOGOUT - End session
+# ============================================
+###
+# Logout current device
+POST {{baseURL}}/logout
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+Cookie: refreshToken={{refreshToken}}
+
+###
+# Logout from ALL devices
+POST {{baseURL}}/logout-all
+Content-Type: application/json
+Authorization: Bearer {{accessToken}}
+
+# ============================================
+# SESSION TRACK - Get all online users
+# ============================================
+# Returns: users where isOnline === true
+# Each user includes: devices[], lastSeen
+# ============================================
+
+###
+# Get all online users with their devices and lastSeen
+GET {{baseURL}}/session-track
+Authorization: Bearer {{accessToken}}

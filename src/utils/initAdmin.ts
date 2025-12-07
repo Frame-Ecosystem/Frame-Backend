@@ -1,5 +1,6 @@
 import userModel from '@models/users.model';
 import { hash } from 'bcrypt';
+import { BCRYPT_ROUNDS } from '../config/constants';
 import { logger } from '@utils/logger';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
 
@@ -45,7 +46,7 @@ export async function ensureAdminExists(): Promise<void> {
 
     logger.info(`ensureAdminExists: using ADMIN_EMAIL=${adminEmail}; ADMIN_PASSWORD set=${!!(ADMIN_PASSWORD || process.env.ADMIN_PASSWORD)}`);
 
-    const hashed = await hash(adminPassword, 10);
+    const hashed = await hash(adminPassword, BCRYPT_ROUNDS);
 
     try {
       const created = await userModel.create({

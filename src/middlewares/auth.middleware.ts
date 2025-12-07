@@ -11,19 +11,10 @@ const AUTH_ERROR_MESSAGE = 'Authentication failed';
 
 const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFunction) => {
   try {
-    // Support both: Authorization header (Bearer token) and accessToken cookie
+    // Get token from Authorization header only (access token stored in JS memory)
     const headerAuth = req.header('Authorization') || '';
-    const cookieAuth = req.cookies['accessToken'] || '';
 
-    let token = '';
-    let tokenSource = '';
-    if (headerAuth) {
-      token = headerAuth.startsWith('Bearer ') ? headerAuth.slice(7).trim() : headerAuth.trim();
-      tokenSource = 'header';
-    } else if (cookieAuth) {
-      token = cookieAuth.trim();
-      tokenSource = 'cookie';
-    }
+    const token = headerAuth.startsWith('Bearer ') ? headerAuth.slice(7).trim() : headerAuth.trim();
 
     if (!token) {
       logSecurityEvent({
@@ -49,7 +40,6 @@ const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFun
         userAgent: req.headers['user-agent'],
         path: req.path,
         method: req.method,
-        tokenSource,
       };
 
       if (jwtError instanceof TokenExpiredError) {

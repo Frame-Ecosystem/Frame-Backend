@@ -1,0 +1,166 @@
+###
+# CURRENT USER API Tests - REST Client for VS Code
+# ============================================
+# Install "REST Client" extension to use this file
+# Click "Send Request" above each request to execute
+# ============================================
+
+@baseURL = http://localhost:3000/v1/me
+
+
+# ============================================
+# GET CURRENT USER
+# ============================================
+###
+# Get current user (valid)
+GET {{baseURL}}
+Content-Type: application/json
+
+###
+# Get current user (unauthorized)
+GET {{baseURL}}
+
+###
+# Get current user (invalid endpoint)
+GET {{baseURL}}ee
+Content-Type: application/json
+
+
+# ============================================
+# UPDATE CURRENT USER PROFILE
+# ============================================
+###
+# Update profile (valid)
+PUT {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updatedme@example.com",
+    "username": "updatedme",
+    "phoneNumber": "+21611111111"
+}
+
+###
+# Update profile (missing fields)
+PUT {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updatedme@example.com"
+}
+
+###
+# Update profile (invalid endpoint)
+PUT {{baseURL}}ee
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "email": "updatedme@example.com",
+    "username": "updatedme",
+    "phoneNumber": "+21611111111"
+}
+
+
+# ============================================
+# DELETE OWN ACCOUNT
+# ============================================
+###
+# Delete own account (valid)
+DELETE {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "password": "SecureP@ss123"
+}
+
+###
+# Delete own account (missing password)
+DELETE {{baseURL}}
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+}
+
+###
+# Delete own account (invalid endpoint)
+DELETE {{baseURL}}ee
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "password": "SecureP@ss123"
+}
+
+
+# ============================================
+# UPDATE LOCATION
+# ============================================
+###
+# Update location (valid)
+PUT {{baseURL}}/location
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "latitude": 36.8065,
+    "longitude": 10.1815,
+    "address": "123 Main Street, Tunis, Tunisia",
+    "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+}
+
+###
+# Update location (missing fields)
+PUT {{baseURL}}/location
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "latitude": 36.8065
+}
+
+###
+# Update location (invalid endpoint)
+PUT {{baseURL}}/loca
+Content-Type: application/json
+X-CSRF-Token: dev-bypass
+
+{
+    "latitude": 36.8065,
+    "longitude": 10.1815,
+    "address": "123 Main Street, Tunis, Tunisia",
+    "placeId": "ChIJN1t_tDeuEmsRUsoyG83frY4"
+}
+
+
+# ============================================
+# UPLOAD PROFILE IMAGE
+# ============================================
+###
+# Upload profile image (valid)
+PUT {{baseURL}}/image
+Content-Type: multipart/form-data
+X-CSRF-Token: dev-bypass
+
+image: @profile.jpg
+
+###
+# Upload profile image (missing file)
+PUT {{baseURL}}/image
+Content-Type: multipart/form-data
+X-CSRF-Token: dev-bypass
+
+# No image file attached
+
+###
+# Upload profile image (invalid endpoint)
+PUT {{baseURL}}/imag
+Content-Type: multipart/form-data
+X-CSRF-Token: dev-bypass
+
+image: @profile.jpg
+

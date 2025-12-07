@@ -11,10 +11,14 @@ import { NODE_ENV } from '@config';
  * 2. Client reads the cookie and sends the token in X-CSRF-Token header
  * 3. Server compares cookie value with header value
  * 4. If they match, request is legitimate (attacker can't read cross-site cookies)
+ *
+ * Note: In development mode, you can bypass CSRF by sending "dev-bypass" as the token
+ * This is ONLY for Swagger UI testing - the cookie is still required in production
  */
 
 const CSRF_COOKIE_NAME = 'csrf-token';
 const CSRF_HEADER_NAME = 'x-csrf-token';
+const DEV_BYPASS_TOKEN = 'dev-bypass'; // Only works in development mode
 
 /**
  * Generate and set CSRF token cookie
@@ -53,6 +57,12 @@ const csrfMiddleware = (req: Request, res: Response, next: NextFunction) => {
   // Get CSRF token from cookie and header
   const cookieToken = req.cookies[CSRF_COOKIE_NAME];
   const headerToken = req.header(CSRF_HEADER_NAME);
+
+  // Development bypass for Swagger UI testing
+  // In development, allow "dev-bypass" as a special token to skip CSRF
+  if (NODE_ENV === 'development' && headerToken === DEV_BYPASS_TOKEN) {
+    return next();
+  }
 
   // Both must exist and match
   if (!cookieToken || !headerToken) {

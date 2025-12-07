@@ -1,9 +1,23 @@
 import bcrypt from 'bcrypt';
+import { BCRYPT_ROUNDS } from '../config/constants';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import App from '@/app';
-import { CreateUserDto } from '@dtos/users.dto';
+import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import AuthRoute from '@routes/auth.route';
+
+// Valid test data that passes DTO validation
+const validUserData: CreateUserDto = {
+  email: 'test@email.com',
+  password: 'Test@123!',
+  username: 'testuser',
+  phoneNumber: '+21650922140',
+};
+
+const validLoginData: LoginUserDto = {
+  emailOrUsername: 'test@email.com',
+  password: 'Test@123!',
+};
 
 beforeAll(async () => {
   jest.setTimeout(10000);
@@ -15,49 +29,59 @@ afterAll(async () => {
 describe('Testing Auth', () => {
   describe('[POST] /signup', () => {
     it('response should have the Create userData', async () => {
-      const userData: CreateUserDto = {
-        email: 'test@email.com',
-        password: 'q1w2e3r4!',
-      };
-
       const authRoute = new AuthRoute();
       const users = authRoute.authController.authService.users;
 
       users.findOne = jest.fn().mockReturnValue(null);
       users.create = jest.fn().mockReturnValue({
         _id: '60706478aad6c9ad19a31c84',
-        email: userData.email,
-        password: await bcrypt.hash(userData.password, 10),
+        email: validUserData.email,
+        username: validUserData.username,
+        phoneNumber: validUserData.phoneNumber,
+        password: await bcrypt.hash(validUserData.password, BCRYPT_ROUNDS),
       });
 
-      (mongoose as any).connect = jest.fn();
+      // Type-safe override for connect method
+      (mongoose as typeof mongoose & { connect: typeof jest.fn }).connect = jest.fn();
       const app = new App([authRoute]);
-      return request(app.getServer()).post(`${authRoute.path}signup`).send(userData);
+      return request(app.getServer()).post(`${authRoute.path}/signup`).send(validUserData);
     });
   });
 
   describe('[POST] /login', () => {
     it('response should have the Set-Cookie header with the accessToken', async () => {
-      const userData: CreateUserDto = {
-        email: 'test@email.com',
-        password: 'q1w2e3r4!',
-      };
-
       const authRoute = new AuthRoute();
       const users = authRoute.authController.authService.users;
 
       users.findOne = jest.fn().mockReturnValue({
         _id: '60706478aad6c9ad19a31c84',
-        email: userData.email,
-        password: await bcrypt.hash(userData.password, 10),
+        email: validUserData.email,
+        username: validUserData.username,
+        phoneNumber: validUserData.phoneNumber,
+        password: await bcrypt.hash(validUserData.password, BCRYPT_ROUNDS),
+        refreshTokens: [],
+        sessionTrack: { isOnline: false, devices: [] },
+        save: jest.fn().mockResolvedValue(true),
       });
 
-      (mongoose as any).connect = jest.fn();
+      // Mock findById and findByIdAndUpdate for login flow
+      users.findById = jest.fn().mockReturnValue({
+        _id: '60706478aad6c9ad19a31c84',
+        email: validUserData.email,
+        username: validUserData.username,
+        phoneNumber: validUserData.phoneNumber,
+        refreshTokens: [],
+        sessionTrack: { isOnline: true, devices: ['Test Device'] },
+      });
+      users.findByIdAndUpdate = jest.fn().mockResolvedValue(true);
+
+      // Type-safe override for connect method
+      (mongoose as typeof mongoose & { connect: typeof jest.fn }).connect = jest.fn();
       const app = new App([authRoute]);
       return request(app.getServer())
-        .post(`${authRoute.path}login`)
-        .send(userData)
-        .expect('Set-Cookie', /^accessToken=.+/);
+        .post(`${authRoute.path}/login`)
+        .send(validLoginData)
+        .expect('Set-Cookie', /^refreshToken=.+/);
     });
   });
 
@@ -74,7 +98,8 @@ describe('Testing Auth', () => {
 
   //     users.findOne = jest.fn().mockReturnValue(userData);
 
-  //     (mongoose as any).connect = jest.fn();
+  //     // Type-safe override for connect method
+  //     (mongoose as typeof mongoose & { connect: typeof jest.fn }).connect = jest.fn();
   //     const app = new App([authRoute]);
   //     return request(app.getServer())
   //       .post(`${authRoute.path}logout`)

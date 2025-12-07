@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import AuthController from '@controllers/auth.controller';
-import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
+import { CreateUserDto, LoginUserDto, ChangePasswordDto } from '@dtos/users.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import adminMiddleware from '@middlewares/admin.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
+import { loginRateLimiter, signupRateLimiter, refreshTokenRateLimiter, strictRateLimiter } from '@middlewares/rate-limit.middleware';
 
 class AuthRoute implements Routes {
-  public path = '/';
+  public path = '/v1/auth';
   public router = Router();
   public authController = new AuthController();
 
@@ -15,15 +18,26 @@ class AuthRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.post(`${this.path}signup`, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
-    this.router.post(`${this.path}login`, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
-    this.router.post(`${this.path}logout`, authMiddleware, this.authController.logOut);
-    this.router.post(`${this.path}logout-all`, authMiddleware, this.authController.logOutAllDevices);
-    this.router.post(`${this.path}refresh-token`, this.authController.refreshToken); // No auth - used when access token expires
+    // Auth endpoints with rate limiting
+    this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
+    this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
+    this.router.post('/logout', authMiddleware, csrfMiddleware, this.authController.logOut);
+    this.router.post('/logout-all', authMiddleware, csrfMiddleware, this.authController.logOutAllDevices);
+    // Refresh token endpoint protected with CSRF (refresh token is in HttpOnly cookie)
+    this.router.post('/refresh-token', refreshTokenRateLimiter, csrfMiddleware, this.authController.refreshToken);
 
-    // Session management
-    this.router.get(`${this.path}sessions`, authMiddleware, this.authController.getActiveSessions);
-    this.router.delete(`${this.path}sessions/:jti`, authMiddleware, this.authController.revokeSession);
+    // Change password - requires auth, CSRF, and strict rate limiting
+    this.router.post(
+      '/change-password',
+      authMiddleware,
+      csrfMiddleware,
+      strictRateLimiter,
+      validationMiddleware(ChangePasswordDto, 'body'),
+      this.authController.changePassword,
+    );
+
+    // Session tracking - admin only
+    this.router.get('/session-track', authMiddleware, adminMiddleware, this.authController.getSessionTrack);
   }
 }
 

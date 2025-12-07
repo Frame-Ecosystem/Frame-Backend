@@ -1,10 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
-import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
-import { RequestWithUser } from '@interfaces/auth.interface';
+import { verify } from 'jsonwebtoken';
+import { CreateUserDto, LoginUserDto, ChangePasswordDto } from '@dtos/users.dto';
+import { RequestWithUser, RefreshTokenPayload } from '@interfaces/auth.interface';
 import { User } from '@interfaces/users.interface';
 import AuthService from '@services/auth.service';
-import { NODE_ENV } from '@config';
+import { NODE_ENV, REFRESH_TOKEN_SECRET } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
+import { stripSensitiveFields } from '@utils/util';
 
 class AuthController {
   public authService = new AuthService();
@@ -14,7 +16,7 @@ class AuthController {
       const userData: CreateUserDto = req.body;
       const signUpUserData: User = await this.authService.signup(userData);
 
-      res.status(201).json({ data: signUpUserData, message: 'signup' });
+      res.status(201).json({ data: stripSensitiveFields(signUpUserData), message: 'signup' });
     } catch (error) {
       next(error);
     }
@@ -25,27 +27,31 @@ class AuthController {
       const userData: LoginUserDto = req.body;
 
       // Collect device info for session tracking
+      // Fix #2: Ensure IP always has a default value
       const deviceInfo = {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip || req.socket.remoteAddress,
-        deviceName: req.body.deviceName, // Optional: client can send device name
+        userAgent: req.headers['user-agent'] as string | undefined,
+        ip: (req.ip || req.socket?.remoteAddress || 'Unknown') as string,
+        deviceName: req.body?.deviceName as string | undefined, // Optional: client can send device name
       };
 
-      const { cookie, findUser, tokenData, refreshToken } = await this.authService.login(userData, deviceInfo);
+      const { findUser, tokenData, refreshToken } = await this.authService.login(userData, deviceInfo);
 
-      // Set refresh token as HttpOnly cookie (not in JSON body for security)
+      // Set refresh token as HttpOnly cookie (secure from XSS)
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: NODE_ENV === 'production',
         sameSite: 'strict',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/',
+        path: '/', // Sent to all endpoints (auth routes are at root)
       });
+
       // Set CSRF token for protection against cross-site request forgery
       setCsrfToken(res);
-      res.setHeader('Set-Cookie', [cookie]);
+
+      // Access token returned in body only - client stores in JS memory
+      // Client sends it via Authorization header on subsequent requests
       res.status(200).json({
-        data: findUser,
+        data: stripSensitiveFields(findUser),
         token: tokenData.token,
         expiresIn: tokenData.expiresIn,
         message: 'login',
@@ -58,12 +64,12 @@ class AuthController {
   public logOut = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userData: User = req.user;
-      // Get jti from the current refresh token to logout only this device
+      // Get jti from the refresh token cookie to logout only this device
       const refreshToken = req.cookies['refreshToken'];
       let jti: string | undefined;
       if (refreshToken) {
         try {
-          const decoded = require('jsonwebtoken').verify(refreshToken, require('@config').REFRESH_TOKEN_SECRET);
+          const decoded = verify(refreshToken, REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
           jti = decoded.jti;
         } catch {
           // Token invalid, will logout from all devices
@@ -72,11 +78,10 @@ class AuthController {
 
       const logOutUserData: User = await this.authService.logout(userData, jti);
 
-      // Clear all auth cookies (access token, refresh token, CSRF token)
-      res.clearCookie('accessToken');
+      // Clear refresh token cookie and CSRF token
       res.clearCookie('refreshToken', { path: '/' });
       clearCsrfToken(res);
-      res.status(200).json({ data: logOutUserData, message: 'logout' });
+      res.status(200).json({ data: stripSensitiveFields(logOutUserData), message: 'logout' });
     } catch (error) {
       next(error);
     }
@@ -87,8 +92,7 @@ class AuthController {
       const userData: User = req.user;
       await this.authService.logoutAllDevices(userData._id);
 
-      // Clear all auth cookies
-      res.clearCookie('accessToken');
+      // Clear refresh token cookie and CSRF token
       res.clearCookie('refreshToken', { path: '/' });
       clearCsrfToken(res);
       res.status(200).json({ message: 'Logged out from all devices' });
@@ -97,28 +101,9 @@ class AuthController {
     }
   };
 
-  public getActiveSessions = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-    try {
-      const sessions = await this.authService.getActiveSessions(req.user._id);
-      res.status(200).json({ data: sessions, message: 'Active sessions' });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  public revokeSession = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-    try {
-      const { jti } = req.params;
-      await this.authService.revokeSession(req.user._id, jti);
-      res.status(200).json({ message: 'Session revoked' });
-    } catch (error) {
-      next(error);
-    }
-  };
-
   public refreshToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // Read refresh token from HttpOnly cookie
+      // Read refresh token from HttpOnly cookie (secure from XSS)
       const refreshToken = req.cookies['refreshToken'];
       if (!refreshToken) {
         return res.status(401).json({ message: 'Refresh token missing' });
@@ -132,11 +117,7 @@ class AuthController {
 
       const { tokenData, newRefreshToken } = await this.authService.refreshAccessToken(refreshToken, deviceInfo);
 
-      // Set new access token cookie
-      const cookie = this.authService.createCookie(tokenData);
-      res.setHeader('Set-Cookie', [cookie]);
-
-      // Rotation: set new refresh token cookie
+      // Rotate refresh token - set new one in HttpOnly cookie
       res.cookie('refreshToken', newRefreshToken, {
         httpOnly: true,
         secure: NODE_ENV === 'production',
@@ -145,7 +126,56 @@ class AuthController {
         path: '/',
       });
 
-      res.status(200).json({ data: tokenData, message: 'refresh token' });
+      // Return new access token in body - client stores in JS memory
+      res.status(200).json({
+        token: tokenData.token,
+        expiresIn: tokenData.expiresIn,
+        message: 'Token refreshed',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // ============================================
+  // PASSWORD MANAGEMENT
+  // ============================================
+
+  /**
+   * Change password for authenticated user
+   */
+  public changePassword = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userData: User = req.user;
+      const passwordData: ChangePasswordDto = req.body;
+
+      await this.authService.changePassword(userData._id, passwordData);
+
+      // Clear refresh token cookie since all sessions are revoked
+      res.clearCookie('refreshToken', { path: '/' });
+      clearCsrfToken(res);
+
+      res.status(200).json({ message: 'Password changed successfully. Please login again.' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // ============================================
+  // SESSION TRACKING
+  // ============================================
+
+  /**
+   * Get all online users with their devices and lastSeen
+   */
+  public getSessionTrack = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const onlineUsers = await this.authService.getOnlineUsers();
+      res.status(200).json({
+        data: onlineUsers,
+        count: onlineUsers.length,
+        message: 'Online users retrieved',
+      });
     } catch (error) {
       next(error);
     }

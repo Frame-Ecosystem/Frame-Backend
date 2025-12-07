@@ -2,6 +2,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import winston from 'winston';
 import winstonDaily from 'winston-daily-rotate-file';
+import { createHash } from 'crypto';
 import { LOG_DIR } from '@config';
 
 // logs dir
@@ -10,6 +11,22 @@ const logDir: string = join(__dirname, LOG_DIR);
 if (!existsSync(logDir)) {
   mkdirSync(logDir);
 }
+
+/**
+ * Hash IP address for GDPR compliance
+ * Uses SHA-256 with a salt to anonymize IPs while maintaining the ability
+ * to correlate requests from the same IP within the same day
+ * @param ip - The IP address to hash
+ * @returns Hashed IP (first 16 chars of SHA-256)
+ */
+const hashIp = (ip: string | undefined): string | undefined => {
+  if (!ip) return undefined;
+  // Use date as part of salt so same IP produces different hash each day
+  // This allows daily correlation while providing long-term privacy
+  const dailySalt = new Date().toISOString().split('T')[0];
+  const hash = createHash('sha256').update(`${ip}:${dailySalt}`).digest('hex');
+  return hash.substring(0, 16); // First 16 chars is sufficient for correlation
+};
 
 // Define log format
 const logFormat = winston.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${message}`);
@@ -98,7 +115,10 @@ type SecurityEventType =
   | 'INVALID_TOKEN'
   | 'SESSION_REVOKED'
   | 'ALL_SESSIONS_REVOKED'
-  | 'SUSPICIOUS_ACTIVITY';
+  | 'SUSPICIOUS_ACTIVITY'
+  | 'USER_OFFLINE'
+  | 'USER_ONLINE'
+  | 'ADMIN_ACCESS_DENIED';
 
 interface SecurityEventData {
   event: SecurityEventType;
@@ -111,10 +131,16 @@ interface SecurityEventData {
 }
 
 // Log security events with structured data
+// IP addresses are hashed for GDPR compliance
 const logSecurityEvent = (data: SecurityEventData): void => {
-  const { event, ...meta } = data;
+  const { event, ip, ...rest } = data;
+  // Hash IP for privacy compliance before logging
+  const sanitizedData = {
+    ...rest,
+    ipHash: hashIp(ip), // Store hashed IP instead of plain IP
+  };
   const level = ['TOKEN_REUSE_DETECTED', 'SUSPICIOUS_ACTIVITY', 'INVALID_TOKEN'].includes(event) ? 'error' : 'warn';
-  securityLogger.log(level, event, meta);
+  securityLogger.log(level, event, sanitizedData);
 };
 
 logger.add(

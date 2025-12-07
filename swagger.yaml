@@ -1,391 +1,1166 @@
-tags:
-- name: users
-  description: users API
-- name: auth
-  description: auth API
+swagger: "2.0"
+info:
+  title: Barber App API
+  version: 1.0.0
+  description: |
+    REST API for the Barber application.
+    
+    ## Authentication
+    - **Access Token**: Short-lived JWT (15 min) - stored in JS memory, sent via `Authorization: Bearer <token>` header
+    - **Refresh Token**: Long-lived JWT (7 days) - stored in HttpOnly cookie, automatically sent with requests
+    - **CSRF Token**: Required for state-changing requests - read from `csrf-token` cookie, sent via `X-CSRF-Token` header
+    
+    ## Swagger UI Testing (Development Only)
+    For testing CSRF-protected endpoints in Swagger UI during development:
+    1. Use `dev-bypass` as the X-CSRF-Token value (only works in development mode)
+    2. Or: First call `/login`, then copy the `csrf-token` cookie value and use it as the X-CSRF-Token
+    
+    **Note**: The `dev-bypass` token does NOT work in production.
 
-paths:
-# [POST] signup
-  /signup:
-    post:
-      tags:
-      - auth
-      summary: Sign Up
-      parameters:
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/users'
-      responses:
-        201:
-          description: 'Created'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [POST] login
-  /login:
-    post:
-      tags:
-      - auth
-      summary: Log In
-      parameters:
-      - name: body
-        in: body
-        description: user Credentials (email or username with password)
-        required: true
-        schema:
-          $ref: '#/definitions/login'
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [POST] logout
-  /logout:
-    post:
-      tags:
-      - auth
-      summary: Log Out
-      responses:
-        200:
-          description: 'OK'
-        404:
-          description: 'Not Found'
-        500:
-          description: 'Server Error'
-
-# [GET] users
-  /users:
-    get:
-      tags:
-      - users
-      summary: Find All Users
-      responses:
-        200:
-          description: 'OK'
-        500:
-          description: 'Server Error'
-
-# [POST] users
-    post:
-      tags:
-      - users
-      summary: Add User
-      parameters:
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/users'
-      responses:
-        201:
-          description: 'Created'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [GET] users/id
-  /users/{id}:
-    get:
-      tags:
-      - users
-      summary: Find User By Id
-      parameters:
-      - name: id
-        in: path
-        description: User Id
-        required: true
-      responses:
-        200:
-          description: 'OK'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [PUT] users/id
-    put:
-      tags:
-      - users
-      summary: Update User By Id
-      parameters:
-      - name: id
-        in: path
-        description: user Id
-        required: true
-      - name: body
-        in: body
-        description: user Data
-        required: true
-        schema:
-          $ref: '#/definitions/users'
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [DELETE] users/id
-    delete:
-      tags:
-      - users
-      summary: Delete User By Id
-      parameters:
-      - name: id
-        in: path
-        description: user Id
-        required: true
-      responses:
-        200:
-          description: 'OK'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [PUT] users/id/location
-  /users/{id}/location:
-    put:
-      tags:
-      - users
-      summary: Update User Location
-      parameters:
-      - name: id
-        in: path
-        description: user Id
-        required: true
-      - name: body
-        in: body
-        description: location Data (latitude, longitude, address, placeId)
-        required: true
-        schema:
-          $ref: '#/definitions/location'
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [GET] users/id/profile-image
-  /users/{id}/profile-image:
-    get:
-      tags:
-      - users
-      summary: Get User Profile Image
-      parameters:
-      - name: id
-        in: path
-        description: user Id
-        required: true
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        409:
-          description: 'Conflict'
-        500:
-          description: 'Server Error'
-
-# [POST] users/id/upload-profile-image
-  /users/{id}/upload-profile-image:
-    post:
-      tags:
-      - users
-      summary: Upload User Profile Image
-      consumes:
-        - multipart/form-data
-      parameters:
-      - name: id
-        in: path
-        description: user Id
-        required: true
-      - name: profileImage
-        in: formData
-        description: Profile image file (jpeg, png, gif, webp - max 5MB)
-        required: true
-        type: file
-      responses:
-        200:
-          description: 'OK'
-        400:
-          description: 'Bad Request'
-        500:
-          description: 'Server Error'
-
-# [GET] users/token
-  /user/token:
-    get:
-      tags:
-      - users
-      summary: Get user by token
-      description: Retrieve user details using a JWT token.
-      security:
-        - bearerAuth: []
-      responses:
-        200:
-          description: User retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    $ref: '#/components/schemas/User'
-                  message:
-                    type: string
-                    example: User retrieved successfully
-        400:
-          description: Token is missing
-        401:
-          description: Invalid token
-        404:
-          description: User not found
-
-# [POST] refresh-token
-  /refresh-token:
-    post:
-      tags:
-      - auth
-      summary: Refresh Access Token
-      description: Generate a new access token using a refresh token.
-      parameters:
-      - name: body
-        in: body
-        description: Refresh token
-        required: true
-        schema:
-          type: object
-          properties:
-            refreshToken:
-              type: string
-              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-      responses:
-        200:
-          description: Access token refreshed successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: object
-                    properties:
-                      token:
-                        type: string
-                        example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                      expiresIn:
-                        type: number
-                        example: 3600
-                  message:
-                    type: string
-                    example: "refresh token"
-        401:
-          description: Invalid refresh token
-
-# definitions
-definitions:
-  location:
-    type: object
-    properties:
-      latitude:
-        type: number
-        description: Location latitude coordinate
-      longitude:
-        type: number
-        description: Location longitude coordinate
-      address:
-        type: string
-        description: Location address
-      placeId:
-        type: string
-        description: Google Places ID
-  login:
-    type: object
-    required:
-        - emailOrUsername
-        - password
-    properties:
-      emailOrUsername:
-        type: string
-        description: user Email or Username
-      password:
-        type: string
-        description: user Password
-  users:
-    type: object
-    required:
-        - email
-        - password
-        - username
-        - phoneNumber
-    properties:
-      email:
-        type: string
-        description: user Email
-      password:
-        type: string
-        description: user Password
-      username:
-        type: string
-        description: user Username
-      phoneNumber:
-        type: string
-        description: user Phone Number
-      gender:
-        type: string
-        enum:
-          - male
-          - female
-          - other
-        description: user Gender
-      role:
-        type: string
-        enum:
-          - admin
-          - user
-          - barber
-        default: user
-        description: user Role
-      location:
-        $ref: '#/definitions/location'
-        description: user Location object
-      profileImage:
-        type: string
-        description: URL to user's profile image on Cloudinary
-
+host: localhost:3000
+basePath: /
 schemes:
- - https
- - http
+  - http
+  - https
+
+consumes:
+  - application/json
+produces:
+  - application/json
 
 securityDefinitions:
   bearerAuth:
     type: apiKey
     name: Authorization
     in: header
+    description: JWT access token - format "Bearer {token}"
+  csrfToken:
+    type: apiKey
+    name: X-CSRF-Token
+    in: header
+    description: |
+      CSRF token for state-changing requests.
+      
+      **Development**: Use `dev-bypass` to skip CSRF validation.
+      
+      **Production**: Read from `csrf-token` cookie (set after login).
 
-security:
-  - bearerAuth: []
+tags:
+  - name: auth
+    description: Authentication endpoints (signup, login, logout, token refresh, password management)
+  - name: admin
+    description: Admin management endpoints (user CRUD operations - admin access required)
+  - name: current users
+    description: User self-service endpoints (profile management, current user operations)
+
+paths:
+  # ============================================
+  # AUTH ENDPOINTS
+  # ============================================
+
+  /v1/auth/signup:
+    post:
+      tags:
+        - auth
+      summary: Register a new user
+      description: |
+        Create a new user account. All new users are assigned the 'user' role by default.
+        Rate limited to 3 signups per hour per IP.
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+              - password
+              - username
+              - phoneNumber
+            properties:
+              email:
+                type: string
+                format: email
+                description: User email address (will be normalized to lowercase)
+                example: newuser@example.com
+              password:
+                type: string
+                minLength: 8
+                maxLength: 128
+                description: Password must contain at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)
+                example: SecurePass123!
+              username:
+                type: string
+                minLength: 3
+                maxLength: 30
+                description: Username (3-30 chars, starts with letter, alphanumeric/underscore/hyphen)
+                example: newuser
+              phoneNumber:
+                type: string
+                description: Phone number in international format
+                example: "+21650922140"
+              gender:
+                type: string
+                enum: [male, female, other]
+                description: User gender (optional)
+                example: male
+              location:
+                $ref: '#/definitions/LocationDto'
+              profileImage:
+                type: string
+                format: uri
+                description: URL to profile image (optional)
+                example: "https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg"
+      responses:
+        201:
+          description: User created successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: signup
+        400:
+          description: Validation error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        409:
+          description: Email, username, or phone already registered
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        429:
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/auth/login:
+    post:
+      tags:
+        - auth
+      summary: Log in to an existing account
+      description: |
+        Authenticate with email/username and password.
+        Returns access token in response body and sets refresh token as HttpOnly cookie.
+        Rate limited to 5 attempts per 15 minutes per IP.
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - emailOrUsername
+              - password
+            properties:
+              emailOrUsername:
+                type: string
+                description: Email address or username
+                example: user@example.com
+              password:
+                type: string
+                description: User password
+                example: SecureP@ss123
+      responses:
+        200:
+          description: Login successful (also sets HttpOnly refresh token cookie)
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              token:
+                type: string
+                description: JWT access token (15 min expiry) - store in memory
+              expiresIn:
+                type: integer
+                description: Token expiry in seconds
+                example: 900
+              message:
+                type: string
+                example: login
+        401:
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        429:
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/auth/logout:
+    post:
+      tags:
+        - auth
+      summary: Log out from current device
+      description: |
+        Invalidates the current session (refresh token).
+        Requires authentication and CSRF token.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Logged out successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: logout
+        401:
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        403:
+          description: CSRF token missing or invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/auth/logout-all:
+    post:
+      tags:
+        - auth
+      summary: Log out from all devices
+      description: |
+        Invalidates all refresh tokens for the user, logging them out from all devices.
+        Requires authentication and CSRF token.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Logged out from all devices
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Logged out from all devices
+        401:
+          description: Not authenticated
+        403:
+          description: CSRF token missing or invalid
+        500:
+          description: Server error
+
+  /v1/auth/refresh-token:
+    post:
+      tags:
+        - auth
+      summary: Refresh access token
+      description: |
+        Generate a new access token using the refresh token from HttpOnly cookie.
+        Implements token rotation - old refresh token is invalidated and new one is issued.
+        Requires CSRF token. Rate limited to 30 requests per 15 minutes.
+      security:
+        - csrfToken: []
+      responses:
+        200:
+          description: Token refreshed successfully (also sets new HttpOnly refresh token cookie)
+          schema:
+            type: object
+            properties:
+              token:
+                type: string
+                description: New JWT access token
+              expiresIn:
+                type: integer
+                example: 900
+              message:
+                type: string
+                example: Token refreshed
+        401:
+          description: Refresh token missing, expired, or invalid
+        403:
+          description: CSRF token missing or invalid
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/change-password:
+    post:
+      tags:
+        - auth
+      summary: Change user password
+      description: |
+        Change the password for the authenticated user.
+        Revokes all refresh tokens (logs out from all devices) for security.
+        Rate limited to 3 attempts per hour.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - currentPassword
+              - newPassword
+              - newPasswordConfirm
+            properties:
+              currentPassword:
+                type: string
+                description: Current password
+                example: OldP@ssword123
+              newPassword:
+                type: string
+                minLength: 8
+                maxLength: 128
+                description: New password (same requirements as signup)
+                example: NewSecureP@ss456
+              newPasswordConfirm:
+                type: string
+                description: Confirm new password (must match newPassword)
+                example: NewSecureP@ss456
+      responses:
+        200:
+          description: Password changed successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Password changed successfully. Please login again.
+        400:
+          description: Validation error or passwords don't match
+        401:
+          description: Current password incorrect or not authenticated
+        403:
+          description: CSRF token missing or invalid
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/session-track:
+    get:
+      tags:
+        - admin
+      summary: Get all online users (Admin only)
+      description: |
+        Retrieve a list of all currently online users with their session information.
+        Admin access required.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Online users retrieved
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/OnlineUserInfo'
+              count:
+                type: integer
+                example: 5
+              message:
+                type: string
+                example: Online users retrieved
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required
+        500:
+          description: Server error
+
+  # ============================================
+  # USER ENDPOINTS
+  # ============================================
+
+
+
+  /v1/admin/users:
+    get:
+      tags:
+        - admin
+      summary: Get all users (Admin only)
+      description: Retrieve a list of all users. **Admin access required.**
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Users retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: findAll
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required
+        500:
+          description: Server error
+
+    post:
+      tags:
+        - admin
+      summary: Create a new user (Admin only)
+      description: |
+        Create a new user account. Admin can set role.
+        **Admin access required.**
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AdminCreateUserDto'
+          x-examples:
+            application/json:
+              email: "admincreated@example.com"
+              password: "AdminP@ss123"
+              username: "admincreated"
+              phoneNumber: "+21698765432"
+              role: "user"
+      responses:
+        201:
+          description: User created successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: created
+        400:
+          description: Validation error
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required or CSRF token invalid
+        409:
+          description: Email, username, or phone already registered
+        500:
+          description: Server error
+
+  /v1/admin/users/online/status:
+    get:
+      tags:
+        - admin
+      summary: Get online users (Admin only)
+      description: Retrieve a list of all currently online users with their session information. **Admin access required.**
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Online users retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    _id:
+                      type: string
+                      example: "507f1f77bcf86cd799439011"
+                    email:
+                      type: string
+                      example: "user@example.com"
+                    username:
+                      type: string
+                      example: "johndoe"
+                    sessionTrack:
+                      type: object
+                      properties:
+                        isOnline:
+                          type: boolean
+                          example: true
+                        lastSeen:
+                          type: string
+                          format: date-time
+                          example: "2025-12-07T10:30:00.000Z"
+                        devices:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name:
+                                type: string
+                                example: "Windows PC"
+                              ipAddress:
+                                type: string
+                                example: "192.168.1.100"
+                          example:
+                            - name: "Windows PC"
+                              ipAddress: "192.168.1.100"
+                            - name: "iPhone"
+                              ipAddress: "192.168.1.101"
+              message:
+                type: string
+                example: "Online users retrieved"
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required
+        500:
+          description: Server error
+
+  /v1/admin/users/{id}:
+    get:
+      tags:
+        - admin
+      summary: Get user by ID (Admin only)
+      description: Retrieve a specific user by their ID. **Admin access required.**
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: User ID
+      responses:
+        200:
+          description: User found
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: findOne
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+    put:
+      tags:
+        - admin
+      summary: Update user profile (Admin only)
+      description: Update any user's profile. **Admin access required.**
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: User ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateUserDto'
+      responses:
+        200:
+          description: User updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: updated
+        400:
+          description: Validation error
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required or CSRF token invalid
+        404:
+          description: User not found
+        409:
+          description: Email, username, or phone already taken
+        500:
+          description: Server error
+
+    delete:
+      tags:
+        - admin
+      summary: Delete user (Admin only)
+      description: Delete a user by ID. **Admin access required.**
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: User ID
+      responses:
+        200:
+          description: User deleted successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: deleted
+        401:
+          description: Not authenticated
+        403:
+          description: Admin access required or CSRF token invalid
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+
+  /v1/me:
+    get:
+      tags:
+        - current users
+      summary: Get current user
+      description: Retrieve the currently authenticated user's profile. No ID required; uses the authenticated token.
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: User retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: User retrieved successfully
+        401:
+          description: Not authenticated
+        500:
+          description: Server error
+
+    put:
+      tags:
+        - current users
+      summary: Update current user profile
+      description: |
+        Update the currently authenticated user's profile information.
+        **User ID is automatically extracted from the authentication token.**
+        No ID parameter required.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              email:
+                type: string
+                format: email
+                example: updated@example.com
+              username:
+                type: string
+                minLength: 3
+                maxLength: 30
+                example: updateduser
+              phoneNumber:
+                type: string
+                example: "+21655555555"
+              gender:
+                type: string
+                enum: [male, female, other]
+              location:
+                $ref: '#/definitions/LocationDto'
+              profileImage:
+                type: string
+                format: uri
+      responses:
+        200:
+          description: Profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: updated
+        400:
+          description: Validation error or invalid request data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        403:
+          description: CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        409:
+          description: Email, username, or phone already taken
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+    delete:
+      tags:
+        - current users
+      summary: Delete own account
+      description: |
+        Permanently delete the currently authenticated user's account.
+        **Requires entering your password in the request body for verification.**
+        
+        **Implementation**: 
+        - Verifies password before proceeding
+        - Prevents admin accounts from self-deletion via this endpoint
+        - Delegates actual deletion to AdminService.deleteUser() to eliminate code duplication
+        
+        All user data will be permanently removed - this action is irreversible.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - password
+            properties:
+              password:
+                type: string
+                description: Current password for verification before account deletion
+                example: SecureP@ss123
+          description: |
+            Must include the user's current password:
+            {
+              "password": "yourCurrentPassword"
+            }
+      responses:
+        200:
+          description: Account deleted successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Account deleted successfully
+        400:
+          description: Invalid request, password verification failed, or admin self-deletion attempt
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error during deletion
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        403:
+          description: CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/me/location:
+    put:
+      tags:
+        - current users
+      summary: Update current user's location
+      description: |
+        Update the currently authenticated user's location.
+        **User ID is automatically extracted from the authentication token.**
+        No ID parameter required.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - latitude
+              - longitude
+              - address
+              - placeId
+            properties:
+              latitude:
+                type: number
+                minimum: -90
+                maximum: 90
+                description: Latitude coordinate
+                example: 36.8065
+              longitude:
+                type: number
+                minimum: -180
+                maximum: 180
+                description: Longitude coordinate
+                example: 10.1815
+              address:
+                type: string
+                maxLength: 500
+                description: Full address
+                example: 123 Main Street, Tunis, Tunisia
+              placeId:
+                type: string
+                description: Google Places ID
+                example: ChIJN1t_tDeuEmsRUsoyG83frY4
+      responses:
+        200:
+          description: Location updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: location updated
+        400:
+          description: Validation error or invalid request data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        403:
+          description: CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/me/image:
+    put:
+      tags:
+        - current users
+      summary: Upload current user's profile image
+      description: |
+        Upload or update the currently authenticated user's profile image.
+        **User ID is automatically extracted from the authentication token.**
+        No ID parameter required.
+        Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: image
+          in: formData
+          required: true
+          type: file
+          description: Image file (JPEG, PNG, GIF, WebP - max 5MB)
+      responses:
+        200:
+          description: Image uploaded successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Profile image uploaded successfully
+        400:
+          description: No file uploaded or invalid file type
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        403:
+          description: CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+# ============================================
+# DEFINITIONS
+# ============================================
+
+definitions:
+  CreateUserDto:
+    type: object
+    required:
+      - email
+      - password
+      - username
+      - phoneNumber
+    properties:
+      email:
+        type: string
+        format: email
+        description: User email address (will be normalized to lowercase)
+        example: user@example.com
+      password:
+        type: string
+        minLength: 8
+        maxLength: 128
+        description: |
+          Password must contain at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)
+        example: SecureP@ss123
+      username:
+        type: string
+        minLength: 3
+        maxLength: 30
+        description: Username (3-30 chars, starts with letter, alphanumeric/underscore/hyphen)
+        example: john_doe
+      phoneNumber:
+        type: string
+        description: Phone number in international format
+        example: "+21612345678"
+      gender:
+        type: string
+        enum: [male, female, other]
+        description: User gender (optional)
+      location:
+        $ref: '#/definitions/LocationDto'
+      profileImage:
+        type: string
+        format: uri
+        description: URL to profile image (optional)
+
+  AdminCreateUserDto:
+    allOf:
+      - $ref: '#/definitions/CreateUserDto'
+      - type: object
+        properties:
+          role:
+            type: string
+            enum: [admin, user, barber]
+            default: user
+            description: User role (admin only)
+
+  UpdateUserDto:
+    type: object
+    description: All fields are optional. Password and role cannot be changed here.
+    properties:
+      email:
+        type: string
+        format: email
+        example: newemail@example.com
+      username:
+        type: string
+        minLength: 3
+        maxLength: 30
+        example: new_username
+      phoneNumber:
+        type: string
+        example: "+21698765432"
+      gender:
+        type: string
+        enum: [male, female, other]
+      location:
+        $ref: '#/definitions/LocationDto'
+      profileImage:
+        type: string
+        format: uri
+
+      LoginUserDto:
+        type: object
+        required:
+          - emailOrUsername
+          - password
+        properties:
+          emailOrUsername:
+            type: string
+            description: Email address or username
+            example: user@example.com
+          password:
+            type: string
+            description: User password
+            example: SecureP@ss123
+
+  ChangePasswordDto:
+    type: object
+    required:
+      - currentPassword
+      - newPassword
+      - newPasswordConfirm
+    properties:
+      currentPassword:
+        type: string
+        description: Current password
+        example: OldP@ssword123
+      newPassword:
+        type: string
+        minLength: 8
+        maxLength: 128
+        description: New password (same requirements as signup)
+        example: NewSecureP@ss456
+      newPasswordConfirm:
+        type: string
+        description: Confirm new password (must match newPassword)
+        example: NewSecureP@ss456
+
+  DeleteAccountDto:
+    type: object
+    required:
+      - password
+    properties:
+      password:
+        type: string
+        description: Current password for verification before account deletion
+        example: MyCurrentP@ss123
+
+  LocationDto:
+    type: object
+    required:
+      - latitude
+      - longitude
+      - address
+      - placeId
+    properties:
+      latitude:
+        type: number
+        minimum: -90
+        maximum: 90
+        description: Latitude coordinate
+        example: 36.8065
+      longitude:
+        type: number
+        minimum: -180
+        maximum: 180
+        description: Longitude coordinate
+        example: 10.1815
+      address:
+        type: string
+        maxLength: 500
+        description: Full address
+        example: 123 Main Street, Tunis, Tunisia
+      placeId:
+        type: string
+        description: Google Places ID
+        example: ChIJN1t_tDeuEmsRUsoyG83frY4
+
+  UserResponse:
+    type: object
+    description: User object with sensitive fields removed (no password, no refreshTokens)
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      email:
+        type: string
+        example: user@example.com
+      username:
+        type: string
+        example: john_doe
+      phoneNumber:
+        type: string
+        example: "+21612345678"
+      gender:
+        type: string
+        enum: [male, female, other]
+      role:
+        type: string
+        enum: [admin, user, barber]
+      location:
+        $ref: '#/definitions/LocationDto'
+      profileImage:
+        type: string
+        example: https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg
+      sessionTrack:
+        type: object
+        properties:
+          isOnline:
+            type: boolean
+          lastSeen:
+            type: string
+            format: date-time
+          devices:
+            type: array
+            items:
+              type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  OnlineUserInfo:
+    type: object
+    properties:
+      _id:
+        type: string
+      email:
+        type: string
+      username:
+        type: string
+      sessionTrack:
+        type: object
+        properties:
+          isOnline:
+            type: boolean
+          lastSeen:
+            type: string
+            format: date-time
+          devices:
+            type: array
+            items:
+              type: string
+
+  ErrorResponse:
+    type: object
+    properties:
+      message:
+        type: string
+        description: User-friendly error message
+        example: Email already registered
+      code:
+        type: string
+        description: Error code for client-side handling
+        example: EMAIL_EXISTS
