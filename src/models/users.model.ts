@@ -1,6 +1,7 @@
 import { model, Schema, Document } from 'mongoose';
-import { User } from '@interfaces/users.interface';
+import { User, Client as IClient, Lounge as ILounge, Admin as IAdmin } from '@interfaces/users.interface';
 
+// Base User Schema - shared by all user types
 const userSchema: Schema = new Schema(
   {
     email: {
@@ -8,30 +9,52 @@ const userSchema: Schema = new Schema(
       required: true,
       unique: true,
     },
-    password: {
+    type: {
       type: String,
+      enum: ['user', 'client', 'lounge', 'admin'],
+      default: 'user',
       required: true,
     },
-    username: {
+    password: {
       type: String,
-      required: true,
-      unique: true,
+      // Require password only for non-OAuth users
+      required: function (this: any) {
+        const hasGoogleOAuth = !!(this.oauth && this.oauth.google && this.oauth.google.id);
+        return !hasGoogleOAuth;
+      },
     },
     phoneNumber: {
       type: String,
-      required: true,
+      required: false,
       unique: true,
+      sparse: true,
     },
     gender: {
       type: String,
-      enum: ['male', 'female', 'other'],
+      enum: ['male', 'female', 'both'],
+      default: 'both',
       required: false,
     },
-    role: {
+    firstName: {
       type: String,
-      enum: ['admin', 'user', 'barber'],
-      default: 'user',
-      required: true,
+      required: false,
+    },
+    lastName: {
+      type: String,
+      required: false,
+    },
+    bio: {
+      type: String,
+      required: false,
+    },
+    loungeTitle: {
+      type: String,
+      required: false,
+    },
+    services: {
+      type: [String],
+      required: false,
+      default: [],
     },
     location: {
       type: {
@@ -55,7 +78,18 @@ const userSchema: Schema = new Schema(
       required: false,
     },
     profileImage: {
-      type: String,
+      url: { type: String, required: false },
+      publicId: { type: String, required: false },
+    },
+    emailVerification: {
+      type: [
+        {
+          isVerified: { type: Boolean, default: false, required: true },
+          verifCode: { type: String, required: false },
+          verifCodeExpiresAt: { type: Date, required: false },
+        },
+      ],
+      default: [{ isVerified: false }],
       required: false,
     },
     isBlocked: {
@@ -93,6 +127,15 @@ const userSchema: Schema = new Schema(
         expiresAt: { type: Date, required: true },
       },
     ],
+    oauth: {
+      google: {
+        id: { type: String, required: false },
+        email: { type: String, required: false },
+        name: { type: String, required: false },
+        picture: { type: String, required: false },
+        verified: { type: Boolean, default: false },
+      },
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
@@ -105,6 +148,22 @@ userSchema.index({ 'refreshTokens.jti': 1 });
 // Add index on refreshTokens.expiresAt for efficient cleanup of expired tokens
 userSchema.index({ 'refreshTokens.expiresAt': 1 });
 
+// Base User Model
 const userModel = model<User & Document>('User', userSchema);
 
 export default userModel;
+
+// Helper function to check if a user is an Admin
+export function isAdmin(user: User & Document): user is IAdmin & Document {
+  return (user as any).type === 'admin';
+}
+
+// Helper function to check if a user is a Client
+export function isClient(user: User & Document): user is IClient & Document {
+  return (user as any).type === 'client';
+}
+
+// Helper function to check if a user is a Lounge
+export function isLounge(user: User & Document): user is ILounge & Document {
+  return (user as any).type === 'lounge';
+}

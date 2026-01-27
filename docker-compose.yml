@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.8'
 
 services:
   proxy:
@@ -6,43 +6,75 @@ services:
     container_name: proxy
     ports:
       - '80:80'
+      - '443:443'  # Add HTTPS port
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl:ro  # Mount SSL certificates
     restart: 'unless-stopped'
     networks:
       - backend
+    depends_on:
+      - server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   server:
     build:
       context: ./
-      target: development-build-stage
+      target: production-build-stage
       dockerfile: Dockerfile
     container_name: server
     ports:
       - '3000:3000'
-    volumes:
-      - ./:/app
-      - /app/node_modules
     restart: 'unless-stopped'
     networks:
       - backend
     links:
       - mongo
     depends_on:
-      - mongo
-  mongo:
-    image: mvertes/alpine-mongo
-    container_name: mongo
-    ports:
-      - '27017:27017'
+      mongo:
+        condition: service_healthy
     environment:
-      MONGO_INITDB_DATABASE: dev      
+      - NODE_ENV=production
+      - DB_HOST=mongo
+      - DB_PORT=27017
+      - DB_DATABASE=prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongo:
+    image: mongo:6-jammy
+    container_name: mongo
+    restart: 'unless-stopped'
+    environment:
+      MONGO_INITDB_DATABASE: prod
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: changeme123
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init:/docker-entrypoint-initdb.d:ro
     networks:
       - backend
+    ports:
+      - '27017:27017'
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 networks:
   backend:
     driver: bridge
 
 volumes:
-  data:
+  mongodb_data:
     driver: local

@@ -1,21 +1,21 @@
-﻿import { NextFunction, Response } from 'express';
+import { NextFunction, Response } from 'express';
 import { HttpException } from '@exceptions/HttpException';
 import { RequestWithUser } from '@interfaces/auth.interface';
-import { isAdmin } from '@models/users.model';
+import { isLounge } from '@models/users.model';
 import { logSecurityEvent } from '@utils/logger';
 
 /**
- * Admin Authorization Middleware
+ * Lounge Authorization Middleware
  * Must be used AFTER authMiddleware (requires req.user to be set)
- * Checks if the authenticated user is an Admin using inheritance/discriminator
+ * Checks if the authenticated user is a Lounge using inheritance/discriminator
  */
-const adminMiddleware = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+const loungeMiddleware = async (req: RequestWithUser, res: Response, next: NextFunction) => {
   try {
     const user = req.user;
 
     if (!user) {
       logSecurityEvent({
-        event: 'ADMIN_ACCESS_DENIED',
+        event: 'LOUNGE_ACCESS_DENIED',
         reason: 'No user found in request (authMiddleware not applied?)',
         ip: req.ip || req.socket?.remoteAddress,
         userAgent: req.headers['user-agent'],
@@ -25,12 +25,12 @@ const adminMiddleware = async (req: RequestWithUser, res: Response, next: NextFu
       return next(new HttpException(401, 'Authentication required'));
     }
 
-    // Check if user is Admin using the isAdmin helper function
-    if (!isAdmin(user as any)) {
+    // Check if user is Lounge using the isLounge helper function
+    if (!isLounge(user as any)) {
       const userType = (user as any).type || 'user';
       logSecurityEvent({
-        event: 'ADMIN_ACCESS_DENIED',
-        reason: 'User is not an admin',
+        event: 'LOUNGE_ACCESS_DENIED',
+        reason: 'User is not a lounge',
         userId: String(user._id),
         userType,
         ip: req.ip || req.socket?.remoteAddress,
@@ -38,20 +38,20 @@ const adminMiddleware = async (req: RequestWithUser, res: Response, next: NextFu
         path: req.path,
         method: req.method,
       });
-      return next(new HttpException(403, 'Admin access required'));
+      return next(new HttpException(403, 'Lounge access required'));
     }
 
     return next();
   } catch (error) {
     logSecurityEvent({
-      event: 'ADMIN_ACCESS_DENIED',
+      event: 'LOUNGE_ACCESS_DENIED',
       reason: `Unexpected error: ${error.message}`,
       ip: req.ip || req.socket?.remoteAddress,
       userAgent: req.headers['user-agent'],
       path: req.path,
     });
-    return next(new HttpException(403, 'Admin access required'));
+    return next(new HttpException(403, 'Lounge access required'));
   }
 };
 
-export default adminMiddleware;
+export default loungeMiddleware;

@@ -11,7 +11,7 @@
       script: 'dist/server.js',
       exec_mode: 'cluster', // 'cluster' or 'fork'
       instance_var: 'INSTANCE_ID', // instance variable
-      instances: 2, // pm2 instance count
+      instances: 'max', // Use all available CPU cores
       autorestart: true, // auto restart if process crash
       watch: false, // files change automatic restart
       ignore_watch: ['node_modules', 'logs'], // ignore files change
@@ -19,10 +19,17 @@
       merge_logs: true, // if true, stdout and stderr will be merged and sent to pm2 log
       output: './logs/access.log', // pm2 log file
       error: './logs/error.log', // pm2 error log file
+      log_date_format: 'YYYY-MM-DD HH:mm:ss Z', // log date format
       env: { // environment variable
         PORT: 3000,
         NODE_ENV: 'production',
+        // Production environment variables will be loaded from .env.production.local
       },
+      // Production-specific PM2 settings
+      node_args: '--max-old-space-size=4096', // Increase Node.js heap size
+      kill_timeout: 5000, // Wait 5 seconds before force killing
+      wait_ready: true, // Wait for app to send ready signal
+      listen_timeout: 10000, // Wait 10 seconds for app to listen
     },
     {
       name: 'dev', // pm2 start App name

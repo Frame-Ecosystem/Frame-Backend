@@ -26,8 +26,7 @@ const validateEnv = () => {
 
   // Validate Cloudinary config if image upload is enabled
   if (env.ENABLE_IMAGE_UPLOAD) {
-    const cloudinaryConfigured =
-      env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET;
+    const cloudinaryConfigured = env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET;
 
     if (!cloudinaryConfigured) {
       logger.error('❌ ENABLE_IMAGE_UPLOAD is true but Cloudinary credentials are missing!');

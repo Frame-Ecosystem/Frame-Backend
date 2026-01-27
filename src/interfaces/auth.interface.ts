@@ -3,7 +3,6 @@ import { User } from '@interfaces/users.interface';
 
 export interface DataStoredInToken {
   _id: string;
-  role?: string;
 }
 
 export interface RefreshTokenPayload {

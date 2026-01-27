@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail OAuth Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #4285f4;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            text-decoration: none;
+            display: inline-block;
+            margin: 10px 0;
+        }
+        .btn:hover {
+            background: #3367d6;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Gmail OAuth Authentication Test</h1>
+        <p>Test the Gmail OAuth integration for your application.</p>
+
+        <a href="http://localhost:3000/v1/auth/google" class="btn">
+            🚀 Sign in with Google
+        </a>
+
+        <div class="status">
+            <strong>Status:</strong> Click the button above to test Gmail OAuth authentication.
+            <br><br>
+            <strong>What happens:</strong>
+            <ol>
+                <li>You'll be redirected to Google's OAuth consent screen</li>
+                <li>After granting permission, you'll be redirected back to your app</li>
+                <li>Your app will create/login the user and return authentication tokens</li>
+            </ol>
+        </div>
+
+        <div style="margin-top: 30px; padding: 15px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 5px;">
+            <strong>📋 API Endpoints:</strong>
+            <ul>
+                <li><code>GET /v1/auth/google</code> - Initiate OAuth flow</li>
+                <li><code>GET /v1/auth/google/callback</code> - OAuth callback handler</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Check if we're returning from OAuth
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('token') || urlParams.has('message')) {
+            const message = urlParams.get('message') || 'Authentication completed';
+            const token = urlParams.get('token');
+
+            document.querySelector('.status').innerHTML = `
+                <strong>✅ Success!</strong> ${message}
+                ${token ? `<br><br><strong>Access Token:</strong> ${token.substring(0, 50)}...` : ''}
+            `;
+            document.querySelector('.status').style.background = '#e8f5e8';
+            document.querySelector('.status').style.borderColor = '#4caf50';
+        }
+    </script>
+</body>
+</html>

@@ -10,12 +10,11 @@ import AuthRoute from '@routes/auth.route';
 const validUserData: CreateUserDto = {
   email: 'test@email.com',
   password: 'Test@123!',
-  username: 'testuser',
   phoneNumber: '+21650922140',
 };
 
 const validLoginData: LoginUserDto = {
-  emailOrUsername: 'test@email.com',
+  email: 'test@email.com',
   password: 'Test@123!',
 };
 
@@ -33,13 +32,16 @@ describe('Testing Auth', () => {
       const users = authRoute.authController.authService.users;
 
       users.findOne = jest.fn().mockReturnValue(null);
-      users.create = jest.fn().mockReturnValue({
+      const mockUser = {
         _id: '60706478aad6c9ad19a31c84',
         email: validUserData.email,
-        username: validUserData.username,
         phoneNumber: validUserData.phoneNumber,
         password: await bcrypt.hash(validUserData.password, BCRYPT_ROUNDS),
-      });
+        refreshTokens: [],
+      };
+      users.create = jest.fn().mockReturnValue(mockUser);
+      users.findById = jest.fn().mockReturnValue(mockUser);
+      users.findByIdAndUpdate = jest.fn().mockResolvedValue(mockUser);
 
       // Type-safe override for connect method
       (mongoose as typeof mongoose & { connect: typeof jest.fn }).connect = jest.fn();
@@ -56,7 +58,6 @@ describe('Testing Auth', () => {
       users.findOne = jest.fn().mockReturnValue({
         _id: '60706478aad6c9ad19a31c84',
         email: validUserData.email,
-        username: validUserData.username,
         phoneNumber: validUserData.phoneNumber,
         password: await bcrypt.hash(validUserData.password, BCRYPT_ROUNDS),
         refreshTokens: [],
@@ -68,7 +69,6 @@ describe('Testing Auth', () => {
       users.findById = jest.fn().mockReturnValue({
         _id: '60706478aad6c9ad19a31c84',
         email: validUserData.email,
-        username: validUserData.username,
         phoneNumber: validUserData.phoneNumber,
         refreshTokens: [],
         sessionTrack: { isOnline: true, devices: ['Test Device'] },

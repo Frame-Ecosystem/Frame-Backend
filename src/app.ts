@@ -5,6 +5,7 @@ import express from 'express';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import morgan from 'morgan';
+import passport from 'passport';
 import { connect, set, disconnect } from 'mongoose';
 import YAML from 'yamljs';
 import swaggerUi from 'swagger-ui-express';
@@ -16,6 +17,7 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
 import { REQUEST_BODY_LIMIT } from './config/constants';
+import './config/passport'; // Initialize Passport
 
 class App {
   public app: express.Application;
@@ -119,17 +121,54 @@ class App {
     this.app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
     this.app.use(express.urlencoded({ extended: true, limit: REQUEST_BODY_LIMIT }));
     this.app.use(cookieParser());
+    // Initialize Passport
+    this.app.use(passport.initialize());
   }
 
   private initializeRoutes(routes: Routes[]) {
+    // Health check endpoint - always available
+    this.app.get('/health', (req, res) => {
+      res.status(200).json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        environment: this.env,
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        version: process.env.npm_package_version || '1.0.0'
+      });
+    });
+
+    // Readiness check endpoint
+    this.app.get('/ready', async (req, res) => {
+      try {
+        // Check database connection
+        await connect(dbConnection.url);
+        res.status(200).json({
+          status: 'ready',
+          timestamp: new Date().toISOString(),
+          database: 'connected'
+        });
+      } catch (error) {
+        res.status(503).json({
+          status: 'not ready',
+          timestamp: new Date().toISOString(),
+          database: 'disconnected',
+          error: this.env === 'development' ? error.message : 'Database connection failed'
+        });
+      }
+    });
+
     routes.forEach(route => {
       this.app.use(route.path, route.router);
     });
   }
 
   private initializeSwagger() {
-    const swaggerDocument = YAML.load(path.join(__dirname, '../swagger.yaml'));
-    this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    // Only enable Swagger in development and staging environments
+    if (this.env !== 'production') {
+      const swaggerDocument = YAML.load(path.join(__dirname, '../swagger.yaml'));
+      this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+    }
   }
 
   private initializeErrorHandling() {

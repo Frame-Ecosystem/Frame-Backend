@@ -6,20 +6,39 @@ import { stripSensitiveFields } from '@utils/util';
 import CurrentUserService from '@/services/currentUser.service';
 
 class CurrentUserController {
+  public sendVerificationCode = async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body;
+      await this.currentUserService.sendVerificationCode(email);
+      res.status(200).json({ message: 'Verification code sent to your email.' });
+    } catch (error) {
+      next(error);
+    }
+  };
 
-    public changePassword = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-      try {
-        const userId = req.user._id.toString();
-        const passwordData = req.body;
-        await this.currentUserService.changePassword(userId, passwordData);
-        res.clearCookie('refreshToken', { path: '/' });
-        // Optionally clear CSRF token if you use it
-        if (res.clearCookie) res.clearCookie('csrf-token', { path: '/' });
-        res.status(200).json({ message: 'Password changed successfully. Please login again.' });
-      } catch (error) {
-        next(error);
-      }
-    };
+  public verifyEmailCode = async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const { email, code } = req.body;
+      await this.currentUserService.verifyEmailCode(email, code);
+      res.status(200).json({ message: 'Email verified successfully.' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public changePassword = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const passwordData = req.body;
+      await this.currentUserService.changePassword(userId, passwordData);
+      res.clearCookie('refreshToken', { path: '/' });
+      // Optionally clear CSRF token if you use it
+      if (res.clearCookie) res.clearCookie('csrf-token', { path: '/' });
+      res.status(200).json({ message: 'Password changed successfully. Please login again.' });
+    } catch (error) {
+      next(error);
+    }
+  };
   public currentUserService = new CurrentUserService();
 
   public getMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
@@ -74,6 +93,28 @@ class CurrentUserController {
       res.clearCookie('refreshToken', { path: '/' });
       res.clearCookie('csrf-token', { path: '/' });
       res.status(200).json({ data: stripSensitiveFields(deletedUser), message: 'Account deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateLoungeProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const loungeData: import('@dtos/users.dto').UpdateLoungeProfileDto = req.body;
+      const updatedUser: User = await this.currentUserService.updateLoungeProfile(userId, loungeData);
+      res.status(200).json({ data: stripSensitiveFields(updatedUser), message: 'Lounge profile updated successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateClientProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const clientData: import('@dtos/users.dto').UpdateClientProfileDto = req.body;
+      const updatedUser: User = await this.currentUserService.updateClientProfile(userId, clientData);
+      res.status(200).json({ data: stripSensitiveFields(updatedUser), message: 'Client profile updated successfully' });
     } catch (error) {
       next(error);
     }

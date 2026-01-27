@@ -1,5 +1,4 @@
 import multer, { Multer } from 'multer';
-import { HttpException } from '@exceptions/HttpException';
 
 // Configure multer to store files in memory (buffer)
 const storage = multer.memoryStorage();

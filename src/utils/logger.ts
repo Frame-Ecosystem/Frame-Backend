@@ -107,6 +107,7 @@ securityLogger.add(
 // Security event types for structured logging
 type SecurityEventType =
   | 'LOGIN_SUCCESS'
+  | 'OAUTH_LOGIN_SUCCESS'
   | 'LOGIN_FAILED'
   | 'LOGOUT'
   | 'TOKEN_REFRESH_SUCCESS'
@@ -118,7 +119,9 @@ type SecurityEventType =
   | 'SUSPICIOUS_ACTIVITY'
   | 'USER_OFFLINE'
   | 'USER_ONLINE'
-  | 'ADMIN_ACCESS_DENIED';
+  | 'ADMIN_ACCESS_DENIED'
+  | 'CLIENT_ACCESS_DENIED'
+  | 'LOUNGE_ACCESS_DENIED';
 
 interface SecurityEventData {
   event: SecurityEventType;

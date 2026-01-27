@@ -9,8 +9,27 @@ class AdminController {
 
   public getUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const users: User[] = await this.adminService.findAllUsers();
-      res.status(200).json({ data: users.map(stripSensitiveFields), message: 'findAll' });
+      // Pagination and search params
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const search = typeof req.query.search === 'string' ? req.query.search : '';
+      const filter: any = {};
+      if (search) {
+        filter.$or = [
+          { email: { $regex: search, $options: 'i' } },
+          { username: { $regex: search, $options: 'i' } },
+          { phoneNumber: { $regex: search, $options: 'i' } },
+        ];
+      }
+      const { users, total } = await this.adminService.findUsersPaginated(filter, page, limit);
+      res.status(200).json({
+        data: users.map(stripSensitiveFields),
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        message: 'findAll',
+      });
     } catch (error) {
       next(error);
     }

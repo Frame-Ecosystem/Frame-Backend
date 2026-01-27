@@ -18,7 +18,7 @@ class AdminService {
         throw new BadRequestException('Invalid request data');
       }
       const updatedUser = await this.users.findByIdAndUpdate(userId, { isBlocked }, { new: true });
-      if (!updatedUser) {
+      if (!updatedUser || typeof updatedUser !== 'object') {
         logger.info(`AdminService.changeUserBlockedState: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
@@ -33,15 +33,16 @@ class AdminService {
   public users = userModel;
 
   /**
-   * Find all users in the system
+   * Find users with pagination and search/filter
    */
-  public async findAllUsers(): Promise<User[]> {
+  public async findUsersPaginated(filter: any, page = 1, limit = 20): Promise<{ users: User[]; total: number }> {
     try {
-      const users: User[] = await this.users.find();
-      logger.info('AdminService: retrieved all users');
-      return users;
+      const skip = (page - 1) * limit;
+      const [users, total] = await Promise.all([this.users.find(filter).skip(skip).limit(limit), this.users.countDocuments(filter)]);
+      logger.info(`AdminService: retrieved users page=${page} limit=${limit} filter=${JSON.stringify(filter)}`);
+      return { users, total };
     } catch (error) {
-      logger.error(`AdminService.findAllUsers error: ${error.message}`, { stack: error.stack });
+      logger.error(`AdminService.findUsersPaginated error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -58,7 +59,7 @@ class AdminService {
 
       const findUser: User = await this.users.findOne({ _id: userId });
       if (!findUser) {
-        logger.info(`AdminService.findUserById: user not found: ${userId}`);
+        logger.error(`AdminService.findUserById: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
@@ -71,45 +72,36 @@ class AdminService {
   }
 
   /**
-   * Create a new user (admin can set role)
+   * Create a new user (admin can set type: client, lounge, or regular user)
    */
   public async createUser(userData: CreateUserDto): Promise<User> {
-    // Prevent creating a second admin
-    if (userData.role && userData.role.toLowerCase() === 'admin' && (await this.users.exists({ role: 'admin' }))) {
-      logger.warn('AdminService.createUser: attempt to create a second admin');
-      throw new ConflictException('An admin user already exists. Only one admin is allowed.', 'ADMIN_EXISTS');
-    }
+    // Note: Admins cannot be created through this endpoint
+    // Use the ensureAdminExists utility for admin creation
     try {
       if (isEmpty(userData)) {
-        logger.warn('AdminService.createUser: empty userData provided');
+        logger.error('AdminService.createUser: empty userData provided');
         throw new BadRequestException('Invalid request data');
       }
 
-      // Normalize email and username to lowercase
+      // Normalize email to lowercase
       const normalizedEmail = userData.email.toLowerCase().trim();
-      const normalizedUsername = userData.username.toLowerCase().trim();
-      // Use provided role or default to 'user'
-      const userRole = userData.role || 'user';
+      // Determine user type (default to regular user)
+      const userType = userData.type || 'user';
 
       // Check for existing email
       const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
       if (findByEmail) {
-        logger.info(`AdminService.createUser: email already exists: ${normalizedEmail}`);
+        logger.error(`AdminService.createUser: email already exists: ${normalizedEmail}`);
         throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
       }
 
-      // Check for existing username
-      const findByUsername: User = await this.users.findOne({ username: normalizedUsername });
-      if (findByUsername) {
-        logger.info(`AdminService.createUser: username already exists: ${normalizedUsername}`);
-        throw new ConflictException('Username already taken', 'USERNAME_EXISTS');
-      }
-
-      // Check for existing phone number
-      const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
-      if (findByPhone) {
-        logger.info(`AdminService.createUser: phone number already exists: ${userData.phoneNumber}`);
-        throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+      // Check for existing phone number (only if provided)
+      if (userData.phoneNumber) {
+        const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+        if (findByPhone) {
+          logger.error(`AdminService.createUser: phone number already exists: ${userData.phoneNumber}`);
+          throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+        }
       }
 
       const hashedPassword = await hash(userData.password, BCRYPT_ROUNDS);
@@ -120,13 +112,15 @@ class AdminService {
       const maxRetries = RETRY_MAX_ATTEMPTS;
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          createUserData = await this.users.create({
+          // Use appropriate discriminator model based on type
+          const baseData = {
             ...userData,
             email: normalizedEmail,
-            username: normalizedUsername,
             password: hashedPassword,
-            role: userRole,
-          });
+          };
+          
+          // Create user with type
+          createUserData = await userModel.create(baseData);
           break; // Success - exit retry loop
         } catch (createError) {
           lastError = createError;
@@ -184,17 +178,6 @@ class AdminService {
         }
         // Store normalized email
         userData.email = normalizedEmail;
-      }
-
-      if (userData.username) {
-        const normalizedUsername = userData.username.toLowerCase().trim();
-        const findByUsername: User = await this.users.findOne({ username: normalizedUsername });
-        if (findByUsername && findByUsername._id.toString() !== userId) {
-          logger.info(`AdminService.updateUser: username conflict for userId ${userId}, username: ${normalizedUsername}`);
-          throw new ConflictException('Username already taken', 'USERNAME_EXISTS');
-        }
-        // Store normalized username
-        userData.username = normalizedUsername;
       }
 
       if (userData.phoneNumber) {
@@ -273,7 +256,6 @@ class AdminService {
     Array<{
       _id: string;
       email: string;
-      username: string;
       sessionTrack: {
         isOnline: boolean;
         lastSeen?: Date;
@@ -285,12 +267,11 @@ class AdminService {
     }>
   > {
     try {
-      const users = await this.users.find({ 'sessionTrack.isOnline': true }).select('email username sessionTrack');
+      const users = await this.users.find({ 'sessionTrack.isOnline': true }).select('email sessionTrack');
 
       const onlineUsers = users.map(user => ({
         _id: String(user._id),
         email: user.email,
-        username: user.username,
         sessionTrack: {
           isOnline: user.sessionTrack?.isOnline || false,
           lastSeen: user.sessionTrack?.lastSeen,

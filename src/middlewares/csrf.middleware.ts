@@ -14,6 +14,9 @@ import { NODE_ENV } from '@config';
  *
  * Note: In development mode, you can bypass CSRF by sending "dev-bypass" as the token
  * This is ONLY for Swagger UI testing - the cookie is still required in production
+ *
+ * Exceptions: Token refresh endpoints don't need CSRF protection since the
+ * refresh token cookie itself provides sufficient security.
  */
 
 const CSRF_COOKIE_NAME = 'csrf-token';

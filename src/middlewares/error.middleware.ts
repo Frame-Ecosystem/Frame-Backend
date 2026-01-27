@@ -9,7 +9,7 @@ const errorMiddleware = (error: HttpException, req: Request, res: Response, next
     const code: string | undefined = error.code;
 
     logger.error(`[${req.method}] ${req.path} >> StatusCode:: ${status}, Message:: ${message}${code ? `, Code:: ${code}` : ''}`);
-    res.status(status).json({ 
+    res.status(status).json({
       message,
       ...(code && { code }), // Include error code if available
     });

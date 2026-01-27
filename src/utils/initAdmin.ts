@@ -5,7 +5,6 @@ import { logger } from '@utils/logger';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
 
 // Admin defaults
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '21650922140';
 
 /**
@@ -33,10 +32,10 @@ export async function ensureAdminExists(): Promise<void> {
     logger.info('ensureAdminExists: starting check for admin user');
 
     // Use count for a precise check and diagnostics
-    const adminCount = await userModel.countDocuments({ role: 'admin' });
+    const adminCount = await userModel.countDocuments({ type: 'admin' });
     logger.info(`ensureAdminExists: admin user count = ${adminCount}`);
     if (adminCount > 0) {
-      const existing = await userModel.findOne({ role: 'admin' }).lean();
+      const existing = await userModel.findOne({ type: 'admin' }).lean();
       logger.info(`ensureAdminExists: admin exists (id=${existing?._id}, email=${existing?.email})`);
       return;
     }
@@ -52,9 +51,13 @@ export async function ensureAdminExists(): Promise<void> {
       const created = await userModel.create({
         email: adminEmail,
         password: hashed,
-        role: 'admin',
-        username: ADMIN_USERNAME,
+        type: 'admin',
         phoneNumber: ADMIN_PHONE,
+        sessionTrack: {
+          isOnline: false,
+          devices: [],
+        },
+        emailVerification: [{ isVerified: true }], // Admin is pre-verified
       });
       logger.info(`Default admin user created: ${adminEmail} (id=${created._id})`);
     } catch (createErr: any) {
@@ -66,7 +69,7 @@ export async function ensureAdminExists(): Promise<void> {
         try {
           const conflict = await userModel.findOne({ email: adminEmail }).lean();
           if (conflict) {
-            logger.warn(`ensureAdminExists: found document with same email: id=${conflict._id}, role=${conflict.role}`);
+            logger.warn(`ensureAdminExists: found document with same email: id=${conflict._id}, type=${(conflict as any).type}`);
           } else {
             logger.warn('ensureAdminExists: no document found with the admin email despite duplicate key error. Index inconsistency may exist.');
           }

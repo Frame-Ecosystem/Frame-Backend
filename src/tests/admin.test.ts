@@ -1,24 +1,22 @@
 import AdminService from '../services/admin.service';
 import { CreateUserDto, UpdateUserDto } from '../dtos/users.dto';
-import { User } from '../interfaces/users.interface';
 import userModel from '../models/users.model';
-import { BCRYPT_ROUNDS } from '../config/constants';
-import bcrypt from 'bcrypt';
 
 jest.mock('../models/users.model');
 
 const adminService = new AdminService();
 
 describe('AdminService', () => {
-  describe('findAllUsers', () => {
-    it('should return all users', async () => {
+  describe('findUsersPaginated', () => {
+    it('should return paginated users', async () => {
       (userModel.find as jest.Mock).mockResolvedValue([{ _id: '1', email: 'a@email.com' }]);
-      const users = await adminService.findAllUsers();
-      expect(users).toEqual([{ _id: '1', email: 'a@email.com' }]);
+      (userModel.countDocuments as jest.Mock).mockResolvedValue(1);
+      const result = await adminService.findUsersPaginated({}, 1, 20);
+      expect(result).toEqual({ users: [{ _id: '1', email: 'a@email.com' }], total: 1 });
     });
     it('should handle errors', async () => {
       (userModel.find as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(adminService.findAllUsers()).rejects.toThrow('Operation failed. Please try again');
+      await expect(adminService.findUsersPaginated({}, 1, 20)).rejects.toThrow('Operation failed. Please try again');
     });
   });
 
@@ -39,7 +37,7 @@ describe('AdminService', () => {
   });
 
   describe('createUser', () => {
-    const dto: CreateUserDto = { email: 'a@email.com', username: 'user', password: 'pass', phoneNumber: '123' };
+    const dto: CreateUserDto = { email: 'a@email.com', password: 'pass', phoneNumber: '123' };
     it('should create user', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
       (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
@@ -73,7 +71,7 @@ describe('AdminService', () => {
   });
 
   describe('updateUser', () => {
-    const dto: UpdateUserDto = { email: 'a@email.com', username: 'user', phoneNumber: '123' };
+    const dto: UpdateUserDto = { email: 'a@email.com', phoneNumber: '123' };
     it('should update user', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValue(null);
       (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue({ _id: '1', ...dto });

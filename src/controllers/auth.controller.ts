@@ -1,10 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { verify } from 'jsonwebtoken';
-import { CreateUserDto, LoginUserDto, ChangePasswordDto } from '@dtos/users.dto';
+import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@interfaces/auth.interface';
 import { User } from '@interfaces/users.interface';
 import AuthService from '@services/auth.service';
-import { NODE_ENV, REFRESH_TOKEN_SECRET } from '@config';
+import { NODE_ENV, REFRESH_TOKEN_SECRET, ORIGIN } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
 import { stripSensitiveFields } from '@utils/util';
 
@@ -14,9 +14,48 @@ class AuthController {
   public signUp = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userData: CreateUserDto = req.body;
-      const signUpUserData: User = await this.authService.signup(userData);
 
-      res.status(201).json({ data: stripSensitiveFields(signUpUserData), message: 'signup' });
+      // Collect device info for session tracking
+      const userAgent =
+        typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent']
+          : Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : undefined;
+      const ip = typeof req.ip === 'string' && req.ip ? req.ip : req.socket?.remoteAddress || 'Unknown';
+      const deviceName = typeof req.body?.deviceName === 'string' ? req.body.deviceName : undefined;
+      const deviceInfo = { userAgent, ip, deviceName };
+
+      const { user, tokenData, refreshToken } = await this.authService.signup(userData, deviceInfo);
+
+      // Detect client type from header
+      const clientType = req.headers['x-client-type'];
+      if (clientType === 'mobile') {
+        // Mobile: return both tokens in body
+        res.status(201).json({
+          data: stripSensitiveFields(user),
+          accessToken: tokenData.token,
+          refreshToken,
+          expiresIn: tokenData.expiresIn,
+          message: 'signup',
+        });
+      } else {
+        // Web: set refresh token as HttpOnly cookie, return only access token
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
+        setCsrfToken(res);
+        res.status(201).json({
+          data: stripSensitiveFields(user),
+          token: tokenData.token,
+          expiresIn: tokenData.expiresIn,
+          message: 'signup',
+        });
+      }
     } catch (error) {
       next(error);
     }
@@ -26,36 +65,47 @@ class AuthController {
     try {
       const userData: LoginUserDto = req.body;
 
-      // Collect device info for session tracking
-      // Fix #2: Ensure IP always has a default value
-      const deviceInfo = {
-        userAgent: req.headers['user-agent'] as string | undefined,
-        ip: (req.ip || req.socket?.remoteAddress || 'Unknown') as string,
-        deviceName: req.body?.deviceName as string | undefined, // Optional: client can send device name
-      };
+      // Collect device info for session tracking with type validation
+      const userAgent =
+        typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent']
+          : Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : undefined;
+      const ip = typeof req.ip === 'string' && req.ip ? req.ip : req.socket?.remoteAddress || 'Unknown';
+      const deviceName = typeof req.body?.deviceName === 'string' ? req.body.deviceName : undefined;
+      const deviceInfo = { userAgent, ip, deviceName };
 
       const { findUser, tokenData, refreshToken } = await this.authService.login(userData, deviceInfo);
 
-      // Set refresh token as HttpOnly cookie (secure from XSS)
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-        path: '/', // Sent to all endpoints (auth routes are at root)
-      });
-
-      // Set CSRF token for protection against cross-site request forgery
-      setCsrfToken(res);
-
-      // Access token returned in body only - client stores in JS memory
-      // Client sends it via Authorization header on subsequent requests
-      res.status(200).json({
-        data: stripSensitiveFields(findUser),
-        token: tokenData.token,
-        expiresIn: tokenData.expiresIn,
-        message: 'login',
-      });
+      // Detect client type from header
+      const clientType = req.headers['x-client-type'];
+      if (clientType === 'mobile') {
+        // Mobile: return both tokens in body
+        res.status(200).json({
+          data: stripSensitiveFields(findUser),
+          accessToken: tokenData.token,
+          refreshToken,
+          expiresIn: tokenData.expiresIn,
+          message: 'login',
+        });
+      } else {
+        // Web: set refresh token as HttpOnly cookie, return only access token
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: NODE_ENV === 'production',
+          sameSite: 'strict',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
+        setCsrfToken(res);
+        res.status(200).json({
+          data: stripSensitiveFields(findUser),
+          token: tokenData.token,
+          expiresIn: tokenData.expiresIn,
+          message: 'login',
+        });
+      }
     } catch (error) {
       next(error);
     }
@@ -109,11 +159,16 @@ class AuthController {
         return res.status(401).json({ message: 'Refresh token missing' });
       }
 
-      // Collect device info for session tracking
-      const deviceInfo = {
-        userAgent: req.headers['user-agent'],
-        ip: req.ip || req.socket.remoteAddress,
-      };
+      // Collect device info for session tracking with type validation
+      let userAgent: string | undefined = undefined;
+      if (typeof req.headers['user-agent'] === 'string') {
+        userAgent = req.headers['user-agent'];
+      } else if (Array.isArray(req.headers['user-agent'])) {
+        userAgent = req.headers['user-agent'][0];
+      }
+      let ip: string = typeof req.ip === 'string' ? req.ip : req.socket?.remoteAddress || 'Unknown';
+      if (typeof ip !== 'string' || !ip) ip = 'Unknown';
+      const deviceInfo = { userAgent, ip };
 
       const { tokenData, newRefreshToken } = await this.authService.refreshAccessToken(refreshToken, deviceInfo);
 
@@ -137,29 +192,53 @@ class AuthController {
     }
   };
 
-  // ============================================
-  // PASSWORD MANAGEMENT
-  // ============================================
-
-  /**
-   * Change password for authenticated user
-   */
-
-  // ============================================
-  // SESSION TRACKING
-  // ============================================
-
-  /**
-   * Get all online users with their devices and lastSeen
-   */
-  public getSessionTrack = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+  public googleAuthCallback = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const onlineUsers = await this.authService.getOnlineUsers();
-      res.status(200).json({
-        data: onlineUsers,
-        count: onlineUsers.length,
-        message: 'Online users retrieved',
-      });
+      // User is attached by Passport strategy
+      const user = req.user as User;
+
+      if (!user) {
+        return res.status(401).json({ message: 'Google authentication failed' });
+      }
+
+      // Collect device info for session tracking
+      const userAgent =
+        typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent']
+          : Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : undefined;
+      const ip = typeof req.ip === 'string' && req.ip ? req.ip : req.socket?.remoteAddress || 'Unknown';
+      const deviceName = typeof req.body?.deviceName === 'string' ? req.body.deviceName : undefined;
+      const deviceInfo = { userAgent, ip, deviceName };
+
+      // Generate tokens for the authenticated user
+      const { tokenData, refreshToken } = await this.authService.generateTokensForOAuthUser(user, deviceInfo);
+
+      // Detect client type from header
+      const clientType = req.headers['x-client-type'];
+      if (clientType === 'mobile') {
+        // Mobile: return both tokens in body
+        res.status(200).json({
+          data: stripSensitiveFields(user),
+          accessToken: tokenData.token,
+          refreshToken,
+          expiresIn: tokenData.expiresIn,
+          message: 'google-auth',
+        });
+      } else {
+        // Web: set refresh token as HttpOnly cookie, then redirect to frontend callback page
+        res.cookie('refreshToken', refreshToken, {
+          httpOnly: true,
+          secure: NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+          path: '/',
+        });
+        setCsrfToken(res);
+        const redirectUrl = `${ORIGIN || 'http://localhost:3001'}/auth/google/callback?status=success&provider=google`;
+        return res.redirect(redirectUrl);
+      }
     } catch (error) {
       next(error);
     }

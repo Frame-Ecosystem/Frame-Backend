@@ -1,3 +1,6 @@
+// ============================================
+// EMAIL VERIFICATION DTO
+// ============================================
 import {
   IsEmail,
   IsString,
@@ -12,28 +15,38 @@ import {
   Min,
   Max,
   IsUrl,
+  IsArray,
 } from 'class-validator';
+
+export class SendVerificationEmailDto {
+  @IsEmail({}, { message: 'A valid email is required' })
+  @IsNotEmpty({ message: 'Email is required' })
+  public email: string;
+}
+
+export class VerifyEmailCodeDto {
+  @IsString({ message: 'Verification code is required' })
+  @IsNotEmpty({ message: 'Verification code is required' })
+  public code: string;
+}
+
 import { Type } from 'class-transformer';
 
-// ============================================
 // ENUMS
-// ============================================
 
-export enum UserRole {
-  ADMIN = 'admin',
+export enum UserType {
   USER = 'user',
-  BARBER = 'barber',
+  CLIENT = 'client',
+  LOUNGE = 'lounge',
 }
 
 export enum UserGender {
   MALE = 'male',
   FEMALE = 'female',
-  OTHER = 'other',
+  BOTH = 'both',
 }
 
-// ============================================
 // VALIDATION REGEX PATTERNS
-// ============================================
 
 /**
  * Password must contain:
@@ -44,14 +57,6 @@ export enum UserGender {
  * - At least one special character (@$!%*?&)
  */
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-/**
- * Username rules:
- * - 3-30 characters
- * - Only alphanumeric, underscores, and hyphens
- * - Must start with a letter
- */
-const USERNAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_-]{2,29}$/;
 
 /**
  * Phone number:
@@ -65,9 +70,7 @@ const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
  */
 const PLACE_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
-// ============================================
 // ERROR MESSAGES
-// ============================================
 
 const VALIDATION_MESSAGES = {
   email: {
@@ -80,21 +83,15 @@ const VALIDATION_MESSAGES = {
     minLength: 'Password must be at least 8 characters',
     maxLength: 'Password cannot exceed 128 characters',
   },
-  username: {
-    invalid: 'Username must be 3-30 characters, start with a letter, and contain only letters, numbers, underscores, or hyphens',
-    required: 'Username is required',
-    minLength: 'Username must be at least 3 characters',
-    maxLength: 'Username cannot exceed 30 characters',
-  },
   phoneNumber: {
     invalid: 'Please provide a valid phone number (e.g., +21612345678)',
     required: 'Phone number is required',
   },
   gender: {
-    invalid: 'Gender must be one of: male, female, other',
+    invalid: 'Gender must be one of: male, female, both',
   },
-  role: {
-    invalid: 'Role must be one of: admin, user, barber',
+  type: {
+    invalid: 'Type must be one of: user, client, lounge',
   },
   location: {
     latitude: {
@@ -118,14 +115,12 @@ const VALIDATION_MESSAGES = {
     invalid: 'Profile image must be a valid URL',
   },
   login: {
-    emailOrUsername: 'Email or username is required',
+    email: 'Email is required',
     password: 'Password is required',
   },
 };
 
-// ============================================
 // LOCATION DTO
-// ============================================
 
 export class LocationDto {
   @IsNumber({}, { message: VALIDATION_MESSAGES.location.latitude.invalid })
@@ -149,9 +144,7 @@ export class LocationDto {
   public placeId: string;
 }
 
-// ============================================
 // CREATE USER DTO (Signup)
-// ============================================
 
 export class CreateUserDto {
   @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
@@ -165,26 +158,34 @@ export class CreateUserDto {
   @Matches(PASSWORD_REGEX, { message: VALIDATION_MESSAGES.password.invalid })
   public password: string;
 
-  @IsString({ message: VALIDATION_MESSAGES.username.required })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.username.required })
-  @MinLength(3, { message: VALIDATION_MESSAGES.username.minLength })
-  @MaxLength(30, { message: VALIDATION_MESSAGES.username.maxLength })
-  @Matches(USERNAME_REGEX, { message: VALIDATION_MESSAGES.username.invalid })
-  public username: string;
-
+  @IsOptional()
   @IsString({ message: VALIDATION_MESSAGES.phoneNumber.required })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.phoneNumber.required })
   @Matches(PHONE_REGEX, { message: VALIDATION_MESSAGES.phoneNumber.invalid })
-  public phoneNumber: string;
+  public phoneNumber?: string;
 
   @IsOptional()
   @IsEnum(UserGender, { message: VALIDATION_MESSAGES.gender.invalid })
   public gender?: UserGender;
 
-  // Role is optional for admin-created users
   @IsOptional()
-  @IsEnum(UserRole, { message: VALIDATION_MESSAGES.role.invalid })
-  public role?: UserRole;
+  @IsString({ message: 'First name must be a string' })
+  @MaxLength(50, { message: 'First name cannot exceed 50 characters' })
+  public firstName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Last name must be a string' })
+  @MaxLength(50, { message: 'Last name cannot exceed 50 characters' })
+  public lastName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Lounge title must be a string' })
+  @MaxLength(100, { message: 'Lounge title cannot exceed 100 characters' })
+  public LoungeTitle?: string;
+
+  // Type is optional - determines user inheritance (client, lounge, or regular user)
+  @IsOptional()
+  @IsEnum(UserType, { message: VALIDATION_MESSAGES.type.invalid })
+  public type?: UserType;
 
   @IsOptional()
   @ValidateNested()
@@ -197,11 +198,12 @@ export class CreateUserDto {
 
   @IsOptional()
   public isBlocked?: boolean = false;
+
+  @IsOptional()
+  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: false }];
 }
 
-// ============================================
 // UPDATE USER DTO (Partial updates)
-// ============================================
 
 export class UpdateUserDto {
   // Explicitly block sensitive fields that should never be updated via this DTO
@@ -210,20 +212,11 @@ export class UpdateUserDto {
   @Matches(/^$/, { message: 'Password cannot be updated through this endpoint. Use change-password endpoint.' })
   public password?: never;
 
-  @IsOptional()
-  @Matches(/^$/, { message: 'Role cannot be updated through this endpoint.' })
-  public role?: never;
+  // Note: User type cannot be changed after creation (Mongoose discriminator limitation)
 
   @IsOptional()
   @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
   public email?: string;
-
-  @IsOptional()
-  @IsString({ message: VALIDATION_MESSAGES.username.required })
-  @MinLength(3, { message: VALIDATION_MESSAGES.username.minLength })
-  @MaxLength(30, { message: VALIDATION_MESSAGES.username.maxLength })
-  @Matches(USERNAME_REGEX, { message: VALIDATION_MESSAGES.username.invalid })
-  public username?: string;
 
   @IsOptional()
   @Matches(PHONE_REGEX, { message: VALIDATION_MESSAGES.phoneNumber.invalid })
@@ -233,8 +226,27 @@ export class UpdateUserDto {
   @IsEnum(UserGender, { message: VALIDATION_MESSAGES.gender.invalid })
   public gender?: UserGender;
 
-  // Note: role is intentionally excluded - users cannot change their own role
-  // Role changes must be done by admin through a separate admin-only endpoint
+  @IsOptional()
+  @IsString({ message: 'First name must be a string' })
+  @MaxLength(50, { message: 'First name cannot exceed 50 characters' })
+  public firstName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Last name must be a string' })
+  @MaxLength(50, { message: 'Last name cannot exceed 50 characters' })
+  public lastName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Bio must be a string' })
+  @MaxLength(500, { message: 'Bio cannot exceed 500 characters' })
+  public bio?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Lounge title must be a string' })
+  @MaxLength(100, { message: 'Lounge title cannot exceed 100 characters' })
+  public loungeTitle?: string;
+
+  // Note: User type is set during OAuth signup and cannot be changed
 
   @IsOptional()
   @ValidateNested()
@@ -247,11 +259,12 @@ export class UpdateUserDto {
 
   @IsOptional()
   public isBlocked?: boolean;
+
+  @IsOptional()
+  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }>;
 }
 
-// ============================================
 // UPDATE LOCATION DTO
-// ============================================
 
 export class UpdateLocationDto {
   @IsNumber({}, { message: VALIDATION_MESSAGES.location.latitude.invalid })
@@ -275,23 +288,19 @@ export class UpdateLocationDto {
   public placeId: string;
 }
 
-// ============================================
 // LOGIN USER DTO
-// ============================================
 
 export class LoginUserDto {
-  @IsString({ message: VALIDATION_MESSAGES.login.emailOrUsername })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.login.emailOrUsername })
-  public emailOrUsername: string;
+  @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
+  @IsNotEmpty({ message: VALIDATION_MESSAGES.email.required })
+  public email: string;
 
   @IsString({ message: VALIDATION_MESSAGES.login.password })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.login.password })
   public password: string;
 }
 
-// ============================================
 // CHANGE PASSWORD DTO
-// ============================================
 
 export class ChangePasswordDto {
   @IsString({ message: 'Current password is required' })
@@ -310,9 +319,7 @@ export class ChangePasswordDto {
   public newPasswordConfirm: string;
 }
 
-// ============================================
 // SESSION ID DTO (for revoking sessions)
-// ============================================
 
 export class SessionIdDto {
   @IsString({ message: 'Session ID is required' })
@@ -320,12 +327,39 @@ export class SessionIdDto {
   public sessionId: string;
 }
 
-// ============================================
 // DELETE ACCOUNT DTO (for self-deletion)
-// ============================================
 
 export class DeleteAccountDto {
   @IsString({ message: 'Password is required to delete account' })
   @IsNotEmpty({ message: 'Password is required to delete account' })
   public password: string;
+}
+
+// (Operating hours DTO removed)
+
+// UPDATE LOUNGE PROFILE DTO
+
+export class UpdateLoungeProfileDto {
+  @IsOptional()
+  @IsString({ message: 'Lounge title must be a string' })
+  @MaxLength(100, { message: 'Lounge title cannot exceed 100 characters' })
+  public loungeTitle?: string;
+  @IsOptional()
+  @IsArray({ message: 'Services must be an array' })
+  @IsString({ each: true, message: 'Each service must be a string' })
+  public services?: string[];
+}
+
+// UPDATE CLIENT PROFILE DTO
+
+export class UpdateClientProfileDto {
+  @IsOptional()
+  @IsString({ message: 'First name must be a string' })
+  @MaxLength(50, { message: 'First name cannot exceed 50 characters' })
+  public firstName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Last name must be a string' })
+  @MaxLength(50, { message: 'Last name cannot exceed 50 characters' })
+  public lastName?: string;
 }

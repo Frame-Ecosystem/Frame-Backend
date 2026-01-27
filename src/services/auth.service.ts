@@ -29,7 +29,10 @@ import { logSecurityEvent, logger } from '@utils/logger';
 class AuthService {
   public users = userModel;
 
-  public async signup(userData: CreateUserDto): Promise<User> {
+  public async signup(
+    userData: CreateUserDto,
+    deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string },
+  ): Promise<{ user: User; tokenData: TokenData; refreshToken: string }> {
     try {
       if (isEmpty(userData)) {
         logger.warn('Signup attempt with empty data');
@@ -39,9 +42,6 @@ class AuthService {
       // Normalize email to lowercase for consistent storage and lookup
       const normalizedEmail = userData.email.toLowerCase().trim();
 
-      // Normalize username to lowercase for case-insensitive uniqueness
-      const normalizedUsername = userData.username.toLowerCase().trim();
-
       // Check for existing email
       const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
       if (findByEmail) {
@@ -49,24 +49,19 @@ class AuthService {
         throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
       }
 
-      // Check for existing username
-      const findByUsername: User = await this.users.findOne({ username: normalizedUsername });
-      if (findByUsername) {
-        logger.info(`Signup attempt with existing username: ${userData.username}`);
-        throw new ConflictException('Username already taken', 'USERNAME_EXISTS');
-      }
-
-      // Check for existing phone number
-      const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
-      if (findByPhone) {
-        logger.info(`Signup attempt with existing phone number: ${userData.phoneNumber}`);
-        throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+      // Check for existing phone number (only if provided)
+      if (userData.phoneNumber) {
+        const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+        if (findByPhone) {
+          logger.error(`Signup attempt with existing phone number: ${userData.phoneNumber}`);
+          throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+        }
       }
 
       const hashedPassword = await hash(userData.password, BCRYPT_ROUNDS);
-      // Explicitly exclude role from user input - all new users start as 'user' (set by model default)
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { role: _ignoredRole, ...safeUserData } = userData as any;
+
+      // Determine which model to use based on user type
+      const userType = userData.type || 'user';
 
       // Fix #3: Retry logic for race conditions
       const maxRetries = RETRY_MAX_ATTEMPTS;
@@ -75,12 +70,15 @@ class AuthService {
 
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          createUserData = await this.users.create({
-            ...safeUserData,
+          // Create user with type
+          const baseData = {
+            ...userData,
             email: normalizedEmail,
-            username: normalizedUsername,
             password: hashedPassword,
-          });
+            type: userType,
+          };
+
+          createUserData = await this.users.create(baseData);
           break; // Success - exit retry loop
         } catch (createError) {
           lastError = createError;
@@ -104,7 +102,34 @@ class AuthService {
       }
 
       logger.info(`New user registered: ${createUserData._id}`);
-      return createUserData;
+
+      // Generate tokens for immediate login
+      const tokenData = this.createToken(createUserData);
+      const refreshToken = await this.generateRefreshToken(createUserData, deviceInfo);
+
+      // Update sessionTrack with online status
+      const derivedDevices = this.getDevicesFromSessions(Array.isArray(createUserData.refreshTokens) ? createUserData.refreshTokens : []);
+
+      await this.users.findByIdAndUpdate(createUserData._id, {
+        'sessionTrack.isOnline': true,
+        'sessionTrack.lastSeen': new Date(),
+        'sessionTrack.devices': derivedDevices,
+      });
+
+      // Get updated user
+      const updatedUser = await this.users.findById(createUserData._id);
+
+      // Send email verification code after successful signup
+      try {
+        const CurrentUserServiceModule = await import('./currentUser.service');
+        const CurrentUserService = CurrentUserServiceModule.default;
+        const currentUserService = new CurrentUserService();
+        await currentUserService.sendVerificationCode(createUserData.email);
+      } catch (verifErr) {
+        logger.error(`Signup: Failed to send verification code for user ${createUserData._id}: ${verifErr.message}`);
+      }
+
+      return { user: updatedUser, tokenData, refreshToken };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle race condition: if unique index catches a duplicate
@@ -124,11 +149,9 @@ class AuthService {
         throw new BadRequestException('Invalid request data');
       }
 
-      // Find user by email or username (normalize for case-insensitive lookup)
-      const normalizedIdentifier = userData.emailOrUsername.toLowerCase().trim();
-      const findUser: User = await this.users.findOne({
-        $or: [{ email: normalizedIdentifier }, { username: normalizedIdentifier }],
-      });
+      // Find user by email (normalize for case-insensitive lookup)
+      const normalizedEmail = userData.email.toLowerCase().trim();
+      const findUser: User = await this.users.findOne({ email: normalizedEmail });
 
       if (!findUser) {
         logSecurityEvent({
@@ -136,7 +159,7 @@ class AuthService {
           reason: 'User not found',
           ip: deviceInfo?.ip,
           userAgent: deviceInfo?.userAgent,
-          attemptedIdentifier: userData.emailOrUsername,
+          attemptedEmail: userData.email,
         });
         throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
       }
@@ -158,7 +181,7 @@ class AuthService {
 
       // Update sessionTrack with online status only
       // Devices are derived from active refresh tokens - single source of truth
-      const derivedDevices = this.getDevicesFromSessions(findUser.refreshTokens || []);
+      const derivedDevices = this.getDevicesFromSessions(Array.isArray(findUser.refreshTokens) ? findUser.refreshTokens : []);
 
       await this.users.findByIdAndUpdate(findUser._id, {
         'sessionTrack.isOnline': true,
@@ -168,7 +191,9 @@ class AuthService {
 
       // Get updated user and session count
       const updatedUser = await this.users.findById(findUser._id);
-      const sessionCount = (updatedUser?.refreshTokens || []).filter(s => new Date(s.expiresAt) > new Date()).length;
+      const sessionCount = (Array.isArray(updatedUser?.refreshTokens) ? updatedUser.refreshTokens : []).filter(
+        s => s && s.expiresAt && new Date(s.expiresAt) > new Date(),
+      ).length;
 
       logSecurityEvent({
         event: 'LOGIN_SUCCESS',
@@ -323,7 +348,6 @@ class AuthService {
     }
   }
 
-
   public async getUserByToken(token: string): Promise<User> {
     try {
       if (!token) {
@@ -377,7 +401,7 @@ class AuthService {
   }
 
   public createToken(user: User): TokenData {
-    const dataStoredInToken: DataStoredInToken = { _id: user._id, role: user.role };
+    const dataStoredInToken: DataStoredInToken = { _id: user._id };
     const secretKey: string = SECRET_KEY;
 
     return { expiresIn: ACCESS_TOKEN_EXPIRES_SECONDS, token: sign(dataStoredInToken, secretKey, { expiresIn: ACCESS_TOKEN_EXPIRES_SECONDS }) };
@@ -579,6 +603,46 @@ class AuthService {
         userAgent: deviceInfo?.userAgent,
       });
       throw new UnauthorizedException('Authentication failed', 'INVALID_TOKEN');
+    }
+  }
+
+  public async generateTokensForOAuthUser(
+    user: User,
+    deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string },
+  ): Promise<{ tokenData: TokenData; refreshToken: string }> {
+    try {
+      // Use the same flow as regular login/signup
+      const tokenData = this.createToken(user);
+      const refreshToken = await this.generateRefreshToken(user, deviceInfo);
+
+      // Update sessionTrack
+      const derivedDevices = this.getDevicesFromSessions(Array.isArray(user.refreshTokens) ? user.refreshTokens : []);
+      await this.users.findByIdAndUpdate(user._id, {
+        'sessionTrack.isOnline': true,
+        'sessionTrack.lastSeen': new Date(),
+        'sessionTrack.devices': derivedDevices,
+      });
+
+      // Log successful OAuth authentication
+      logSecurityEvent({
+        event: 'OAUTH_LOGIN_SUCCESS',
+        userId: String(user._id),
+        email: user.email,
+        provider: 'google',
+        ip: deviceInfo?.ip,
+        userAgent: deviceInfo?.userAgent,
+      });
+
+      return { tokenData, refreshToken };
+    } catch (error) {
+      logger.error(`OAuth token generation failed: ${error.message}`, {
+        stack: error.stack,
+        userId: user._id,
+        email: user.email,
+        ip: deviceInfo?.ip,
+        userAgent: deviceInfo?.userAgent,
+      });
+      throw new InternalServerException('Authentication failed');
     }
   }
 }

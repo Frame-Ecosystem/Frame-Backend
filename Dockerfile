@@ -1,24 +1,57 @@
 # Common build stage
 FROM node:20-alpine as common-build-stage
 
-COPY . ./app
+# Install dumb-init for proper signal handling
+RUN apk add --no-cache dumb-init
+
+# Create app directory and set correct permissions
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
 WORKDIR /app
 
-RUN npm install
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Change ownership of the app directory
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
 EXPOSE 3000
 
 # Development build stage
 FROM common-build-stage as development-build-stage
 
-ENV NODE_ENV development
+ENV NODE_ENV=development
 
-CMD ["npm", "run", "dev"]
+# Install dev dependencies for development
+USER root
+RUN npm ci
+USER nextjs
+
+CMD ["dumb-init", "npm", "run", "dev"]
 
 # Production build stage
 FROM common-build-stage as production-build-stage
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 
-CMD ["npm", "run", "start"]
+# Build the application
+RUN npm run build
+
+# Remove dev dependencies to reduce image size
+USER root
+RUN npm prune --production
+USER nextjs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+CMD ["dumb-init", "npm", "run", "start"]

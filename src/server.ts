@@ -1,10 +1,5 @@
-// Import reflect-metadata FIRST before any other imports
 import 'reflect-metadata';
-
-// Ensure .env is loaded as early as possible
 import 'dotenv/config';
-
-// Import config to ensure environment variables are available
 import '@/config';
 
 import validateEnv from '@utils/validateEnv';

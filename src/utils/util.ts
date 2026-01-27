@@ -30,10 +30,10 @@ export const isEmpty = (value: string | number | object): boolean => {
 export const stripSensitiveFields = (user: User): Partial<User> => {
   // Use runtime check for Mongoose document
   let userObj: Record<string, unknown>;
-  if (typeof user === 'object' && user !== null && typeof (user as { toObject?: unknown }).toObject === 'function') {
-    userObj = (user as { toObject: () => Record<string, unknown> }).toObject();
+  if (typeof user === 'object' && user !== null && 'toObject' in user && typeof user.toObject === 'function') {
+    userObj = user.toObject();
   } else {
-    userObj = user as Record<string, unknown>;
+    userObj = user as unknown as Record<string, unknown>;
   }
   const { password, refreshTokens, ...safeUser } = userObj;
   void password;
@@ -66,8 +66,6 @@ export const handleMongoDBDuplicateKeyError = (error: any): never | false => {
   switch (duplicateField) {
     case 'email':
       throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
-    case 'username':
-      throw new ConflictException('Username already taken', 'USERNAME_EXISTS');
     case 'phoneNumber':
       throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
     default:

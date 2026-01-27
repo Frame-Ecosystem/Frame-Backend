@@ -25,7 +25,7 @@ tags:
   - name: admin
   - name: current users
 paths:
-  # ============================================
+ # ============================================
   # AUTH ENDPOINTS
   # ============================================
 
@@ -43,8 +43,6 @@ paths:
             required:
               - email
               - password
-              - username
-              - phoneNumber
             properties:
               email:
                 type: string
@@ -57,21 +55,21 @@ paths:
                 maxLength: 128
                 description: Password must contain at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)
                 example: SecurePass123!
-              username:
-                type: string
-                minLength: 3
-                maxLength: 30
-                description: Username (3-30 chars, starts with letter, alphanumeric/underscore/hyphen)
-                example: newuser
               phoneNumber:
                 type: string
-                description: Phone number in international format
+                description: Phone number in international format (optional)
                 example: "+21650922140"
               gender:
                 type: string
-                enum: [male, female, other]
+                enum: [male, female, both]
+                default: both
                 description: User gender (optional)
                 example: male
+              type:
+                type: string
+                enum: [user, client, lounge]
+                description: User type - determines inheritance (client, lounge, or regular user)
+                example: user
               location:
                 $ref: '#/definitions/LocationDto'
               profileImage:
@@ -85,7 +83,7 @@ paths:
         400:
           description: Validation error
         409:
-          description: Email, username, or phone already registered
+          description: Email or phone already registered
         429:
           description: Rate limit exceeded
         500:
@@ -103,12 +101,12 @@ paths:
           schema:
             type: object
             required:
-              - emailOrUsername
+              - email
               - password
             properties:
-              emailOrUsername:
+              email:
                 type: string
-                description: Email address or username
+                description: Email address
                 example: user@example.com
               password:
                 type: string
@@ -174,6 +172,83 @@ paths:
           description: Refresh token missing, expired, or invalid
         403:
           description: CSRF token missing or invalid
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/google/login:
+    get:
+      tags:
+        - auth
+      summary: Initiate Google OAuth login for existing users
+      description: Redirects to Google for authentication. Only for existing users.
+      responses:
+        302:
+          description: Redirect to Google OAuth
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/google/signup:
+    get:
+      tags:
+        - auth
+      summary: Initiate Google OAuth signup for new users
+      description: Redirects to Google for authentication and account creation. Only for new users.
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [client, lounge]
+          description: User type to create (client or lounge)
+      responses:
+        302:
+          description: Redirect to Google OAuth
+        400:
+          description: Invalid type or user already exists
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/google/callback:
+    get:
+      tags:
+        - auth
+      summary: Google OAuth callback
+      description: Handles the callback from Google OAuth and returns authentication tokens
+      parameters:
+        - name: code
+          in: query
+          type: string
+          description: Authorization code from Google
+        - name: state
+          in: query
+          type: string
+          description: State parameter for CSRF protection
+      responses:
+        200:
+          description: Authentication successful
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              token:
+                type: string
+                description: JWT access token
+              expiresIn:
+                type: number
+                description: Token expiration time in seconds
+              message:
+                type: string
+                example: google-auth
+        401:
+          description: Google authentication failed
         429:
           description: Rate limit exceeded
         500:
@@ -306,7 +381,7 @@ paths:
         - admin
       summary: Create a new user (Admin only)
       description: |
-        Create a new user account. Admin can set role.
+        Create a new user account. Admin can set user type (client, lounge, or regular user).
         **Admin access required.**
       security:
         - bearerAuth: []
@@ -321,9 +396,8 @@ paths:
             application/json:
               email: "admincreated@example.com"
               password: "AdminP@ss123"
-              username: "admincreated"
               phoneNumber: "+21698765432"
-              role: "user"
+              type: "client"
       responses:
         201:
           description: User created successfully
@@ -342,7 +416,7 @@ paths:
         403:
           description: Admin access required or CSRF token invalid
         409:
-          description: Email, username, or phone already registered
+          description: Email or phone already registered
         500:
           description: Server error
 
@@ -371,9 +445,6 @@ paths:
                     email:
                       type: string
                       example: "user@example.com"
-                    username:
-                      type: string
-                      example: "johndoe"
                     sessionTrack:
                       type: object
                       properties:
@@ -483,7 +554,7 @@ paths:
         404:
           description: User not found
         409:
-          description: Email, username, or phone already taken
+          description: Email or phone already taken
         500:
           description: Server error
 
@@ -588,17 +659,12 @@ paths:
                 type: string
                 format: email
                 example: updated@example.com
-              username:
-                type: string
-                minLength: 3
-                maxLength: 30
-                example: updateduser
               phoneNumber:
                 type: string
                 example: "+21655555555"
               gender:
                 type: string
-                enum: [male, female, other]
+                enum: [male, female, both]
               location:
                 $ref: '#/definitions/LocationDto'
               profileImage:
@@ -630,7 +696,7 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
         409:
-          description: Email, username, or phone already taken
+          description: Email or phone already taken
           schema:
             $ref: '#/definitions/ErrorResponse'
         500:
@@ -829,6 +895,72 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
 
+  /v1/me/send-verification-code:
+      post:
+        tags:
+          - current users
+        summary: Send email verification code
+        description: Sends a 6-digit verification code to the provided email address. Blocks disposable email addresses. No authentication required.
+        parameters:
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email address to send verification code
+                  example: "user@example.com"
+        responses:
+          200:
+            description: Verification code sent to your email
+          400:
+            description: Disposable email or validation error
+          404:
+            description: User not found
+          500:
+            description: Server error
+
+  /v1/me/verify-email:
+      post:
+        tags:
+          - current users
+        summary: Verify email with code
+        description: |
+          Submits the 6-digit code sent to the user's email to verify the email address. No authentication required.
+        parameters:
+          - name: body
+            in: body
+            required: true
+            schema:
+              type: object
+              required:
+                - email
+                - code
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email address to verify
+                  example: "user@example.com"
+                code:
+                  type: string
+                  description: 6-digit verification code sent to email
+                  example: "123456"
+        responses:
+          200:
+            description: Email verified successfully
+          400:
+            description: Invalid or expired code
+          404:
+            description: User not found
+          500:
+            description: Server error
+ 
 # ============================================
 # DEFINITIONS
 # ============================================
@@ -839,8 +971,6 @@ definitions:
     required:
       - email
       - password
-      - username
-      - phoneNumber
     properties:
       email:
         type: string
@@ -854,19 +984,14 @@ definitions:
         description: |
           Password must contain at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)
         example: SecureP@ss123
-      username:
-        type: string
-        minLength: 3
-        maxLength: 30
-        description: Username (3-30 chars, starts with letter, alphanumeric/underscore/hyphen)
-        example: john_doe
       phoneNumber:
         type: string
-        description: Phone number in international format
+        description: Phone number in international format (optional)
         example: "+21612345678"
       gender:
         type: string
-        enum: [male, female, other]
+        enum: [male, female, both]
+        default: both
         description: User gender (optional)
       location:
         $ref: '#/definitions/LocationDto'
@@ -880,31 +1005,26 @@ definitions:
       - $ref: '#/definitions/CreateUserDto'
       - type: object
         properties:
-          role:
+          type:
             type: string
-            enum: [admin, user, barber]
+            enum: [user, client, lounge, admin]
             default: user
-            description: User role (admin only)
+            description: User type
 
   UpdateUserDto:
     type: object
-    description: All fields are optional. Password and role cannot be changed here.
+    description: All fields are optional. Password and user type cannot be changed.
     properties:
       email:
         type: string
         format: email
         example: newemail@example.com
-      username:
-        type: string
-        minLength: 3
-        maxLength: 30
-        example: new_username
       phoneNumber:
         type: string
         example: "+21698765432"
       gender:
         type: string
-        enum: [male, female, other]
+        enum: [male, female, both]
       location:
         $ref: '#/definitions/LocationDto'
       profileImage:
@@ -914,12 +1034,12 @@ definitions:
       LoginUserDto:
         type: object
         required:
-          - emailOrUsername
+          - email
           - password
         properties:
-          emailOrUsername:
+          email:
             type: string
-            description: Email address or username
+            description: Email address
             example: user@example.com
           password:
             type: string
@@ -998,18 +1118,15 @@ definitions:
       email:
         type: string
         example: user@example.com
-      username:
-        type: string
-        example: john_doe
       phoneNumber:
         type: string
         example: "+21612345678"
       gender:
         type: string
-        enum: [male, female, other]
-      role:
-        type: string
-        enum: [admin, user, barber]
+        enum: [male, female, both]
+      # Note: User type is determined by 'type' field
+      # Admin users have type: 'admin', Client users have type: 'client', Lounge users have type: 'lounge'
+      # Regular users have type: 'user'
       location:
         $ref: '#/definitions/LocationDto'
       profileImage:
@@ -1040,8 +1157,6 @@ definitions:
       _id:
         type: string
       email:
-        type: string
-      username:
         type: string
       sessionTrack:
         type: object
