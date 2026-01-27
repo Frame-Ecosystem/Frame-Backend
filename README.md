@@ -1,7 +1,3 @@
-# TypeScript Express + Mongoose — Quick Start
-
-Minimal instructions to get the API running locally.
-
 ## Prerequisites
 - Node.js 16+ and npm
 - MongoDB (local or hosted)
