@@ -31,16 +31,3 @@ npm run dev
 npm run build
 npm start
 ```
-
-## Tests
-
-```bash
-npm test
-```
-
-## Notes
-- The repository contains a native Android module under `src/main` (Android source & resources). Remove it if you don't need a mobile client.
-- If you removed model fields (for example `businessName`, `operatingHours`, `bookingHistory`), ensure any code or migrations depending on them are updated.
-
-Need further edits or to remove the Android module? Reply and I will continue.
-
