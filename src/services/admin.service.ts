@@ -118,7 +118,7 @@ class AdminService {
             email: normalizedEmail,
             password: hashedPassword,
           };
-          
+
           // Create user with type
           createUserData = await userModel.create(baseData);
           break; // Success - exit retry loop

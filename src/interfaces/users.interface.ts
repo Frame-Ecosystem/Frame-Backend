@@ -5,6 +5,73 @@ export interface Location {
   placeId: string;
 }
 
+export interface OpeningHours {
+  from?: string; // Time in HH:MM format
+  to?: string; // Time in HH:MM format
+}
+
+export interface DayOpeningHours {
+  monday?: OpeningHours;
+  tuesday?: OpeningHours;
+  wednesday?: OpeningHours;
+  thursday?: OpeningHours;
+  friday?: OpeningHours;
+  saturday?: OpeningHours;
+  sunday?: OpeningHours;
+}
+
+export enum ServiceStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
+export enum ServiceSuggestionStatus {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  IMPLEMENTED = 'implemented',
+}
+
+export interface ServiceCategory {
+  _id: string;
+  name: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface Service {
+  _id: string;
+  name: string;
+  slug: string;
+  categoryId: string;
+  baseDuration?: number;
+  status: ServiceStatus;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface ServiceSuggestion {
+  _id: string;
+  name: string;
+  description?: string;
+  status: ServiceSuggestionStatus;
+  loungeId: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface LoungeService {
+  _id: string;
+  loungeId: string;
+  serviceId: string;
+  price: number;
+  duration: number;
+  description?: string;
+  isActive: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface RefreshTokenSession {
   jti: string;
   tokenHash: string;
@@ -43,12 +110,12 @@ export interface User {
   type: 'user' | 'client' | 'lounge' | 'admin';
   password?: string; // Optional for OAuth users
   phoneNumber?: string; // Optional
-  gender?: 'male' | 'female' | 'both'; // Optional
+  gender?: 'male' | 'female' | 'unisex' | 'kids'; // Optional
   firstName?: string; // Client-specific
   lastName?: string; // Client-specific
   bio?: string;
   loungeTitle?: string; // Lounge-specific
-  services?: string[]; // Lounge-specific
+  openingHours?: DayOpeningHours; // Lounge-specific
   location?: Location;
   profileImage?: { url?: string; publicId?: string };
   isBlocked?: boolean;
@@ -71,7 +138,7 @@ export interface Client extends User {
 export interface Lounge extends User {
   // Lounge-specific fields
   LoungeTitle?: string;
-  services?: string[]; // Array of services offered
+  openingHours?: DayOpeningHours; // Opening hours for each day of the week
 }
 
 // Admin extends User

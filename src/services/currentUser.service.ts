@@ -325,12 +325,6 @@ class CurrentUserService {
       if (loungeData.loungeTitle !== undefined) {
         updateData.loungeTitle = loungeData.loungeTitle;
       }
-      if (loungeData.services !== undefined) {
-        updateData.services = loungeData.services;
-      }
-      if (loungeData.services !== undefined) {
-        updateData.services = loungeData.services;
-      }
 
       const updatedUser = await this.users.findByIdAndUpdate(userId, updateData, { new: true });
       if (!updatedUser) {
@@ -378,7 +372,6 @@ class CurrentUserService {
       if (clientData.lastName !== undefined) {
         updateData.lastName = clientData.lastName;
       }
-      
 
       const updatedUser = await this.users.findByIdAndUpdate(userId, updateData, { new: true });
       if (!updatedUser) {
