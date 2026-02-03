@@ -134,11 +134,15 @@ class ServiceSuggestionsController {
       const suggestionId = req.params.suggestionId;
       const statusData = req.body;
 
-      const suggestion = await this.serviceSuggestionsService.updateServiceSuggestionStatus(suggestionId, statusData);
+      const result = await this.serviceSuggestionsService.updateServiceSuggestionStatus(suggestionId, statusData);
 
       res.status(200).json({
-        data: stripSensitiveFields(suggestion),
-        message: 'Service suggestion status updated successfully',
+        data: {
+          suggestion: stripSensitiveFields(result.suggestion),
+          service: result.service ? stripSensitiveFields(result.service) : null,
+          loungeService: result.loungeService ? stripSensitiveFields(result.loungeService) : null,
+        },
+        message: result.service ? 'Service suggestion approved and implemented successfully' : 'Service suggestion status updated successfully',
       });
     } catch (error) {
       next(error);
@@ -174,6 +178,29 @@ class ServiceSuggestionsController {
       res.status(200).json({
         data: stats,
         message: 'Service suggestions statistics retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Admin function to update service suggestion status and create service/lounge service when approved
+   */
+  public adminUpdateServiceSuggestionStatus = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const suggestionId = req.params.suggestionId;
+      const updateData = req.body;
+
+      const result = await this.serviceSuggestionsService.adminUpdateServiceSuggestionStatus(suggestionId, updateData);
+
+      res.status(200).json({
+        data: {
+          suggestion: stripSensitiveFields(result.suggestion),
+          service: result.service ? stripSensitiveFields(result.service) : null,
+          loungeService: result.loungeService ? stripSensitiveFields(result.loungeService) : null,
+        },
+        message: result.service ? 'Service suggestion approved and implemented successfully' : 'Service suggestion status updated successfully',
       });
     } catch (error) {
       next(error);

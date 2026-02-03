@@ -326,6 +326,10 @@ class CurrentUserService {
         updateData.loungeTitle = loungeData.loungeTitle;
       }
 
+      if (loungeData.openingHours !== undefined) {
+        updateData.openingHours = loungeData.openingHours;
+      }
+
       const updatedUser = await this.users.findByIdAndUpdate(userId, updateData, { new: true });
       if (!updatedUser) {
         logger.info(`CurrentUserService.updateLoungeProfile: user not found after update: ${userId}`);

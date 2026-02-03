@@ -2,6 +2,7 @@ import { Router } from 'express';
 import LoungeServicesController from '@controllers/loungeServices.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import loungeMiddleware from '@middlewares/lounge.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
@@ -27,6 +28,9 @@ class LoungeServicesRoute implements Routes {
 
     // GET - Get lounge service by ID
     this.router.get('/:serviceId', authMiddleware, this.loungeServicesController.getLoungeServiceById);
+
+    // GET - Get service name by service ID
+    this.router.get('/service-name/:serviceId', authMiddleware, this.loungeServicesController.getServiceNameById);
 
     // POST - Create a new lounge service
     this.router.post(

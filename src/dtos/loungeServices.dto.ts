@@ -1,5 +1,5 @@
 import { IsString, IsEnum, IsNumber, IsOptional, IsBoolean, Min, MaxLength } from 'class-validator';
-import { ServiceLoungeGender } from '@interfaces/loungeService.interface';
+import { ServiceLoungeGender, LoungeServiceStatus } from '@interfaces/loungeService.interface';
 
 export class CreateLoungeServiceDto {
   @IsString()
@@ -18,6 +18,10 @@ export class CreateLoungeServiceDto {
 
   @IsEnum(ServiceLoungeGender)
   gender: ServiceLoungeGender;
+
+  @IsOptional()
+  @IsEnum(LoungeServiceStatus)
+  status?: LoungeServiceStatus;
 
   @IsOptional()
   @IsString()
@@ -47,6 +51,10 @@ export class UpdateLoungeServiceDto {
   @IsOptional()
   @IsEnum(ServiceLoungeGender)
   gender?: ServiceLoungeGender;
+
+  @IsOptional()
+  @IsEnum(LoungeServiceStatus)
+  status?: LoungeServiceStatus;
 
   @IsOptional()
   @IsString()

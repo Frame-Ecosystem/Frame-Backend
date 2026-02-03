@@ -1,5 +1,4 @@
-import { IsString, IsEnum, IsOptional, IsInt, Min, MaxLength, MinLength } from 'class-validator';
-import { ServiceStatus } from '@interfaces/service.interface';
+import { IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
 
 export class CreateServiceDto {
   @IsString()
@@ -11,13 +10,9 @@ export class CreateServiceDto {
   categoryId: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  baseDuration?: number;
-
-  @IsOptional()
-  @IsEnum(ServiceStatus)
-  status?: ServiceStatus;
+  @IsString()
+  @MaxLength(500)
+  description?: string;
 }
 
 export class UpdateServiceDto {
@@ -32,11 +27,7 @@ export class UpdateServiceDto {
   categoryId?: string;
 
   @IsOptional()
-  @IsInt()
-  @Min(1)
-  baseDuration?: number;
-
-  @IsOptional()
-  @IsEnum(ServiceStatus)
-  status?: ServiceStatus;
+  @IsString()
+  @MaxLength(500)
+  description?: string;
 }

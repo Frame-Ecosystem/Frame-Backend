@@ -5,6 +5,11 @@ export enum ServiceLoungeGender {
   KIDS = 'kids',
 }
 
+export enum LoungeServiceStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
 export interface LoungeService {
   _id?: string;
   loungeId: string;
@@ -12,6 +17,7 @@ export interface LoungeService {
   price: number;
   duration: number;
   gender: ServiceLoungeGender;
+  status: LoungeServiceStatus;
   description?: string;
   isActive: boolean;
   createdAt?: Date;

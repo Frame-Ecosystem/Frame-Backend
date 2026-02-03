@@ -7,6 +7,11 @@ export enum ServiceLoungeGender {
   KIDS = 'kids',
 }
 
+export enum LoungeServiceStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
 export interface LoungeService extends Document {
   _id: string;
   loungeId: string; // Reference to User (lounge type)
@@ -14,6 +19,7 @@ export interface LoungeService extends Document {
   price: number; // Price in the smallest currency unit (e.g., cents for USD)
   duration: number; // Duration in minutes
   gender: ServiceLoungeGender;
+  status: LoungeServiceStatus;
   description?: string;
   isActive: boolean;
   createdAt?: Date;
@@ -45,6 +51,12 @@ const loungeServiceSchema: Schema = new Schema(
     gender: {
       type: String,
       enum: Object.values(ServiceLoungeGender),
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: Object.values(LoungeServiceStatus),
+      default: LoungeServiceStatus.ACTIVE,
       required: true,
     },
     description: {

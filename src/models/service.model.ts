@@ -1,16 +1,10 @@
 import { model, Schema, Document } from 'mongoose';
 
-export enum ServiceStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-}
-
 export interface Service extends Document {
   _id: string;
   name: string;
   categoryId: string; // Reference to ServiceCategory
-  baseDuration?: number; // in minutes
-  status: ServiceStatus;
+  description?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -29,16 +23,11 @@ const serviceSchema: Schema = new Schema(
       ref: 'ServiceCategory',
       required: true,
     },
-    baseDuration: {
-      type: Number,
-      required: false,
-      min: 1,
-    },
-    status: {
+    description: {
       type: String,
-      enum: Object.values(ServiceStatus),
-      default: ServiceStatus.ACTIVE,
-      required: true,
+      required: false,
+      trim: true,
+      maxlength: 500,
     },
   },
   {
@@ -49,7 +38,6 @@ const serviceSchema: Schema = new Schema(
 // Create indexes for better performance
 serviceSchema.index({ name: 1 });
 serviceSchema.index({ categoryId: 1 });
-serviceSchema.index({ status: 1 });
 
 const serviceModel = model<Service & Document>('Service', serviceSchema);
 

@@ -5,20 +5,6 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { isEmpty } from '@/utils/util';
 import { logger } from '@utils/logger';
 
-interface CreateServiceDto {
-  name: string;
-  categoryId: string;
-  baseDuration?: number;
-  status?: string;
-}
-
-interface UpdateServiceDto {
-  name?: string;
-  categoryId?: string;
-  baseDuration?: number;
-  status?: string;
-}
-
 class ServicesService {
   public services = serviceModel;
 
@@ -53,14 +39,14 @@ class ServicesService {
     try {
       if (isEmpty(data) || !data.name || !data.categoryId) {
         logger.warn('ServicesService.createService: invalid data provided');
-        throw new BadRequestException('Invalid request data. name and categoryId are required');
+        throw new BadRequestException('Service name and category are required to create a service', 'MISSING_REQUIRED_FIELDS');
       }
 
       // Check if service name already exists (case-insensitive)
       const existingService = await this.services.findOne({ name: new RegExp(`^${data.name.trim()}$`, 'i') });
       if (existingService) {
         logger.error(`ServicesService.createService: service name already exists: ${data.name}`);
-        throw new ConflictException('Service name already exists', 'SERVICE_NAME_EXISTS');
+        throw new ConflictException('A service with this name already exists. Please choose a different name.', 'SERVICE_NAME_EXISTS');
       }
 
       // Normalize name for duplicate checking
@@ -73,7 +59,7 @@ class ServicesService {
 
       if (existingNormalized && this.normalizeServiceName(existingNormalized.name) === normalizedName) {
         logger.error(`ServicesService.createService: similar service already exists: ${existingNormalized.name} (normalized: ${normalizedName})`);
-        throw new ConflictException('A similar service already exists', 'SERVICE_SIMILAR_EXISTS');
+        throw new ConflictException('A similar service already exists. Please review and choose a different name.', 'SERVICE_SIMILAR_EXISTS');
       }
 
       const newService = await this.services.create({
@@ -86,8 +72,18 @@ class ServicesService {
       return newService;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle MongoDB validation errors
+      if (error.name === 'ValidationError') {
+        logger.error(`ServicesService.createService validation error: ${error.message}`, { data, stack: error.stack });
+        throw new BadRequestException('Invalid service data provided. Please check all required fields.', 'VALIDATION_ERROR');
+      }
+      // Handle MongoDB duplicate key errors
+      if (error.code === 11000) {
+        logger.error(`ServicesService.createService duplicate key error: ${error.message}`, { data, stack: error.stack });
+        throw new ConflictException('A service with this information already exists.', 'DUPLICATE_KEY_ERROR');
+      }
       logger.error(`ServicesService.createService error: ${error.message}`, { data, stack: error.stack });
-      throw new InternalServerException('Failed to create service');
+      throw new InternalServerException('Unable to create service at this time. Please try again later.');
     }
   }
 
@@ -101,7 +97,7 @@ class ServicesService {
       return services;
     } catch (error) {
       logger.error(`ServicesService.getAllServices error: ${error.message}`, { stack: error.stack });
-      throw new InternalServerException('Failed to retrieve services');
+      throw new InternalServerException('Unable to retrieve services at this time. Please try again later.');
     }
   }
 
@@ -112,21 +108,26 @@ class ServicesService {
     try {
       if (isEmpty(serviceId)) {
         logger.warn('ServicesService.getServiceById: empty serviceId provided');
-        throw new BadRequestException('Invalid request data');
+        throw new BadRequestException('Service ID is required to retrieve a service', 'MISSING_SERVICE_ID');
       }
 
       const service = await this.services.findById(serviceId).populate('categoryId');
 
       if (!service) {
         logger.error(`ServicesService.getServiceById: service not found: ${serviceId}`);
-        throw new NotFoundException('Service not found');
+        throw new NotFoundException('The requested service could not be found', 'SERVICE_NOT_FOUND');
       }
 
       return service;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`ServicesService.getServiceById invalid ID format: ${serviceId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid service ID format', 'INVALID_ID_FORMAT');
+      }
       logger.error(`ServicesService.getServiceById error: ${error.message}`, { serviceId, stack: error.stack });
-      throw new InternalServerException('Failed to retrieve service');
+      throw new InternalServerException('Unable to retrieve service at this time. Please try again later.');
     }
   }
 
@@ -137,7 +138,7 @@ class ServicesService {
     try {
       if (isEmpty(serviceId) || isEmpty(data)) {
         logger.warn('ServicesService.updateService: invalid parameters provided');
-        throw new BadRequestException('Invalid request data');
+        throw new BadRequestException('Service ID and update data are required', 'MISSING_REQUIRED_FIELDS');
       }
 
       // Prepare update data
@@ -151,7 +152,7 @@ class ServicesService {
         });
         if (existingService) {
           logger.error(`ServicesService.updateService: service name already exists: ${data.name}`);
-          throw new ConflictException('Service name already exists', 'SERVICE_NAME_EXISTS');
+          throw new ConflictException('A service with this name already exists. Please choose a different name.', 'SERVICE_NAME_EXISTS');
         }
 
         // Update the name to lowercase in the update data
@@ -168,7 +169,7 @@ class ServicesService {
 
         if (existingNormalized && this.normalizeServiceName(existingNormalized.name) === normalizedName) {
           logger.error(`ServicesService.updateService: similar service already exists: ${existingNormalized.name} (normalized: ${normalizedName})`);
-          throw new ConflictException('A similar service already exists', 'SERVICE_SIMILAR_EXISTS');
+          throw new ConflictException('A similar service already exists. Please review and choose a different name.', 'SERVICE_SIMILAR_EXISTS');
         }
       }
 
@@ -176,15 +177,25 @@ class ServicesService {
 
       if (!updatedService) {
         logger.error(`ServicesService.updateService: service not found: ${serviceId}`);
-        throw new NotFoundException('Service not found');
+        throw new NotFoundException('The requested service could not be found', 'SERVICE_NOT_FOUND');
       }
 
       logger.info(`ServicesService.updateService: updated service ${serviceId}`);
       return updatedService;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle MongoDB validation errors
+      if (error.name === 'ValidationError') {
+        logger.error(`ServicesService.updateService validation error: ${error.message}`, { serviceId, stack: error.stack });
+        throw new BadRequestException('Invalid service data provided. Please check all fields.', 'VALIDATION_ERROR');
+      }
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`ServicesService.updateService invalid ID format: ${serviceId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid service ID format', 'INVALID_ID_FORMAT');
+      }
       logger.error(`ServicesService.updateService error: ${error.message}`, { serviceId, stack: error.stack });
-      throw new InternalServerException('Failed to update service');
+      throw new InternalServerException('Unable to update service at this time. Please try again later.');
     }
   }
 
@@ -195,52 +206,27 @@ class ServicesService {
     try {
       if (isEmpty(serviceId)) {
         logger.warn('ServicesService.deleteService: empty serviceId provided');
-        throw new BadRequestException('Invalid request data');
+        throw new BadRequestException('Service ID is required to delete a service', 'MISSING_SERVICE_ID');
       }
 
       const deletedService = await this.services.findByIdAndDelete(serviceId);
 
       if (!deletedService) {
         logger.error(`ServicesService.deleteService: service not found: ${serviceId}`);
-        throw new NotFoundException('Service not found');
+        throw new NotFoundException('The requested service could not be found', 'SERVICE_NOT_FOUND');
       }
 
       logger.info(`ServicesService.deleteService: deleted service ${serviceId}`);
       return deletedService;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`ServicesService.deleteService invalid ID format: ${serviceId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid service ID format', 'INVALID_ID_FORMAT');
+      }
       logger.error(`ServicesService.deleteService error: ${error.message}`, { serviceId, stack: error.stack });
-      throw new InternalServerException('Failed to delete service');
-    }
-  }
-
-  /**
-   * Toggle service status
-   */
-  public async toggleServiceStatus(serviceId: string): Promise<Service> {
-    try {
-      if (isEmpty(serviceId)) {
-        logger.warn('ServicesService.toggleServiceStatus: empty serviceId provided');
-        throw new BadRequestException('Invalid request data');
-      }
-
-      const service = await this.services.findById(serviceId);
-
-      if (!service) {
-        logger.error(`ServicesService.toggleServiceStatus: service not found: ${serviceId}`);
-        throw new NotFoundException('Service not found');
-      }
-
-      const newStatus = service.status === 'active' ? 'inactive' : 'active';
-
-      const updatedService = await this.services.findByIdAndUpdate(serviceId, { status: newStatus }, { new: true }).populate('categoryId');
-
-      logger.info(`ServicesService.toggleServiceStatus: toggled service ${serviceId} to ${newStatus}`);
-      return updatedService;
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      logger.error(`ServicesService.toggleServiceStatus error: ${error.message}`, { serviceId, stack: error.stack });
-      throw new InternalServerException('Failed to toggle service status');
+      throw new InternalServerException('Unable to delete service at this time. Please try again later.');
     }
   }
 
@@ -259,7 +245,7 @@ class ServicesService {
       return { services, total };
     } catch (error) {
       logger.error(`ServicesService.getServicesPaginated error: ${error.message}`, { stack: error.stack });
-      throw new InternalServerException('Failed to retrieve services');
+      throw new InternalServerException('Unable to retrieve services at this time. Please try again later.');
     }
   }
 
@@ -270,7 +256,7 @@ class ServicesService {
     try {
       if (isEmpty(query)) {
         logger.warn('ServicesService.searchServices: empty query provided');
-        throw new BadRequestException('Invalid search query');
+        throw new BadRequestException('Search query is required to find services', 'MISSING_SEARCH_QUERY');
       }
 
       const services = await this.services
@@ -284,7 +270,7 @@ class ServicesService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`ServicesService.searchServices error: ${error.message}`, { query, stack: error.stack });
-      throw new InternalServerException('Failed to search services');
+      throw new InternalServerException('Unable to search services at this time. Please try again later.');
     }
   }
 
@@ -295,7 +281,7 @@ class ServicesService {
     try {
       if (isEmpty(categoryId)) {
         logger.warn('ServicesService.getServicesByCategory: empty categoryId provided');
-        throw new BadRequestException('Invalid request data');
+        throw new BadRequestException('Category ID is required to retrieve services', 'MISSING_CATEGORY_ID');
       }
 
       const services = await this.services.find({ categoryId }).populate('categoryId');
@@ -303,8 +289,13 @@ class ServicesService {
       return services;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`ServicesService.getServicesByCategory invalid ID format: ${categoryId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid category ID format', 'INVALID_ID_FORMAT');
+      }
       logger.error(`ServicesService.getServicesByCategory error: ${error.message}`, { categoryId, stack: error.stack });
-      throw new InternalServerException('Failed to retrieve services by category');
+      throw new InternalServerException('Unable to retrieve services by category at this time. Please try again later.');
     }
   }
 
@@ -315,25 +306,73 @@ class ServicesService {
     try {
       if (isEmpty(data) || !Array.isArray(data)) {
         logger.warn('ServicesService.bulkCreateServices: invalid data provided');
-        throw new BadRequestException('Invalid request data. Data must be an array');
+        throw new BadRequestException('Service data array is required for bulk creation', 'INVALID_DATA_ARRAY');
       }
 
-      // Process each service
-      const processedData = data.map(serviceData => {
-        return {
+      if (data.length === 0) {
+        logger.warn('ServicesService.bulkCreateServices: empty array provided');
+        throw new BadRequestException('At least one service must be provided for bulk creation', 'EMPTY_ARRAY');
+      }
+
+      // Validate each service and check for duplicates
+      const processedData: any[] = [];
+      const errors: string[] = [];
+
+      for (let i = 0; i < data.length; i++) {
+        const serviceData = data[i];
+        
+        if (!serviceData.name || !serviceData.categoryId) {
+          errors.push(`Service ${i + 1}: name and categoryId are required`);
+          continue;
+        }
+
+        // Check for duplicates within the batch
+        const duplicateInBatch = processedData.find(s => 
+          s.name.toLowerCase() === serviceData.name.trim().toLowerCase()
+        );
+        if (duplicateInBatch) {
+          errors.push(`Service ${i + 1}: duplicate name '${serviceData.name}' within the batch`);
+          continue;
+        }
+
+        // Check if service name already exists in database
+        const existingService = await this.services.findOne({ 
+          name: new RegExp(`^${serviceData.name.trim()}$`, 'i') 
+        });
+        if (existingService) {
+          errors.push(`Service ${i + 1}: service name '${serviceData.name}' already exists`);
+          continue;
+        }
+
+        processedData.push({
           ...serviceData,
           name: serviceData.name.trim().toLowerCase(),
           status: serviceData.status || 'active',
-        };
-      });
+        });
+      }
+
+      if (errors.length > 0) {
+        logger.error(`ServicesService.bulkCreateServices validation errors: ${errors.join('; ')}`);
+        throw new BadRequestException(`Validation failed: ${errors.join('; ')}`, 'BULK_VALIDATION_ERROR');
+      }
 
       const newServices = await this.services.insertMany(processedData);
       logger.info(`ServicesService.bulkCreateServices: created ${newServices.length} services`);
       return newServices;
     } catch (error) {
       if (error instanceof HttpException) throw error;
+      // Handle MongoDB bulk write errors
+      if (error.name === 'BulkWriteError') {
+        logger.error(`ServicesService.bulkCreateServices bulk write error: ${error.message}`, { stack: error.stack });
+        throw new ConflictException('Some services could not be created due to conflicts. Please check for duplicates.', 'BULK_WRITE_CONFLICT');
+      }
+      // Handle MongoDB validation errors
+      if (error.name === 'ValidationError') {
+        logger.error(`ServicesService.bulkCreateServices validation error: ${error.message}`, { stack: error.stack });
+        throw new BadRequestException('Invalid service data provided. Please check all fields.', 'VALIDATION_ERROR');
+      }
       logger.error(`ServicesService.bulkCreateServices error: ${error.message}`, { stack: error.stack });
-      throw new InternalServerException('Failed to create services');
+      throw new InternalServerException('Unable to create services at this time. Please try again later.');
     }
   }
 }

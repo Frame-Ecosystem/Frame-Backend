@@ -6,7 +6,7 @@ import adminMiddleware from '@middlewares/admin.middleware';
 import loungeMiddleware from '@middlewares/lounge.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
-import { CreateServiceSuggestionDto, UpdateServiceSuggestionDto, UpdateServiceSuggestionStatusDto } from '@dtos/serviceSuggestions.dto';
+import { CreateServiceSuggestionDto, UpdateServiceSuggestionDto, UpdateServiceSuggestionStatusDto, AdminApproveServiceSuggestionDto } from '@dtos/serviceSuggestions.dto';
 
 class ServiceSuggestionsRoute implements Routes {
   public path = '/v1/service-suggestions';
@@ -55,6 +55,16 @@ class ServiceSuggestionsRoute implements Routes {
       csrfMiddleware,
       validationMiddleware(UpdateServiceSuggestionStatusDto, 'body'),
       this.serviceSuggestionsController.updateServiceSuggestionStatus,
+    );
+
+    // PATCH - Admin approve service suggestion and create service/lounge service
+    this.router.patch(
+      '/:suggestionId/admin-approve',
+      authMiddleware,
+      adminMiddleware,
+      csrfMiddleware,
+      validationMiddleware(AdminApproveServiceSuggestionDto, 'body'),
+      this.serviceSuggestionsController.adminUpdateServiceSuggestionStatus,
     );
 
     // DELETE - Delete service suggestion

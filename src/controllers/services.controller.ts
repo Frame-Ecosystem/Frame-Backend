@@ -101,22 +101,6 @@ class ServicesController {
   };
 
   /**
-   * Toggle service status
-   */
-  public toggleServiceStatus = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { serviceId } = req.params;
-      const service = await this.servicesService.toggleServiceStatus(serviceId);
-      res.status(200).json({
-        data: service,
-        message: 'Service status toggled successfully',
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
    * Get services with pagination
    */
   public getServicesPaginated = async (req: Request, res: Response, next: NextFunction) => {

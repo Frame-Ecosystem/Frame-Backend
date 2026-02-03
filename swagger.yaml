@@ -964,7 +964,80 @@ paths:
             description: User not found
           500:
             description: Server error
- 
+
+  /v1/me/lounge:
+    put:
+      tags:
+        - current users
+      summary: Update lounge profile (Lounge users only)
+      description: |
+        Update lounge-specific profile information for the currently authenticated lounge user.
+        **User must be of type 'lounge'.**
+        **User ID is automatically extracted from the authentication token.**
+        No ID parameter required.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              loungeTitle:
+                type: string
+                maxLength: 100
+                description: Lounge business title/name
+                example: "Elite Hair Studio"
+              openingHours:
+                type: object
+                description: Opening hours for each day of the week
+                properties:
+                  monday:
+                    $ref: '#/definitions/OpeningHours'
+                  tuesday:
+                    $ref: '#/definitions/OpeningHours'
+                  wednesday:
+                    $ref: '#/definitions/OpeningHours'
+                  thursday:
+                    $ref: '#/definitions/OpeningHours'
+                  friday:
+                    $ref: '#/definitions/OpeningHours'
+                  saturday:
+                    $ref: '#/definitions/OpeningHours'
+                  sunday:
+                    $ref: '#/definitions/OpeningHours'
+      responses:
+        200:
+          description: Lounge profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Lounge profile updated successfully
+        400:
+          description: Validation error or invalid request data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        403:
+          description: User is not a lounge or CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
 # ============================================
 # ADMIN SERVICES ENDPOINTS
 # ============================================
@@ -1333,6 +1406,17 @@ paths:
                 description: Duration in minutes
                 minimum: 1
                 example: 30
+              gender:
+                type: string
+                enum: [men, women, unisex, kids]
+                description: Gender category for the service
+                example: men
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE]
+                default: ACTIVE
+                description: Service status
+                example: ACTIVE
               description:
                 type: string
                 description: Service description
@@ -1452,7 +1536,8 @@ paths:
     put:
       tags:
         - lounge services
-      summary: Update lounge service
+      summary: Update lounge service (Lounge owners or Admins)
+      description: Update a lounge service. Lounge owners can update all fields of their own services. Admins can update all fields of any service.
       security:
         - bearerAuth: []
         - csrfToken: []
@@ -1470,7 +1555,7 @@ paths:
             properties:
               serviceId:
                 type: string
-                description: Service ID reference
+                description: Service ID reference (Admin only)
               price:
                 type: number
                 description: Price in smallest currency unit
@@ -1478,9 +1563,17 @@ paths:
                 type: integer
                 description: Duration in minutes
                 minimum: 1
+              gender:
+                type: string
+                enum: [men, women, unisex, kids]
+                description: Gender category for the service
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE]
+                description: Service status (Admin only)
               description:
                 type: string
-                description: Service description
+                description: Service description (Admin only)
               isActive:
                 type: boolean
                 description: Service active status
@@ -1493,6 +1586,8 @@ paths:
           description: Invalid request data
         401:
           description: Unauthorized
+        403:
+          description: Forbidden - Insufficient permissions to update this service
         404:
           description: Lounge service not found
         500:
@@ -1521,6 +1616,46 @@ paths:
           description: Unauthorized
         404:
           description: Lounge service not found
+        500:
+          description: Server error
+
+  /v1/lounge-services/service-name/{serviceId}:
+    get:
+      tags:
+        - lounge services
+      summary: Get service name by service ID
+      description: Retrieve only the name of a service by its ID for efficient display in lounge service contexts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Service name retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Service name
+                    example: "Hair Cut & Styling"
+              message:
+                type: string
+                example: "Service name retrieved successfully"
+        400:
+          description: Invalid service ID format
+        401:
+          description: Unauthorized
+        404:
+          description: Service not found
         500:
           description: Server error
 
@@ -1684,15 +1819,10 @@ paths:
                 type: string
                 description: Service category ID
                 example: "507f1f77bcf86cd799439011"
-              baseDuration:
-                type: integer
-                description: Base duration in minutes
-                example: 30
-              status:
+              description:
                 type: string
-                enum: [active, inactive]
-                default: active
-                description: Service status
+                description: Service description
+                example: "A premium haircut service with styling"
       responses:
         201:
           description: Service created successfully
@@ -1832,13 +1962,9 @@ paths:
               categoryId:
                 type: string
                 description: Service category ID
-              baseDuration:
-                type: integer
-                description: Base duration in minutes
-              status:
+              description:
                 type: string
-                enum: [active, inactive]
-                description: Service status
+                description: Service description
       responses:
         200:
           description: Service updated successfully
@@ -1885,36 +2011,6 @@ paths:
         500:
           description: Server error
 
-  /v1/admin/services/{serviceId}/toggle-status:
-    patch:
-      tags:
-        - services
-      summary: Toggle service status (admin only)
-      security:
-        - bearerAuth: []
-        - csrfToken: []
-      parameters:
-        - name: serviceId
-          in: path
-          required: true
-          type: string
-          description: Service ID
-      responses:
-        200:
-          description: Service status toggled successfully
-          schema:
-            $ref: '#/definitions/ServiceResponse'
-        400:
-          description: Invalid request data
-        401:
-          description: Unauthorized
-        403:
-          description: Forbidden - Admin access required
-        404:
-          description: Service not found
-        500:
-          description: Server error
-
   /v1/admin/services/bulk:
     post:
       tags:
@@ -1943,11 +2039,8 @@ paths:
                   enum: [male, female, unisex, kids]
                 categoryId:
                   type: string
-                baseDuration:
-                  type: integer
-                status:
+                description:
                   type: string
-                  enum: [active, inactive]
       responses:
         201:
           description: Services created successfully
@@ -2202,7 +2295,7 @@ paths:
         - name: status
           in: query
           type: string
-          enum: [pending, approved, rejected, implemented]
+          enum: [pending, rejected, implemented]
           description: Filter by suggestion status
         - name: loungeId
           in: query
@@ -2291,7 +2384,7 @@ paths:
         - name: status
           in: query
           type: string
-          enum: [pending, approved, rejected, implemented]
+          enum: [pending, rejected, implemented]
           description: Filter by suggestion status
       responses:
         200:
@@ -2326,13 +2419,14 @@ paths:
           description: Server error
 
   /v1/service-suggestions/{id}/status:
-    put:
+    patch:
       tags:
         - service-suggestions
       summary: Update service suggestion status (Admin only)
       description: Update the status of a service suggestion. Only admins can update status.
       security:
         - bearerAuth: []
+        - csrfToken: []
       parameters:
         - name: id
           in: path
@@ -2346,9 +2440,23 @@ paths:
             $ref: '#/definitions/UpdateServiceSuggestionStatusDto'
       responses:
         200:
-          description: Service suggestion status updated successfully
+          description: Service suggestion status updated successfully. When status is approved with customization options, service and lounge service are created.
           schema:
-            $ref: '#/definitions/ServiceSuggestionResponse'
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  suggestion:
+                    $ref: '#/definitions/ServiceSuggestionResponse'
+                  service:
+                    $ref: '#/definitions/ServiceResponse'
+                  loungeService:
+                    $ref: '#/definitions/LoungeServiceResponse'
+                required:
+                  - suggestion
+              message:
+                type: string
         400:
           description: Validation error
         401:
@@ -2357,6 +2465,56 @@ paths:
           description: Forbidden - Admin access required
         404:
           description: Service suggestion not found
+        500:
+          description: Server error
+
+  /v1/service-suggestions/{id}/admin-approve:
+    patch:
+      tags:
+        - service-suggestions
+      summary: Admin approve service suggestion and create service/lounge service
+      description: Approve a service suggestion and automatically create a service and lounge service. Admins can optionally provide a custom service name, otherwise the suggestion name will be used. Only admins can perform this action.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Service suggestion ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AdminApproveServiceSuggestionDto'
+      responses:
+        200:
+          description: Service suggestion approved and implemented successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  suggestion:
+                    $ref: '#/definitions/ServiceSuggestionResponse'
+                  service:
+                    $ref: '#/definitions/ServiceResponse'
+                  loungeService:
+                    $ref: '#/definitions/LoungeServiceResponse'
+              message:
+                type: string
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service suggestion not found
+        409:
+          description: Service already exists
         500:
           description: Server error
 
@@ -2533,6 +2691,21 @@ definitions:
         description: Google Places ID
         example: ChIJN1t_tDeuEmsRUsoyG83frY4
 
+  OpeningHours:
+    type: object
+    description: Opening hours for a specific day
+    properties:
+      from:
+        type: string
+        pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+        description: Opening time in HH:MM format (24-hour)
+        example: "09:00"
+      to:
+        type: string
+        pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+        description: Closing time in HH:MM format (24-hour)
+        example: "18:00"
+
   UserResponse:
     type: object
     description: User object with sensitive fields removed (no password, no refreshTokens)
@@ -2635,6 +2808,11 @@ definitions:
         enum: [men, women, unisex, kids]
         description: Gender category for the service
         example: men
+      status:
+        type: string
+        enum: [ACTIVE, INACTIVE]
+        description: Service status
+        example: ACTIVE
       description:
         type: string
         description: Service description
@@ -2665,15 +2843,10 @@ definitions:
         type: string
         description: Reference to ServiceCategory
         example: 507f1f77bcf86cd799439012
-      baseDuration:
-        type: integer
-        description: Base duration in minutes
-        example: 30
-      status:
+      description:
         type: string
-        enum: [active, inactive]
-        description: Service status
-        example: "active"
+        description: Service description
+        example: "A premium haircut service with styling"
       createdAt:
         type: string
         format: date-time
@@ -2752,14 +2925,75 @@ definitions:
     properties:
       status:
         type: string
-        enum: [pending, approved, rejected, implemented]
+        enum: [pending, rejected, implemented]
         description: New status for the service suggestion
-        example: approved
-      adminNotes:
+        example: implemented
+      adminNote:
         type: string
         maxLength: 500
         description: Optional notes from admin about the decision
         example: "Great suggestion! We'll implement this in our premium package."
+      categoryId:
+        type: string
+        description: Category ID to assign the service to (required when status is implemented)
+        example: "507f1f77bcf86cd799439011"
+      name:
+        type: string
+        maxLength: 100
+        description: Custom name for the service (required when status is implemented)
+        example: "Premium Haircut Service"
+      price:
+        type: number
+        minimum: 0
+        description: Price for the lounge service (used when status is implemented)
+        example: 2500
+      duration:
+        type: integer
+        minimum: 15
+        maximum: 480
+        description: Duration in minutes (used when status is implemented)
+        example: 30
+      gender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Gender category for the service (used when status is implemented)
+        example: unisex
+
+  AdminApproveServiceSuggestionDto:
+    type: object
+    required:
+      - categoryId
+    properties:
+      categoryId:
+        type: string
+        description: Category ID to assign the new service to
+        example: "507f1f77bcf86cd799439011"
+      name:
+        type: string
+        maxLength: 100
+        description: Custom name for the service (required when status is implemented)
+        example: "Premium Haircut Service"
+      price:
+        type: number
+        minimum: 0
+        description: Price for the lounge service (defaults to estimated price from suggestion)
+        example: 2500
+      duration:
+        type: integer
+        minimum: 15
+        maximum: 480
+        description: Duration in minutes (defaults to estimated duration from suggestion)
+        example: 30
+      gender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Gender category for the service (defaults to target gender from suggestion)
+        example: unisex
+      adminNote:
+        type: string
+        maxLength: 500
+        description: Optional admin notes about the approval
+        example: "Approved and implemented as requested"
 
   ServiceSuggestionResponse:
     type: object
@@ -2803,10 +3037,10 @@ definitions:
         example: women
       status:
         type: string
-        enum: [pending, approved, rejected, implemented]
+        enum: [pending, rejected, implemented]
         description: Current status of the suggestion
         example: pending
-      adminNotes:
+      adminNote:
         type: string
         description: Notes from admin about the decision
         example: "Great suggestion! We'll implement this in our premium package."

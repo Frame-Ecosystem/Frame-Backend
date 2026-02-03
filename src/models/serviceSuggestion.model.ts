@@ -16,6 +16,7 @@ export interface ServiceSuggestion extends Document {
   targetGender?: 'men' | 'women' | 'unisex' | 'kids';
   status: ServiceSuggestionStatus;
   loungeId: string; // Reference to User (lounge type)
+  adminNote?: string; // Admin notes about approval/rejection
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -60,6 +61,12 @@ const serviceSuggestionSchema: Schema = new Schema(
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+    },
+    adminNote: {
+      type: String,
+      required: false,
+      maxlength: 500,
+      trim: true,
     },
   },
   {

@@ -4,6 +4,7 @@ import { stripSensitiveFields } from '@utils/util';
 import { ServiceLoungeGender } from '@interfaces/loungeService.interface';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
 import { RequestWithUser } from '@interfaces/auth.interface';
+import { HttpException } from '@exceptions/HttpException';
 
 class LoungeServicesController {
   public loungeServicesService = new LoungeServicesService();
@@ -83,15 +84,32 @@ class LoungeServicesController {
   };
 
   /**
+   * Get service name by service ID
+   */
+  public getServiceNameById = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { serviceId } = req.params;
+      const serviceName = await this.loungeServicesService.getServiceNameById(serviceId);
+      res.status(200).json({
+        data: { name: serviceName },
+        message: 'Service name retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Update lounge service
    */
-  public updateLoungeService = async (req: Request, res: Response, next: NextFunction) => {
+  public updateLoungeService = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { serviceId } = req.params;
       const data: UpdateLoungeServiceDto = req.body;
-      const service = await this.loungeServicesService.updateLoungeService(serviceId, data);
+
+      const service = await this.loungeServicesService.updateLoungeService(serviceId, data, req.user);
       res.status(200).json({
-        data: service,
+        data: stripSensitiveFields(service),
         message: 'Lounge service updated successfully',
       });
     } catch (error) {

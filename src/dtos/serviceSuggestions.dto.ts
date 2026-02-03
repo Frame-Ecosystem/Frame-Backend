@@ -56,13 +56,68 @@ export class UpdateServiceSuggestionDto {
   targetGender?: 'men' | 'women' | 'unisex' | 'kids';
 
   @IsOptional()
-  @IsEnum(ServiceSuggestionStatus, { message: 'Status must be one of: pending, approved, rejected, implemented' })
+  @IsEnum(ServiceSuggestionStatus, { message: 'Status must be one of: pending, rejected, implemented' })
   status?: ServiceSuggestionStatus;
 }
 
 export class UpdateServiceSuggestionStatusDto {
-  @IsEnum(ServiceSuggestionStatus, { message: 'Status must be one of: pending, approved, rejected, implemented' })
+  @IsEnum(ServiceSuggestionStatus, { message: 'Status must be one of: pending, rejected, implemented' })
   status: ServiceSuggestionStatus;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500, { message: 'Admin note cannot exceed 500 characters' })
+  adminNote?: string;
+
+  // Service customization options (only used when status is IMPLEMENTED)
+  @IsOptional()
+  @IsString()
+  categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: 'Service name cannot exceed 100 characters' })
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'Price must be non-negative' })
+  price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(15, { message: 'Duration must be at least 15 minutes' })
+  @Max(480, { message: 'Duration cannot exceed 480 minutes' })
+  duration?: number;
+
+  @IsOptional()
+  @IsEnum(['men', 'women', 'unisex', 'kids'], { message: 'Gender must be one of: men, women, unisex, kids' })
+  gender?: 'men' | 'women' | 'unisex' | 'kids';
+}
+
+export class AdminApproveServiceSuggestionDto {
+  @IsString()
+  categoryId: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100, { message: 'Service name cannot exceed 100 characters' })
+  name?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0, { message: 'Price must be non-negative' })
+  price?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(15, { message: 'Duration must be at least 15 minutes' })
+  @Max(480, { message: 'Duration cannot exceed 480 minutes' })
+  duration?: number;
+
+  @IsOptional()
+  @IsEnum(['men', 'women', 'unisex', 'kids'], { message: 'Gender must be one of: men, women, unisex, kids' })
+  gender?: 'men' | 'women' | 'unisex' | 'kids';
 
   @IsOptional()
   @IsString()

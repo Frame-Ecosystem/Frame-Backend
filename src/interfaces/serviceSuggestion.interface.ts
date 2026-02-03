@@ -1,6 +1,5 @@
 export enum ServiceSuggestionStatus {
   PENDING = 'pending',
-  APPROVED = 'approved',
   REJECTED = 'rejected',
   IMPLEMENTED = 'implemented',
 }
@@ -14,6 +13,7 @@ export interface ServiceSuggestion {
   targetGender?: 'men' | 'women' | 'unisex' | 'kids';
   status: ServiceSuggestionStatus;
   loungeId: string;
+  adminNote?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }

@@ -38,9 +38,6 @@ class ServicesRoute implements Routes {
 
     // DELETE - Delete service (admin only)
     this.router.delete('/:serviceId', authMiddleware, adminMiddleware, csrfMiddleware, this.servicesController.deleteService);
-
-    // PATCH - Toggle service status (admin only)
-    this.router.patch('/:serviceId/toggle-status', authMiddleware, adminMiddleware, csrfMiddleware, this.servicesController.toggleServiceStatus);
   }
 }
 
