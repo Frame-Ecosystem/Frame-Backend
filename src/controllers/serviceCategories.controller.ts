@@ -2,7 +2,6 @@ import { NextFunction, Request, Response } from 'express';
 import { ServiceCategory } from '@/interfaces/serviceCategory.interface';
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@/dtos/serviceCategories.dto';
 import ServiceCategoriesService from '@/services/serviceCategories.service';
-import { logger } from '@/utils/logger';
 
 class ServiceCategoriesController {
   public serviceCategoriesService = new ServiceCategoriesService();

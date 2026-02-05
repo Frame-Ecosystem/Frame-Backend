@@ -1,7 +1,8 @@
-import { LoungeService, ServiceLoungeGender } from '@interfaces/loungeService.interface';
+import { LoungeService } from '@interfaces/loungeService.interface';
 import { User } from '@interfaces/users.interface';
 import loungeServiceModel from '@models/loungeService.model';
 import serviceModel from '@models/service.model';
+import userModel from '@models/users.model';
 import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -10,6 +11,7 @@ import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServ
 class LoungeServicesService {
   public loungeServices = loungeServiceModel;
   public services = serviceModel;
+  public users = userModel;
 
   /**
    * Create a new lounge service
@@ -176,7 +178,9 @@ class LoungeServicesService {
 
         // Lounge users can only update their own services
         if (existingService.loungeId.toString() !== user._id.toString()) {
-          logger.warn(`LoungeServicesService.updateLoungeService: lounge user ${user._id} attempted to update service ${serviceId} owned by ${existingService.loungeId}`);
+          logger.warn(
+            `LoungeServicesService.updateLoungeService: lounge user ${user._id} attempted to update service ${serviceId} owned by ${existingService.loungeId}`,
+          );
           throw new HttpException(403, 'You can only update your own lounge services');
         }
 
@@ -318,16 +322,14 @@ class LoungeServicesService {
 
       for (let i = 0; i < data.length; i++) {
         const serviceData = data[i];
-        
+
         if (!serviceData.loungeId || !serviceData.serviceId) {
           errors.push(`Service ${i + 1}: loungeId and serviceId are required`);
           continue;
         }
 
         // Check for duplicates within the batch
-        const duplicateInBatch = processedData.find(s => 
-          s.loungeId === serviceData.loungeId && s.serviceId === serviceData.serviceId
-        );
+        const duplicateInBatch = processedData.find(s => s.loungeId === serviceData.loungeId && s.serviceId === serviceData.serviceId);
         if (duplicateInBatch) {
           errors.push(`Service ${i + 1}: duplicate lounge-service combination within the batch`);
           continue;
@@ -362,7 +364,10 @@ class LoungeServicesService {
       // Handle MongoDB bulk write errors
       if (error.name === 'BulkWriteError') {
         logger.error(`LoungeServicesService.bulkCreateLoungeServices bulk write error: ${error.message}`, { stack: error.stack });
-        throw new ConflictException('Some lounge services could not be created due to conflicts. Please check for duplicates.', 'BULK_WRITE_CONFLICT');
+        throw new ConflictException(
+          'Some lounge services could not be created due to conflicts. Please check for duplicates.',
+          'BULK_WRITE_CONFLICT',
+        );
       }
       // Handle MongoDB validation errors
       if (error.name === 'ValidationError') {
@@ -397,6 +402,124 @@ class LoungeServicesService {
       if (error instanceof HttpException) throw error;
       logger.error(`LoungeServicesService.searchLoungeServices error: ${error.message}`, { query, stack: error.stack });
       throw new InternalServerException('Unable to search lounge services at this time. Please try again later.');
+    }
+  }
+
+  /**
+   * Patch opening hours for a lounge
+   */
+  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@dtos/users.dto').DayOpeningHoursDto): Promise<User> {
+    try {
+      if (isEmpty(loungeId) || isEmpty(openingHoursData)) {
+        logger.warn('LoungeServicesService.patchLoungeOpeningHours: empty loungeId or openingHoursData provided');
+        throw new BadRequestException('Lounge ID and opening hours data are required', 'MISSING_REQUIRED_FIELDS');
+      }
+
+      // Verify lounge exists
+      const lounge = await this.users.findById(loungeId);
+      if (!lounge) {
+        logger.info(`LoungeServicesService.patchLoungeOpeningHours: lounge not found: ${loungeId}`);
+        throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
+      }
+
+      if (lounge.type !== 'lounge') {
+        logger.warn(`LoungeServicesService.patchLoungeOpeningHours: user ${loungeId} is not a lounge (type: ${lounge.type})`);
+        throw new BadRequestException('This endpoint is only for lounge accounts', 'NOT_LOUNGE_ACCOUNT');
+      }
+
+      // Merge existing opening hours with new data
+      const currentOpeningHours = lounge.openingHours || {};
+      const updatedOpeningHours = {
+        ...currentOpeningHours,
+        ...openingHoursData,
+      };
+
+      // Update only the opening hours field
+      const updatedLounge = await this.users.findByIdAndUpdate(
+        loungeId,
+        { $set: { openingHours: updatedOpeningHours } },
+        { new: true, runValidators: true },
+      );
+
+      if (!updatedLounge) {
+        logger.info(`LoungeServicesService.patchLoungeOpeningHours: lounge not found after update: ${loungeId}`);
+        throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
+      }
+
+      logger.info(`LoungeServicesService.patchLoungeOpeningHours: opening hours updated for lounge: ${loungeId}`);
+      return updatedLounge;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      // Handle MongoDB validation errors
+      if (error.name === 'ValidationError') {
+        logger.error(`LoungeServicesService.patchLoungeOpeningHours validation error: ${error.message}`, { loungeId, stack: error.stack });
+        throw new BadRequestException('Invalid opening hours data provided', 'VALIDATION_ERROR');
+      }
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`LoungeServicesService.patchLoungeOpeningHours invalid ID format: ${loungeId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid lounge ID format', 'INVALID_ID_FORMAT');
+      }
+      logger.error(`LoungeServicesService.patchLoungeOpeningHours error: ${error.message}`, { loungeId, stack: error.stack });
+      throw new InternalServerException('Unable to update opening hours at this time. Please try again later.');
+    }
+  }
+
+  /**
+   * Update lounge profile (title and opening hours)
+   */
+  public async updateLoungeProfile(loungeId: string, loungeData: import('@dtos/users.dto').UpdateLoungeProfileDto): Promise<User> {
+    try {
+      if (isEmpty(loungeId) || isEmpty(loungeData)) {
+        logger.warn('LoungeServicesService.updateLoungeProfile: empty loungeId or loungeData provided');
+        throw new BadRequestException('Lounge ID and profile data are required', 'MISSING_REQUIRED_FIELDS');
+      }
+
+      // Verify lounge exists
+      const lounge = await this.users.findById(loungeId);
+      if (!lounge) {
+        logger.info(`LoungeServicesService.updateLoungeProfile: lounge not found: ${loungeId}`);
+        throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
+      }
+
+      if (lounge.type !== 'lounge') {
+        logger.warn(`LoungeServicesService.updateLoungeProfile: user ${loungeId} is not a lounge (type: ${lounge.type})`);
+        throw new BadRequestException('This endpoint is only for lounge accounts', 'NOT_LOUNGE_ACCOUNT');
+      }
+
+      // Update lounge-specific fields
+      const updateData: Partial<User> = {};
+
+      if (loungeData.loungeTitle !== undefined) {
+        updateData.loungeTitle = loungeData.loungeTitle;
+      }
+
+      if (loungeData.openingHours !== undefined) {
+        updateData.openingHours = loungeData.openingHours;
+      }
+
+      const updatedLounge = await this.users.findByIdAndUpdate(loungeId, updateData, { new: true, runValidators: true });
+      if (!updatedLounge) {
+        logger.info(`LoungeServicesService.updateLoungeProfile: lounge not found after update: ${loungeId}`);
+        throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
+      }
+
+      logger.info(`LoungeServicesService.updateLoungeProfile: lounge profile updated for lounge: ${loungeId}`);
+      return updatedLounge;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      // Handle MongoDB validation errors
+      if (error.name === 'ValidationError') {
+        logger.error(`LoungeServicesService.updateLoungeProfile validation error: ${error.message}`, { loungeId, stack: error.stack });
+        throw new BadRequestException('Invalid lounge profile data provided', 'VALIDATION_ERROR');
+      }
+      // Handle invalid ObjectId format
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`LoungeServicesService.updateLoungeProfile invalid ID format: ${loungeId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid lounge ID format', 'INVALID_ID_FORMAT');
+      }
+      logger.error(`LoungeServicesService.updateLoungeProfile error: ${error.message}`, { loungeId, stack: error.stack });
+      throw new InternalServerException('Unable to update lounge profile at this time. Please try again later.');
     }
   }
 }

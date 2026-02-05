@@ -4,7 +4,6 @@ import userModel from '@models/users.model';
 import { isEmpty } from '@utils/util';
 import { BadRequestException, NotFoundException, InternalServerException, HttpException, ConflictException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
-import { REQUEST_BODY_LIMIT } from '../config/constants';
 import AdminService from './admin.service';
 import CloudinaryService from './cloudinary.service';
 
@@ -293,54 +292,6 @@ class CurrentUserService {
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`CurrentUserService.deleteMe error: ${error.message}`, { userId, stack: error.stack });
-      throw new InternalServerException('Operation failed. Please try again');
-    }
-  }
-
-  /**
-   * Update lounge-specific profile fields
-   */
-  public async updateLoungeProfile(userId: string, loungeData: import('@dtos/users.dto').UpdateLoungeProfileDto): Promise<User> {
-    try {
-      if (isEmpty(userId) || isEmpty(loungeData)) {
-        logger.warn('CurrentUserService.updateLoungeProfile: empty userId or loungeData provided');
-        throw new BadRequestException('Invalid request data');
-      }
-
-      // Verify user is a lounge
-      const user = await this.users.findById(userId);
-      if (!user) {
-        logger.info(`CurrentUserService.updateLoungeProfile: user not found: ${userId}`);
-        throw new NotFoundException('User not found');
-      }
-
-      if (user.type !== 'lounge') {
-        logger.warn(`CurrentUserService.updateLoungeProfile: user ${userId} is not a lounge (type: ${user.type})`);
-        throw new BadRequestException('This endpoint is only for lounge accounts');
-      }
-
-      // Update lounge-specific fields
-      const updateData: Partial<User> = {};
-
-      if (loungeData.loungeTitle !== undefined) {
-        updateData.loungeTitle = loungeData.loungeTitle;
-      }
-
-      if (loungeData.openingHours !== undefined) {
-        updateData.openingHours = loungeData.openingHours;
-      }
-
-      const updatedUser = await this.users.findByIdAndUpdate(userId, updateData, { new: true });
-      if (!updatedUser) {
-        logger.info(`CurrentUserService.updateLoungeProfile: user not found after update: ${userId}`);
-        throw new NotFoundException('User not found');
-      }
-
-      logger.info(`CurrentUserService.updateLoungeProfile: lounge profile updated for user: ${userId}`);
-      return updatedUser;
-    } catch (error) {
-      if (error instanceof HttpException) throw error;
-      logger.error(`CurrentUserService.updateLoungeProfile error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }

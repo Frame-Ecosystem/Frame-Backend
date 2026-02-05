@@ -16,7 +16,7 @@ class ServicesRoute implements Routes {
 
   private initializeRoutes() {
     // GET - Get all services with pagination
-    this.router.get('/', authMiddleware, this.servicesController.getServicesPaginated);
+    this.router.get('/', this.servicesController.getServicesPaginated);
 
     // GET - Search services
     this.router.get('/search', authMiddleware, this.servicesController.searchServices);

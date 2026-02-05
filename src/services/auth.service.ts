@@ -10,7 +10,7 @@ import {
   RETRY_BACKOFF_BASE_MS,
   RETRY_MAX_ATTEMPTS,
 } from '../config/constants';
-import { CreateUserDto, LoginUserDto, ChangePasswordDto } from '@dtos/users.dto';
+import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import {
   HttpException,
   BadRequestException,
@@ -191,6 +191,16 @@ class AuthService {
 
       // Get updated user and session count
       const updatedUser = await this.users.findById(findUser._id);
+      
+      // Debug: Verify the isOnline status was set
+      logger.info('AuthService.login: sessionTrack status after update', {
+        userId: String(findUser._id),
+        email: findUser.email,
+        isOnline: updatedUser?.sessionTrack?.isOnline,
+        lastSeen: updatedUser?.sessionTrack?.lastSeen,
+        devices: updatedUser?.sessionTrack?.devices
+      });
+
       const sessionCount = (Array.isArray(updatedUser?.refreshTokens) ? updatedUser.refreshTokens : []).filter(
         s => s && s.expiresAt && new Date(s.expiresAt) > new Date(),
       ).length;

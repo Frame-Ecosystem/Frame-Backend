@@ -14,6 +14,7 @@ const main = async () => {
   const { default: AdminRoute } = await import('@routes/admin.route');
   const { default: AdminServicesRoute } = await import('@routes/adminServices.route');
   const { default: CurrentUserRoute } = await import('@routes/currentUser.route');
+  const { default: ClientRoute } = await import('@routes/client.route');
   const { default: LoungeServicesRoute } = await import('@routes/loungeServices.route');
   const { default: ServicesRoute } = await import('@routes/services.route');
   const { default: ServiceCategoriesRoute } = await import('@routes/serviceCategories.route');
@@ -26,6 +27,7 @@ const main = async () => {
     new AdminRoute(),
     new AdminServicesRoute(),
     new CurrentUserRoute(),
+    new ClientRoute(),
     new LoungeServicesRoute(),
     new ServicesRoute(),
     new ServiceCategoriesRoute(),

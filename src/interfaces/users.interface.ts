@@ -3,6 +3,7 @@ export interface Location {
   longitude: number;
   address: string;
   placeId: string;
+  placeName?: string;
 }
 
 export interface OpeningHours {

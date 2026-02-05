@@ -1,10 +1,9 @@
 import { hash } from 'bcrypt';
-import { BCRYPT_ROUNDS, RETRY_BACKOFF_BASE_MS, RETRY_MAX_ATTEMPTS } from '../config/constants';
-import { CreateUserDto, UpdateUserDto } from '@dtos/users.dto';
+import { BCRYPT_ROUNDS } from '../config/constants';
 import { User } from '@interfaces/users.interface';
 import userModel from '@models/users.model';
-import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
-import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
+import { isEmpty } from '@utils/util';
+import { HttpException, BadRequestException, NotFoundException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 
 class AdminServicesService {
@@ -15,9 +14,17 @@ class AdminServicesService {
    */
   public async getAllAdminServices(): Promise<any> {
     try {
+      // Debug: Check actual online users
+      const onlineUsersList = await this.users.find({ 'sessionTrack.isOnline': true }).select('email type sessionTrack').lean();
+
+      logger.info('AdminServicesService.getAllAdminServices: online users debug', {
+        count: onlineUsersList.length,
+        users: onlineUsersList,
+      });
+
       const adminStats = {
         totalUsers: await this.users.countDocuments(),
-        activeUsers: await this.users.countDocuments({ 'sessionTrack.isOnline': true }),
+        onlineUsers: await this.users.countDocuments({ 'sessionTrack.isOnline': true }),
         blockedUsers: await this.users.countDocuments({ isBlocked: true }),
         adminCount: await this.users.countDocuments({ type: 'admin' }),
         clientCount: await this.users.countDocuments({ type: 'client' }),
@@ -80,7 +87,7 @@ class AdminServicesService {
             $lte: new Date(),
           },
         }),
-        activeUsers: await this.users.countDocuments({ 'sessionTrack.isOnline': true }),
+        onlineUsers: await this.users.countDocuments({ 'sessionTrack.isOnline': true }),
         blockedUsers: await this.users.countDocuments({ isBlocked: true }),
         usersByType: {
           admin: await this.users.countDocuments({ type: 'admin' }),

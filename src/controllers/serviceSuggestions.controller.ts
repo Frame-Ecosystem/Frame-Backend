@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { NextFunction, Response } from 'express';
 import ServiceSuggestionsService from '@services/serviceSuggestions.service';
 import { stripSensitiveFields } from '@utils/util';
 import { RequestWithUser } from '@interfaces/auth.interface';

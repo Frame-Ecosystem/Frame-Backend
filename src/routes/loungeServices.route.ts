@@ -2,10 +2,10 @@ import { Router } from 'express';
 import LoungeServicesController from '@controllers/loungeServices.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import loungeMiddleware from '@middlewares/lounge.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
+import { DayOpeningHoursDto, UpdateLoungeProfileDto } from '@dtos/users.dto';
 
 class LoungeServicesRoute implements Routes {
   public path = '/v1/lounge-services';
@@ -58,6 +58,24 @@ class LoungeServicesRoute implements Routes {
 
     // PATCH - Toggle lounge service active status
     this.router.patch('/:serviceId/toggle-status', authMiddleware, csrfMiddleware, this.loungeServicesController.toggleLoungeServiceStatus);
+
+    // PATCH - Update lounge opening hours
+    this.router.patch(
+      '/lounge/:loungeId/opening-hours',
+      authMiddleware,
+      csrfMiddleware,
+      validationMiddleware(DayOpeningHoursDto, 'body', true),
+      this.loungeServicesController.patchLoungeOpeningHours,
+    );
+
+    // PUT - Update lounge profile (title and opening hours)
+    this.router.put(
+      '/lounge/:loungeId/profile',
+      authMiddleware,
+      csrfMiddleware,
+      validationMiddleware(UpdateLoungeProfileDto, 'body', true),
+      this.loungeServicesController.updateLoungeProfile,
+    );
   }
 }
 

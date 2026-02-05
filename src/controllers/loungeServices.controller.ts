@@ -1,10 +1,8 @@
 import { NextFunction, Request, Response } from 'express';
 import LoungeServicesService from '@services/loungeServices.service';
 import { stripSensitiveFields } from '@utils/util';
-import { ServiceLoungeGender } from '@interfaces/loungeService.interface';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
 import { RequestWithUser } from '@interfaces/auth.interface';
-import { HttpException } from '@exceptions/HttpException';
 
 class LoungeServicesController {
   public loungeServicesService = new LoungeServicesService();
@@ -198,6 +196,40 @@ class LoungeServicesController {
         data: services,
         count: services.length,
         message: 'Lounge services search completed',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Patch lounge opening hours
+   */
+  public patchLoungeOpeningHours = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const { loungeId } = req.params;
+      const openingHoursData = req.body;
+      const updatedLounge = await this.loungeServicesService.patchLoungeOpeningHours(loungeId, openingHoursData);
+      res.status(200).json({
+        data: stripSensitiveFields(updatedLounge),
+        message: 'Opening hours updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Update lounge profile
+   */
+  public updateLoungeProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const { loungeId } = req.params;
+      const loungeData = req.body;
+      const updatedLounge = await this.loungeServicesService.updateLoungeProfile(loungeId, loungeData);
+      res.status(200).json({
+        data: stripSensitiveFields(updatedLounge),
+        message: 'Lounge profile updated successfully',
       });
     } catch (error) {
       next(error);

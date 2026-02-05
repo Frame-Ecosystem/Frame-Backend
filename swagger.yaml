@@ -25,6 +25,7 @@ tags:
   - name: admin
   - name: admin services
   - name: current users
+  - name: client
   - name: lounge services
   - name: services
   - name: service categories
@@ -965,79 +966,6 @@ paths:
           500:
             description: Server error
 
-  /v1/me/lounge:
-    put:
-      tags:
-        - current users
-      summary: Update lounge profile (Lounge users only)
-      description: |
-        Update lounge-specific profile information for the currently authenticated lounge user.
-        **User must be of type 'lounge'.**
-        **User ID is automatically extracted from the authentication token.**
-        No ID parameter required.
-      security:
-        - bearerAuth: []
-        - csrfToken: []
-      parameters:
-        - name: body
-          in: body
-          required: true
-          schema:
-            type: object
-            properties:
-              loungeTitle:
-                type: string
-                maxLength: 100
-                description: Lounge business title/name
-                example: "Elite Hair Studio"
-              openingHours:
-                type: object
-                description: Opening hours for each day of the week
-                properties:
-                  monday:
-                    $ref: '#/definitions/OpeningHours'
-                  tuesday:
-                    $ref: '#/definitions/OpeningHours'
-                  wednesday:
-                    $ref: '#/definitions/OpeningHours'
-                  thursday:
-                    $ref: '#/definitions/OpeningHours'
-                  friday:
-                    $ref: '#/definitions/OpeningHours'
-                  saturday:
-                    $ref: '#/definitions/OpeningHours'
-                  sunday:
-                    $ref: '#/definitions/OpeningHours'
-      responses:
-        200:
-          description: Lounge profile updated successfully
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/UserResponse'
-              message:
-                type: string
-                example: Lounge profile updated successfully
-        400:
-          description: Validation error or invalid request data
-          schema:
-            $ref: '#/definitions/ErrorResponse'
-        401:
-          description: Not authenticated
-        403:
-          description: User is not a lounge or CSRF token invalid
-          schema:
-            $ref: '#/definitions/ErrorResponse'
-        404:
-          description: User not found
-          schema:
-            $ref: '#/definitions/ErrorResponse'
-        500:
-          description: Server error
-          schema:
-            $ref: '#/definitions/ErrorResponse'
-
 # ============================================
 # ADMIN SERVICES ENDPOINTS
 # ============================================
@@ -1060,7 +988,7 @@ paths:
                 properties:
                   totalUsers:
                     type: integer
-                  activeUsers:
+                  onlineUsers:
                     type: integer
                   blockedUsers:
                     type: integer
@@ -1167,7 +1095,7 @@ paths:
                     type: integer
                   newUsersThisMonth:
                     type: integer
-                  activeUsers:
+                  onlineUsers:
                     type: integer
                   blockedUsers:
                     type: integer
@@ -1323,6 +1251,191 @@ paths:
           description: Forbidden - Admin access required
         500:
           description: Server error
+
+# ============================================
+# CLIENT ENDPOINTS
+# ============================================
+
+  /v1/client/lounges:
+    get:
+      tags:
+        - client
+      summary: Get all lounges with pagination (for clients to browse)
+      description: |
+        Browse all available lounges with filtering, searching, and pagination.
+        Only non-blocked lounges are returned.
+        Sensitive fields (password, tokens) are automatically excluded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (minimum 1)
+        - name: limit
+          in: query
+          type: integer
+          default: 10
+          description: Items per page (minimum 1, maximum 100)
+        - name: search
+          in: query
+          type: string
+          description: Search term (searches in loungeTitle, firstName, lastName, bio)
+          example: "Hair Salon"
+        - name: gender
+          in: query
+          type: string
+          enum: [male, female, unisex, kids]
+          description: Filter by gender category
+        - name: sortBy
+          in: query
+          type: string
+          enum: [createdAt, loungeTitle, firstName, lastName]
+          default: createdAt
+          description: Field to sort by
+        - name: sortOrder
+          in: query
+          type: string
+          enum: [asc, desc]
+          default: desc
+          description: Sort order (ascending or descending)
+      responses:
+        200:
+          description: Lounges retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungePublicProfile'
+              pagination:
+                type: object
+                properties:
+                  currentPage:
+                    type: integer
+                    example: 1
+                  totalPages:
+                    type: integer
+                    example: 5
+                  totalItems:
+                    type: integer
+                    example: 47
+                  itemsPerPage:
+                    type: integer
+                    example: 10
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+              message:
+                type: string
+                example: Lounges retrieved successfully
+        400:
+          description: Invalid pagination parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/lounges/{loungeId}:
+    get:
+      tags:
+        - client
+      summary: Get lounge details by ID (for clients to view lounge profile)
+      description: |
+        Retrieve detailed information about a specific lounge.
+        Only non-blocked lounges can be accessed.
+        Sensitive fields are automatically excluded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Lounge details retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/LoungePublicProfile'
+              message:
+                type: string
+                example: Lounge details retrieved successfully
+        400:
+          description: Invalid lounge ID format or lounge not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/lounges/{loungeId}/services:
+    get:
+      tags:
+        - client
+      summary: Get all services offered by a specific lounge (for clients)
+      description: |
+        Retrieve all active services offered by a specific lounge.
+        Only services from non-blocked lounges with active status are returned.
+        Service details are populated including service name, category, etc.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Lounge services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              count:
+                type: integer
+                description: Number of services returned
+                example: 5
+              message:
+                type: string
+                example: Lounge services retrieved successfully
+        400:
+          description: Invalid lounge ID format or lounge not found/blocked
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
 
 # ============================================
 # LOUNGE SERVICES ENDPOINTS
@@ -1684,6 +1797,320 @@ paths:
           description: Unauthorized
         404:
           description: Lounge service not found
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/opening-hours:
+    patch:
+      tags:
+        - lounge services
+      summary: Patch opening hours for a lounge
+      description: |
+        Update specific opening hours for a lounge.
+        This endpoint allows partial updates - you can update one or more days without affecting the others.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Opening hours to update (only include days you want to modify)
+            properties:
+              monday:
+                $ref: '#/definitions/OpeningHours'
+              tuesday:
+                $ref: '#/definitions/OpeningHours'
+              wednesday:
+                $ref: '#/definitions/OpeningHours'
+              thursday:
+                $ref: '#/definitions/OpeningHours'
+              friday:
+                $ref: '#/definitions/OpeningHours'
+              saturday:
+                $ref: '#/definitions/OpeningHours'
+              sunday:
+                $ref: '#/definitions/OpeningHours'
+            example:
+              monday:
+                from: "09:00"
+                to: "18:00"
+              friday:
+                from: "09:00"
+                to: "20:00"
+              saturday:
+                from: "10:00"
+                to: "14:00"
+      responses:
+        200:
+          description: Opening hours updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Opening hours updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid opening hours data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/profile:
+    put:
+      tags:
+        - lounge services
+      summary: Update lounge profile (title and opening hours)
+      description: |
+        Update lounge-specific profile information including lounge title and opening hours.
+        This endpoint performs a full update of the specified fields.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              loungeTitle:
+                type: string
+                maxLength: 100
+                description: Lounge business title/name
+                example: "Elite Hair Studio"
+              openingHours:
+                type: object
+                description: Complete opening hours for all days of the week
+                properties:
+                  monday:
+                    $ref: '#/definitions/OpeningHours'
+                  tuesday:
+                    $ref: '#/definitions/OpeningHours'
+                  wednesday:
+                    $ref: '#/definitions/OpeningHours'
+                  thursday:
+                    $ref: '#/definitions/OpeningHours'
+                  friday:
+                    $ref: '#/definitions/OpeningHours'
+                  saturday:
+                    $ref: '#/definitions/OpeningHours'
+                  sunday:
+                    $ref: '#/definitions/OpeningHours'
+            example:
+              loungeTitle: "Elite Hair Studio"
+              openingHours:
+                monday:
+                  from: "09:00"
+                  to: "18:00"
+                tuesday:
+                  from: "09:00"
+                  to: "18:00"
+                friday:
+                  from: "09:00"
+                  to: "20:00"
+      responses:
+        200:
+          description: Lounge profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Lounge profile updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid lounge profile data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/profile:
+    put:
+      tags:
+        - lounge services
+      summary: Update lounge profile (title and opening hours)
+      description: |
+        Update lounge-specific profile information including lounge title and opening hours.
+        This endpoint performs a full update of the specified fields.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              loungeTitle:
+                type: string
+                maxLength: 100
+                description: Lounge business title/name
+                example: "Elite Hair Studio"
+              openingHours:
+                type: object
+                description: Complete opening hours for all days of the week
+                properties:
+                  monday:
+                    $ref: '#/definitions/OpeningHours'
+                  tuesday:
+                    $ref: '#/definitions/OpeningHours'
+                  wednesday:
+                    $ref: '#/definitions/OpeningHours'
+                  thursday:
+                    $ref: '#/definitions/OpeningHours'
+                  friday:
+                    $ref: '#/definitions/OpeningHours'
+                  saturday:
+                    $ref: '#/definitions/OpeningHours'
+                  sunday:
+                    $ref: '#/definitions/OpeningHours'
+            example:
+              loungeTitle: "Elite Hair Studio"
+              openingHours:
+                monday:
+                  from: "09:00"
+                  to: "18:00"
+                tuesday:
+                  from: "09:00"
+                  to: "18:00"
+                friday:
+                  from: "09:00"
+                  to: "20:00"
+      responses:
+        200:
+          description: Lounge profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Lounge profile updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid lounge profile data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
         500:
           description: Server error
 
@@ -2688,8 +3115,13 @@ definitions:
         example: 123 Main Street, Tunis, Tunisia
       placeId:
         type: string
-        description: Google Places ID
+        description: Google Places ID or custom place identifier
         example: ChIJN1t_tDeuEmsRUsoyG83frY4
+      placeName:
+        type: string
+        maxLength: 200
+        description: Human-readable place name (optional)
+        example: "Elite Hair Salon - Downtown Branch"
 
   OpeningHours:
     type: object
@@ -2742,6 +3174,90 @@ definitions:
             type: array
             items:
               type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  LoungePublicProfile:
+    type: object
+    description: Lounge public profile (sensitive fields excluded) for client browsing
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      email:
+        type: string
+        example: lounge@example.com
+      type:
+        type: string
+        example: lounge
+      phoneNumber:
+        type: string
+        example: "+21612345678"
+      gender:
+        type: string
+        enum: [male, female, unisex, kids]
+        description: Gender category the lounge serves
+      firstName:
+        type: string
+        example: "John"
+      lastName:
+        type: string
+        example: "Doe"
+      bio:
+        type: string
+        example: "Professional hair salon with 10 years experience"
+      loungeTitle:
+        type: string
+        example: "Elite Hair Salon"
+      openingHours:
+        type: object
+        properties:
+          monday:
+            $ref: '#/definitions/OpeningHours'
+          tuesday:
+            $ref: '#/definitions/OpeningHours'
+          wednesday:
+            $ref: '#/definitions/OpeningHours'
+          thursday:
+            $ref: '#/definitions/OpeningHours'
+          friday:
+            $ref: '#/definitions/OpeningHours'
+          saturday:
+            $ref: '#/definitions/OpeningHours'
+          sunday:
+            $ref: '#/definitions/OpeningHours'
+      location:
+        $ref: '#/definitions/LocationDto'
+      profileImage:
+        type: object
+        properties:
+          url:
+            type: string
+            example: https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg
+          publicId:
+            type: string
+            example: profile_abc
+      sessionTrack:
+        type: object
+        properties:
+          isOnline:
+            type: boolean
+          lastSeen:
+            type: string
+            format: date-time
+          devices:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                ipAddress:
+                  type: string
       createdAt:
         type: string
         format: date-time

@@ -15,7 +15,6 @@ import {
   Min,
   Max,
   IsUrl,
-  IsArray,
   IsBoolean,
 } from 'class-validator';
 
@@ -144,6 +143,11 @@ export class LocationDto {
   @IsNotEmpty({ message: VALIDATION_MESSAGES.location.placeId.required })
   @Matches(PLACE_ID_REGEX, { message: VALIDATION_MESSAGES.location.placeId.invalid })
   public placeId: string;
+
+  @IsOptional()
+  @IsString({ message: 'Place name must be a string' })
+  @MaxLength(200, { message: 'Place name must not exceed 200 characters' })
+  public placeName?: string;
 }
 
 // OPENING HOURS DTO
@@ -339,6 +343,11 @@ export class UpdateLocationDto {
   @IsNotEmpty({ message: VALIDATION_MESSAGES.location.placeId.required })
   @Matches(PLACE_ID_REGEX, { message: VALIDATION_MESSAGES.location.placeId.invalid })
   public placeId: string;
+
+  @IsOptional()
+  @IsString({ message: 'Place name must be a string' })
+  @MaxLength(200, { message: 'Place name must not exceed 200 characters' })
+  public placeName?: string;
 }
 
 // LOGIN USER DTO

@@ -1,5 +1,10 @@
 import { ServiceSuggestion } from '@/interfaces/serviceSuggestion.interface';
-import { CreateServiceSuggestionDto, UpdateServiceSuggestionDto, UpdateServiceSuggestionStatusDto, AdminApproveServiceSuggestionDto } from '@/dtos/serviceSuggestions.dto';
+import {
+  CreateServiceSuggestionDto,
+  UpdateServiceSuggestionDto,
+  UpdateServiceSuggestionStatusDto,
+  AdminApproveServiceSuggestionDto,
+} from '@/dtos/serviceSuggestions.dto';
 import serviceSuggestionModel from '@/models/serviceSuggestion.model';
 import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException } from '@/exceptions/HttpException';
 import { isEmpty } from '@/utils/util';
@@ -56,7 +61,11 @@ class ServiceSuggestionsService {
       }
       // Handle MongoDB duplicate key errors
       if (error.code === 11000) {
-        logger.error(`ServiceSuggestionsService.createServiceSuggestion duplicate key error: ${error.message}`, { loungeId, data, stack: error.stack });
+        logger.error(`ServiceSuggestionsService.createServiceSuggestion duplicate key error: ${error.message}`, {
+          loungeId,
+          data,
+          stack: error.stack,
+        });
         throw new ConflictException('A service suggestion with this information already exists.', 'DUPLICATE_KEY_ERROR');
       }
       logger.error(`ServiceSuggestionsService.createServiceSuggestion error: ${error.message}`, { loungeId, data, stack: error.stack });
@@ -193,7 +202,11 @@ class ServiceSuggestionsService {
       if (error instanceof HttpException) throw error;
       // Handle MongoDB validation errors
       if (error.name === 'ValidationError') {
-        logger.error(`ServiceSuggestionsService.updateServiceSuggestion validation error: ${error.message}`, { suggestionId, loungeId, stack: error.stack });
+        logger.error(`ServiceSuggestionsService.updateServiceSuggestion validation error: ${error.message}`, {
+          suggestionId,
+          loungeId,
+          stack: error.stack,
+        });
         throw new BadRequestException('Invalid service suggestion data provided. Please check all fields.', 'VALIDATION_ERROR');
       }
       // Handle invalid ObjectId format
@@ -209,7 +222,10 @@ class ServiceSuggestionsService {
   /**
    * Update service suggestion status (admin only)
    */
-  public async updateServiceSuggestionStatus(suggestionId: string, data: UpdateServiceSuggestionStatusDto): Promise<{ suggestion: ServiceSuggestion; service?: any; loungeService?: any }> {
+  public async updateServiceSuggestionStatus(
+    suggestionId: string,
+    data: UpdateServiceSuggestionStatusDto,
+  ): Promise<{ suggestion: ServiceSuggestion; service?: any; loungeService?: any }> {
     try {
       // Validate required parameters
       if (isEmpty(suggestionId)) {
@@ -266,7 +282,10 @@ class ServiceSuggestionsService {
       const suggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type');
       if (!suggestion) {
         logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: suggestion not found: ${suggestionId}`);
-        throw new NotFoundException('The requested service suggestion could not be found. It may have been deleted or the ID is incorrect.', 'SUGGESTION_NOT_FOUND');
+        throw new NotFoundException(
+          'The requested service suggestion could not be found. It may have been deleted or the ID is incorrect.',
+          'SUGGESTION_NOT_FOUND',
+        );
       }
 
       // Check if suggestion is already in the requested status
@@ -324,23 +343,40 @@ class ServiceSuggestionsService {
             ...(data.adminNote && { adminNote: data.adminNote }),
           });
 
-          logger.info(`ServiceSuggestionsService.updateServiceSuggestionStatus: implemented suggestion ${suggestionId}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`);
+          logger.info(
+            `ServiceSuggestionsService.updateServiceSuggestionStatus: implemented suggestion ${suggestionId}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`,
+          );
         } catch (serviceError) {
           // Handle specific service creation errors
           if (serviceError instanceof ConflictException) {
             if (serviceError.message.includes('already exists')) {
-              logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: service name conflict for suggestion ${suggestionId}: ${serviceError.message}`);
-              throw new ConflictException('A service with this name already exists. Please modify the service name in the suggestion or choose a different name.', 'SERVICE_NAME_CONFLICT');
+              logger.error(
+                `ServiceSuggestionsService.updateServiceSuggestionStatus: service name conflict for suggestion ${suggestionId}: ${serviceError.message}`,
+              );
+              throw new ConflictException(
+                'A service with this name already exists. Please modify the service name in the suggestion or choose a different name.',
+                'SERVICE_NAME_CONFLICT',
+              );
             }
           }
           if (serviceError instanceof BadRequestException) {
-            logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: invalid service data for suggestion ${suggestionId}: ${serviceError.message}`);
-            throw new BadRequestException('Invalid service configuration. Please check the category, duration, and other service details.', 'INVALID_SERVICE_DATA');
+            logger.error(
+              `ServiceSuggestionsService.updateServiceSuggestionStatus: invalid service data for suggestion ${suggestionId}: ${serviceError.message}`,
+            );
+            throw new BadRequestException(
+              'Invalid service configuration. Please check the category, duration, and other service details.',
+              'INVALID_SERVICE_DATA',
+            );
           }
           // Handle lounge service creation errors
           if (serviceError instanceof ConflictException && serviceError.message.includes('already offered')) {
-            logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: lounge already offers this service for suggestion ${suggestionId}: ${serviceError.message}`);
-            throw new ConflictException('This lounge already offers a similar service. The suggestion has been implemented but service creation failed.', 'LOUNGE_SERVICE_EXISTS');
+            logger.error(
+              `ServiceSuggestionsService.updateServiceSuggestionStatus: lounge already offers this service for suggestion ${suggestionId}: ${serviceError.message}`,
+            );
+            throw new ConflictException(
+              'This lounge already offers a similar service. The suggestion has been implemented but service creation failed.',
+              'LOUNGE_SERVICE_EXISTS',
+            );
           }
 
           // Re-throw other HttpExceptions as-is
@@ -349,8 +385,14 @@ class ServiceSuggestionsService {
           }
 
           // Handle unexpected errors during service creation
-          logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: unexpected error during service creation for suggestion ${suggestionId}: ${serviceError.message}`, { stack: serviceError.stack });
-          throw new InternalServerException('Failed to create the service. The suggestion status has been updated, but service implementation encountered an error.', 'SERVICE_CREATION_FAILED');
+          logger.error(
+            `ServiceSuggestionsService.updateServiceSuggestionStatus: unexpected error during service creation for suggestion ${suggestionId}: ${serviceError.message}`,
+            { stack: serviceError.stack },
+          );
+          throw new InternalServerException(
+            'Failed to create the service. The suggestion status has been updated, but service implementation encountered an error.',
+            'SERVICE_CREATION_FAILED',
+          );
         }
       } else {
         // Just update the status for other cases
@@ -381,26 +423,44 @@ class ServiceSuggestionsService {
 
       // Handle MongoDB connection errors
       if (error.name === 'MongoNetworkError' || error.name === 'MongoTimeoutError') {
-        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: database connection error: ${error.message}`, { suggestionId, stack: error.stack });
+        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: database connection error: ${error.message}`, {
+          suggestionId,
+          stack: error.stack,
+        });
         throw new InternalServerException('Database connection error. Please try again in a few moments.', 'DATABASE_CONNECTION_ERROR');
       }
 
       // Handle MongoDB validation errors
       if (error.name === 'ValidationError') {
-        const validationErrors = Object.values(error.errors).map((err: any) => err.message).join(', ');
-        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: validation error: ${validationErrors}`, { suggestionId, stack: error.stack });
+        const validationErrors = Object.values(error.errors)
+          .map((err: any) => err.message)
+          .join(', ');
+        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: validation error: ${validationErrors}`, {
+          suggestionId,
+          stack: error.stack,
+        });
         throw new BadRequestException(`Data validation failed: ${validationErrors}`, 'VALIDATION_ERROR');
       }
 
       // Handle duplicate key errors (though this shouldn't happen in this context)
       if (error.code === 11000) {
-        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: duplicate key error: ${error.message}`, { suggestionId, stack: error.stack });
+        logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: duplicate key error: ${error.message}`, {
+          suggestionId,
+          stack: error.stack,
+        });
         throw new ConflictException('A conflict occurred while updating the suggestion. Please try again.', 'DUPLICATE_KEY_ERROR');
       }
 
       // Handle any other unexpected errors
-      logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: unexpected error: ${error.message}`, { suggestionId, data, stack: error.stack });
-      throw new InternalServerException('An unexpected error occurred while updating the service suggestion. Please try again or contact support if the problem persists.', 'UNEXPECTED_ERROR');
+      logger.error(`ServiceSuggestionsService.updateServiceSuggestionStatus: unexpected error: ${error.message}`, {
+        suggestionId,
+        data,
+        stack: error.stack,
+      });
+      throw new InternalServerException(
+        'An unexpected error occurred while updating the service suggestion. Please try again or contact support if the problem persists.',
+        'UNEXPECTED_ERROR',
+      );
     }
   }
 
@@ -546,7 +606,9 @@ class ServiceSuggestionsService {
           adminNote: data.adminNote,
         });
 
-        logger.info(`ServiceSuggestionsService.adminUpdateServiceSuggestionStatus: approved and implemented suggestion ${suggestionId}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`);
+        logger.info(
+          `ServiceSuggestionsService.adminUpdateServiceSuggestionStatus: approved and implemented suggestion ${suggestionId}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`,
+        );
       } else {
         // Just update the status for non-implemented statuses
         await this.serviceSuggestions.findByIdAndUpdate(suggestionId, {
@@ -572,7 +634,11 @@ class ServiceSuggestionsService {
         logger.error(`ServiceSuggestionsService.adminUpdateServiceSuggestionStatus invalid ID format: ${suggestionId}`, { stack: error.stack });
         throw new BadRequestException('Invalid service suggestion ID format', 'INVALID_ID_FORMAT');
       }
-      logger.error(`ServiceSuggestionsService.adminUpdateServiceSuggestionStatus error: ${error.message}`, { suggestionId, data, stack: error.stack });
+      logger.error(`ServiceSuggestionsService.adminUpdateServiceSuggestionStatus error: ${error.message}`, {
+        suggestionId,
+        data,
+        stack: error.stack,
+      });
       throw new InternalServerException('Unable to update service suggestion status at this time. Please try again later.');
     }
   }

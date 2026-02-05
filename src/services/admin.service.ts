@@ -85,8 +85,6 @@ class AdminService {
 
       // Normalize email to lowercase
       const normalizedEmail = userData.email.toLowerCase().trim();
-      // Determine user type (default to regular user)
-      const userType = userData.type || 'user';
 
       // Check for existing email
       const findByEmail: User = await this.users.findOne({ email: normalizedEmail });

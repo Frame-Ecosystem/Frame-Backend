@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 import AdminServicesService from '@services/adminServices.service';
-import { logger } from '@utils/logger';
 
 class AdminServicesController {
   public adminServicesService = new AdminServicesService();

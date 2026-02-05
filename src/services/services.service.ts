@@ -320,24 +320,22 @@ class ServicesService {
 
       for (let i = 0; i < data.length; i++) {
         const serviceData = data[i];
-        
+
         if (!serviceData.name || !serviceData.categoryId) {
           errors.push(`Service ${i + 1}: name and categoryId are required`);
           continue;
         }
 
         // Check for duplicates within the batch
-        const duplicateInBatch = processedData.find(s => 
-          s.name.toLowerCase() === serviceData.name.trim().toLowerCase()
-        );
+        const duplicateInBatch = processedData.find(s => s.name.toLowerCase() === serviceData.name.trim().toLowerCase());
         if (duplicateInBatch) {
           errors.push(`Service ${i + 1}: duplicate name '${serviceData.name}' within the batch`);
           continue;
         }
 
         // Check if service name already exists in database
-        const existingService = await this.services.findOne({ 
-          name: new RegExp(`^${serviceData.name.trim()}$`, 'i') 
+        const existingService = await this.services.findOne({
+          name: new RegExp(`^${serviceData.name.trim()}$`, 'i'),
         });
         if (existingService) {
           errors.push(`Service ${i + 1}: service name '${serviceData.name}' already exists`);

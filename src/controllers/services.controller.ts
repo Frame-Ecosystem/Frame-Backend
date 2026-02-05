@@ -1,6 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
 import ServicesService from '@services/services.service';
-import { stripSensitiveFields } from '@utils/util';
 
 interface CreateServiceDto {
   name: string;
