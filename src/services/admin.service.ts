@@ -287,6 +287,23 @@ class AdminService {
       throw new InternalServerException('Failed to retrieve online users');
     }
   }
+
+  /**
+   * Get all lounge names and IDs for admin use
+   */
+  public async getAllLoungeNames(): Promise<{ _id: string; loungeTitle: string }[]> {
+    try {
+      const lounges = await this.users.find({ type: 'lounge' }, '_id loungeTitle').sort({ loungeTitle: 1 });
+      logger.info(`AdminService.getAllLoungeNames: found ${lounges.length} lounges`);
+      return lounges.map(lounge => ({
+        _id: lounge._id.toString(),
+        loungeTitle: lounge.loungeTitle,
+      }));
+    } catch (error) {
+      logger.error(`AdminService.getAllLoungeNames error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Failed to retrieve lounge names');
+    }
+  }
 }
 
 export default AdminService;

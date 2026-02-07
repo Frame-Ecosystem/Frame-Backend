@@ -19,6 +19,8 @@ const main = async () => {
   const { default: ServicesRoute } = await import('@routes/services.route');
   const { default: ServiceCategoriesRoute } = await import('@routes/serviceCategories.route');
   const { default: ServiceSuggestionsRoute } = await import('@routes/serviceSuggestions.route');
+  const { default: AgentRoute } = await import('@routes/agent.route');
+  const { default: LoungeRoute } = await import('@routes/lounge.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
@@ -32,6 +34,8 @@ const main = async () => {
     new ServicesRoute(),
     new ServiceCategoriesRoute(),
     new ServiceSuggestionsRoute(),
+    new AgentRoute(),
+    new LoungeRoute(),
   ]);
 
   app.listen();

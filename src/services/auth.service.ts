@@ -39,17 +39,25 @@ class AuthService {
         throw new BadRequestException('Invalid request data');
       }
 
-      // Normalize email to lowercase for consistent storage and lookup
-      const normalizedEmail = userData.email.toLowerCase().trim();
-
-      // Check for existing email
-      const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
-      if (findByEmail) {
-        logger.info(`Signup attempt with existing email: ${userData.email}`);
-        throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+      // Validate that at least email or phone is provided
+      if (!userData.email && !userData.phoneNumber) {
+        logger.warn('Signup attempt without email or phone number');
+        throw new BadRequestException('Either email or phone number is required', 'MISSING_IDENTIFIER');
       }
 
-      // Check for existing phone number (only if provided)
+      // Normalize email to lowercase for consistent storage and lookup (if provided)
+      const normalizedEmail = userData.email ? userData.email.toLowerCase().trim() : null;
+
+      // Check for existing email (if provided)
+      if (normalizedEmail) {
+        const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
+        if (findByEmail) {
+          logger.info(`Signup attempt with existing email: ${userData.email}`);
+          throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+        }
+      }
+
+      // Check for existing phone number (if provided)
       if (userData.phoneNumber) {
         const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone) {
@@ -71,12 +79,16 @@ class AuthService {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           // Create user with type
-          const baseData = {
+          const baseData: any = {
             ...userData,
-            email: normalizedEmail,
             password: hashedPassword,
             type: userType,
           };
+
+          // Only include email if provided
+          if (normalizedEmail) {
+            baseData.email = normalizedEmail;
+          }
 
           createUserData = await this.users.create(baseData);
           break; // Success - exit retry loop
@@ -88,8 +100,14 @@ class AuthService {
             logger.warn(`Signup: duplicate key error on attempt ${attempt}/${maxRetries}, retrying in ${waitTime}ms...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             // Re-check for existing records
-            const findByEmail = await this.users.findOne({ email: normalizedEmail });
-            if (findByEmail) throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+            if (normalizedEmail) {
+              const findByEmail = await this.users.findOne({ email: normalizedEmail });
+              if (findByEmail) throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+            }
+            if (userData.phoneNumber) {
+              const findByPhone = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+              if (findByPhone) throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+            }
           } else {
             throw createError;
           }
@@ -149,9 +167,19 @@ class AuthService {
         throw new BadRequestException('Invalid request data');
       }
 
-      // Find user by email (normalize for case-insensitive lookup)
-      const normalizedEmail = userData.email.toLowerCase().trim();
-      const findUser: User = await this.users.findOne({ email: normalizedEmail });
+      // Determine if input is email or phone number
+      const identifier = userData.emailOrPhone.trim();
+      const isEmail = identifier.includes('@');
+
+      // Find user by email or phone
+      let findUser: User;
+      if (isEmail) {
+        const normalizedEmail = identifier.toLowerCase();
+        findUser = await this.users.findOne({ email: normalizedEmail });
+      } else {
+        // Assume it's a phone number
+        findUser = await this.users.findOne({ phoneNumber: identifier });
+      }
 
       if (!findUser) {
         logSecurityEvent({
@@ -159,7 +187,8 @@ class AuthService {
           reason: 'User not found',
           ip: deviceInfo?.ip,
           userAgent: deviceInfo?.userAgent,
-          attemptedEmail: userData.email,
+          attemptedIdentifier: identifier,
+          identifierType: isEmail ? 'email' : 'phone',
         });
         throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
       }
@@ -191,14 +220,14 @@ class AuthService {
 
       // Get updated user and session count
       const updatedUser = await this.users.findById(findUser._id);
-      
+
       // Debug: Verify the isOnline status was set
       logger.info('AuthService.login: sessionTrack status after update', {
         userId: String(findUser._id),
         email: findUser.email,
         isOnline: updatedUser?.sessionTrack?.isOnline,
         lastSeen: updatedUser?.sessionTrack?.lastSeen,
-        devices: updatedUser?.sessionTrack?.devices
+        devices: updatedUser?.sessionTrack?.devices,
       });
 
       const sessionCount = (Array.isArray(updatedUser?.refreshTokens) ? updatedUser.refreshTokens : []).filter(

@@ -6,8 +6,12 @@ const userSchema: Schema = new Schema(
   {
     email: {
       type: String,
-      required: true,
+      required: function (this: any) {
+        // Email is required if no phone number is provided
+        return !this.phoneNumber;
+      },
       unique: true,
+      sparse: true, // Allows null values with unique constraint
     },
     type: {
       type: String,
@@ -25,7 +29,10 @@ const userSchema: Schema = new Schema(
     },
     phoneNumber: {
       type: String,
-      required: false,
+      required: function (this: any) {
+        // Phone number is required if no email is provided
+        return !this.email;
+      },
       unique: true,
       sparse: true,
     },

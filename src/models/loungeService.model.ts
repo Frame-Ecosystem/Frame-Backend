@@ -21,6 +21,10 @@ export interface LoungeService extends Document {
   gender: ServiceLoungeGender;
   status: LoungeServiceStatus;
   description?: string;
+  image?: {
+    url: string;
+    publicId: string;
+  };
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
@@ -63,6 +67,10 @@ const loungeServiceSchema: Schema = new Schema(
       type: String,
       required: false,
       trim: true,
+    },
+    image: {
+      url: { type: String, required: false },
+      publicId: { type: String, required: false },
     },
     isActive: {
       type: Boolean,

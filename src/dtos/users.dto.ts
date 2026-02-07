@@ -61,10 +61,9 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@
 
 /**
  * Phone number:
- * - International format with optional +
- * - 8-15 digits
+ * - Exactly 8 digits
  */
-const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
+const PHONE_REGEX = /^\d{8}$/;
 
 /**
  * Google Place ID format (for location validation)
@@ -85,7 +84,7 @@ const VALIDATION_MESSAGES = {
     maxLength: 'Password cannot exceed 128 characters',
   },
   phoneNumber: {
-    invalid: 'Please provide a valid phone number (e.g., +21612345678)',
+    invalid: 'Please provide a valid phone number (exactly 8 digits)',
     required: 'Phone number is required',
   },
   gender: {
@@ -116,7 +115,7 @@ const VALIDATION_MESSAGES = {
     invalid: 'Profile image must be a valid URL',
   },
   login: {
-    email: 'Email is required',
+    emailOrPhone: 'Email or phone number is required',
     password: 'Password is required',
   },
 };
@@ -204,9 +203,9 @@ export class DayOpeningHoursDto {
 // CREATE USER DTO (Signup)
 
 export class CreateUserDto {
+  @IsOptional()
   @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.email.required })
-  public email: string;
+  public email?: string;
 
   @IsString({ message: VALIDATION_MESSAGES.password.required })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.password.required })
@@ -353,9 +352,9 @@ export class UpdateLocationDto {
 // LOGIN USER DTO
 
 export class LoginUserDto {
-  @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.email.required })
-  public email: string;
+  @IsString({ message: 'Email or phone number is required' })
+  @IsNotEmpty({ message: 'Email or phone number is required' })
+  public emailOrPhone: string;
 
   @IsString({ message: VALIDATION_MESSAGES.login.password })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.login.password })

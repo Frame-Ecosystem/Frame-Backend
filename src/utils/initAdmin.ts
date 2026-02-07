@@ -5,7 +5,7 @@ import { logger } from '@utils/logger';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
 
 // Admin defaults
-const ADMIN_PHONE = process.env.ADMIN_PHONE || '21650922140';
+const ADMIN_PHONE = process.env.ADMIN_PHONE || '50922140';
 
 /**
  * Ensure the users collection and indexes exist in MongoDB.
