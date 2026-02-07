@@ -31,8 +31,8 @@ const userSchema: Schema = new Schema(
     },
     gender: {
       type: String,
-      enum: ['male', 'female', 'both'],
-      default: 'both',
+      enum: ['male', 'female', 'unisex', 'kids'],
+      default: 'unisex',
       required: false,
     },
     firstName: {
@@ -51,10 +51,35 @@ const userSchema: Schema = new Schema(
       type: String,
       required: false,
     },
-    services: {
-      type: [String],
-      required: false,
-      default: [],
+    openingHours: {
+      monday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      tuesday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      wednesday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      thursday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      friday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      saturday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
+      sunday: {
+        from: { type: String, required: false },
+        to: { type: String, required: false },
+      },
     },
     location: {
       type: {
@@ -71,6 +96,10 @@ const userSchema: Schema = new Schema(
           required: false,
         },
         placeId: {
+          type: String,
+          required: false,
+        },
+        placeName: {
           type: String,
           required: false,
         },

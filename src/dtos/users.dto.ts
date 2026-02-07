@@ -15,7 +15,7 @@ import {
   Min,
   Max,
   IsUrl,
-  IsArray,
+  IsBoolean,
 } from 'class-validator';
 
 export class SendVerificationEmailDto {
@@ -43,7 +43,8 @@ export enum UserType {
 export enum UserGender {
   MALE = 'male',
   FEMALE = 'female',
-  BOTH = 'both',
+  UNISEX = 'unisex',
+  KIDS = 'kids',
 }
 
 // VALIDATION REGEX PATTERNS
@@ -88,7 +89,7 @@ const VALIDATION_MESSAGES = {
     required: 'Phone number is required',
   },
   gender: {
-    invalid: 'Gender must be one of: male, female, both',
+    invalid: 'Gender must be one of: male, female, unisex, kids',
   },
   type: {
     invalid: 'Type must be one of: user, client, lounge',
@@ -142,6 +143,62 @@ export class LocationDto {
   @IsNotEmpty({ message: VALIDATION_MESSAGES.location.placeId.required })
   @Matches(PLACE_ID_REGEX, { message: VALIDATION_MESSAGES.location.placeId.invalid })
   public placeId: string;
+
+  @IsOptional()
+  @IsString({ message: 'Place name must be a string' })
+  @MaxLength(200, { message: 'Place name must not exceed 200 characters' })
+  public placeName?: string;
+}
+
+// OPENING HOURS DTO
+
+export class OpeningHoursDto {
+  @IsOptional()
+  @IsString({ message: 'Opening time must be in HH:MM format' })
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Opening time must be in HH:MM format' })
+  public from?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Closing time must be in HH:MM format' })
+  @Matches(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, { message: 'Closing time must be in HH:MM format' })
+  public to?: string;
+}
+
+export class DayOpeningHoursDto {
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public monday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public tuesday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public wednesday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public thursday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public friday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public saturday?: OpeningHoursDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => OpeningHoursDto)
+  public sunday?: OpeningHoursDto;
 }
 
 // CREATE USER DTO (Signup)
@@ -286,6 +343,11 @@ export class UpdateLocationDto {
   @IsNotEmpty({ message: VALIDATION_MESSAGES.location.placeId.required })
   @Matches(PLACE_ID_REGEX, { message: VALIDATION_MESSAGES.location.placeId.invalid })
   public placeId: string;
+
+  @IsOptional()
+  @IsString({ message: 'Place name must be a string' })
+  @MaxLength(200, { message: 'Place name must not exceed 200 characters' })
+  public placeName?: string;
 }
 
 // LOGIN USER DTO
@@ -344,10 +406,11 @@ export class UpdateLoungeProfileDto {
   @IsString({ message: 'Lounge title must be a string' })
   @MaxLength(100, { message: 'Lounge title cannot exceed 100 characters' })
   public loungeTitle?: string;
+
   @IsOptional()
-  @IsArray({ message: 'Services must be an array' })
-  @IsString({ each: true, message: 'Each service must be a string' })
-  public services?: string[];
+  @ValidateNested()
+  @Type(() => DayOpeningHoursDto)
+  public openingHours?: DayOpeningHoursDto;
 }
 
 // UPDATE CLIENT PROFILE DTO
@@ -362,4 +425,158 @@ export class UpdateClientProfileDto {
   @IsString({ message: 'Last name must be a string' })
   @MaxLength(50, { message: 'Last name cannot exceed 50 characters' })
   public lastName?: string;
+}
+
+// SERVICE DTOs
+
+export enum ServiceStatusDto {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+}
+
+export enum ServiceSuggestionStatusDto {
+  PENDING = 'pending',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  IMPLEMENTED = 'implemented',
+}
+
+export class CreateServiceCategoryDto {
+  @IsString({ message: 'Category name is required' })
+  @IsNotEmpty({ message: 'Category name cannot be empty' })
+  @MaxLength(100, { message: 'Category name cannot exceed 100 characters' })
+  public name: string;
+}
+
+export class UpdateServiceCategoryDto {
+  @IsOptional()
+  @IsString({ message: 'Category name must be a string' })
+  @MaxLength(100, { message: 'Category name cannot exceed 100 characters' })
+  public name?: string;
+}
+
+export class CreateServiceDto {
+  @IsString({ message: 'Service name is required' })
+  @IsNotEmpty({ message: 'Service name cannot be empty' })
+  @MaxLength(100, { message: 'Service name cannot exceed 100 characters' })
+  public name: string;
+
+  @IsString({ message: 'Service slug is required' })
+  @IsNotEmpty({ message: 'Service slug cannot be empty' })
+  @MaxLength(100, { message: 'Service slug cannot exceed 100 characters' })
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must contain only lowercase letters, numbers, and hyphens' })
+  public slug: string;
+
+  @IsString({ message: 'Category ID is required' })
+  @IsNotEmpty({ message: 'Category ID cannot be empty' })
+  public categoryId: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Base duration must be a number' })
+  @Min(1, { message: 'Base duration must be at least 1 minute' })
+  public baseDuration?: number;
+
+  @IsOptional()
+  @IsEnum(ServiceStatusDto, { message: 'Status must be one of: active, inactive' })
+  public status?: ServiceStatusDto = ServiceStatusDto.ACTIVE;
+}
+
+export class UpdateServiceDto {
+  @IsOptional()
+  @IsString({ message: 'Service name must be a string' })
+  @MaxLength(100, { message: 'Service name cannot exceed 100 characters' })
+  public name?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Service slug must be a string' })
+  @MaxLength(100, { message: 'Service slug cannot exceed 100 characters' })
+  @Matches(/^[a-z0-9-]+$/, { message: 'Slug must contain only lowercase letters, numbers, and hyphens' })
+  public slug?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Category ID must be a string' })
+  public categoryId?: string;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Base duration must be a number' })
+  @Min(1, { message: 'Base duration must be at least 1 minute' })
+  public baseDuration?: number;
+
+  @IsOptional()
+  @IsEnum(ServiceStatusDto, { message: 'Status must be one of: active, inactive' })
+  public status?: ServiceStatusDto;
+}
+
+export class CreateServiceSuggestionDto {
+  @IsString({ message: 'Service name is required' })
+  @IsNotEmpty({ message: 'Service name cannot be empty' })
+  @MaxLength(200, { message: 'Service name cannot exceed 200 characters' })
+  public name: string;
+
+  @IsOptional()
+  @IsString({ message: 'Description must be a string' })
+  @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
+  public description?: string;
+}
+
+export class UpdateServiceSuggestionDto {
+  @IsOptional()
+  @IsString({ message: 'Service name must be a string' })
+  @MaxLength(200, { message: 'Service name cannot exceed 200 characters' })
+  public name?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Description must be a string' })
+  @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
+  public description?: string;
+
+  @IsOptional()
+  @IsEnum(ServiceSuggestionStatusDto, { message: 'Status must be one of: pending, approved, rejected, implemented' })
+  public status?: ServiceSuggestionStatusDto;
+}
+
+// LOUNGE SERVICE DTOs
+
+export class CreateLoungeServiceDto {
+  @IsString({ message: 'Service ID is required' })
+  @IsNotEmpty({ message: 'Service ID cannot be empty' })
+  public serviceId: string;
+
+  @IsNumber({}, { message: 'Price must be a number' })
+  @Min(0, { message: 'Price cannot be negative' })
+  public price: number;
+
+  @IsNumber({}, { message: 'Duration must be a number' })
+  @Min(1, { message: 'Duration must be at least 1 minute' })
+  public duration: number;
+
+  @IsOptional()
+  @IsString({ message: 'Description must be a string' })
+  @MaxLength(500, { message: 'Description cannot exceed 500 characters' })
+  public description?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isActive must be a boolean' })
+  public isActive?: boolean = true;
+}
+
+export class UpdateLoungeServiceDto {
+  @IsOptional()
+  @IsNumber({}, { message: 'Price must be a number' })
+  @Min(0, { message: 'Price cannot be negative' })
+  public price?: number;
+
+  @IsOptional()
+  @IsNumber({}, { message: 'Duration must be a number' })
+  @Min(1, { message: 'Duration must be at least 1 minute' })
+  public duration?: number;
+
+  @IsOptional()
+  @IsString({ message: 'Description must be a string' })
+  @MaxLength(500, { message: 'Description cannot exceed 500 characters' })
+  public description?: string;
+
+  @IsOptional()
+  @IsBoolean({ message: 'isActive must be a boolean' })
+  public isActive?: boolean;
 }

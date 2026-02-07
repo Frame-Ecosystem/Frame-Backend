@@ -134,7 +134,7 @@ class App {
         environment: this.env,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
-        version: process.env.npm_package_version || '1.0.0'
+        version: process.env.npm_package_version || '1.0.0',
       });
     });
 
@@ -146,14 +146,14 @@ class App {
         res.status(200).json({
           status: 'ready',
           timestamp: new Date().toISOString(),
-          database: 'connected'
+          database: 'connected',
         });
       } catch (error) {
         res.status(503).json({
           status: 'not ready',
           timestamp: new Date().toISOString(),
           database: 'disconnected',
-          error: this.env === 'development' ? error.message : 'Database connection failed'
+          error: this.env === 'development' ? error.message : 'Database connection failed',
         });
       }
     });

@@ -98,17 +98,6 @@ class CurrentUserController {
     }
   };
 
-  public updateLoungeProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {
-    try {
-      const userId = req.user._id.toString();
-      const loungeData: import('@dtos/users.dto').UpdateLoungeProfileDto = req.body;
-      const updatedUser: User = await this.currentUserService.updateLoungeProfile(userId, loungeData);
-      res.status(200).json({ data: stripSensitiveFields(updatedUser), message: 'Lounge profile updated successfully' });
-    } catch (error) {
-      next(error);
-    }
-  };
-
   public updateClientProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();

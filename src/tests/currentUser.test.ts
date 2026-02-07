@@ -44,7 +44,6 @@ describe('changePassword', () => {
   });
 });
 import CurrentUserService from '../services/currentUser.service';
-import { UpdateUserDto, LocationDto } from '../dtos/users.dto';
 import userModel from '../models/users.model';
 
 jest.mock('../models/users.model');

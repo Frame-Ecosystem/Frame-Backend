@@ -23,7 +23,12 @@ securityDefinitions:
 tags:
   - name: auth
   - name: admin
+  - name: admin services
   - name: current users
+  - name: client
+  - name: lounge services
+  - name: services
+  - name: service categories
 paths:
  # ============================================
   # AUTH ENDPOINTS
@@ -61,8 +66,8 @@ paths:
                 example: "+21650922140"
               gender:
                 type: string
-                enum: [male, female, both]
-                default: both
+                enum: [male, female, unisex, kids]
+                default: unisex
                 description: User gender (optional)
                 example: male
               type:
@@ -664,7 +669,7 @@ paths:
                 example: "+21655555555"
               gender:
                 type: string
-                enum: [male, female, both]
+                enum: [male, female, unisex, kids]
               location:
                 $ref: '#/definitions/LocationDto'
               profileImage:
@@ -960,7 +965,2012 @@ paths:
             description: User not found
           500:
             description: Server error
- 
+
+# ============================================
+# ADMIN SERVICES ENDPOINTS
+# ============================================
+
+  /v1/admin-services/stats:
+    get:
+      tags:
+        - admin services
+      summary: Get admin statistics
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Admin statistics retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                  onlineUsers:
+                    type: integer
+                  blockedUsers:
+                    type: integer
+                  adminCount:
+                    type: integer
+                  clientCount:
+                    type: integer
+                  loungeCount:
+                    type: integer
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+  /v1/admin-services/health:
+    get:
+      tags:
+        - admin services
+      summary: Get system health status
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System health check completed
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+                  database:
+                    type: string
+                  uptime:
+                    type: number
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+  /v1/admin-services/activity-log:
+    get:
+      tags:
+        - admin services
+      summary: Get user activity log
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          type: integer
+          default: 100
+          description: Maximum number of records to return
+      responses:
+        200:
+          description: User activity log retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  type: object
+              count:
+                type: integer
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+  /v1/admin-services/dashboard:
+    get:
+      tags:
+        - admin services
+      summary: Get dashboard statistics
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Dashboard statistics retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                  newUsersThisMonth:
+                    type: integer
+                  onlineUsers:
+                    type: integer
+                  blockedUsers:
+                    type: integer
+                  usersByType:
+                    type: object
+                  timestamp:
+                    type: string
+                    format: date-time
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+  /v1/admin-services/users/{userId}/clear-sessions:
+    post:
+      tags:
+        - admin services
+      summary: Clear all user sessions
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+          description: User ID
+      responses:
+        200:
+          description: User sessions cleared successfully
+          schema:
+            $ref: '#/definitions/UserResponse'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+  /v1/admin-services/users/{userId}/reset-password:
+    post:
+      tags:
+        - admin services
+      summary: Reset user password (admin function)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+          description: User ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - newPassword
+            properties:
+              newPassword:
+                type: string
+                minLength: 8
+                description: New password
+                example: NewPass123!
+      responses:
+        200:
+          description: User password reset successfully
+          schema:
+            $ref: '#/definitions/UserResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+  /v1/admin-services/users/{userId}/export:
+    get:
+      tags:
+        - admin services
+      summary: Export user data
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+          description: User ID
+      responses:
+        200:
+          description: User data exported successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: User not found
+        500:
+          description: Server error
+
+  /v1/admin-services/audit-log:
+    post:
+      tags:
+        - admin services
+      summary: Create audit log
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - action
+            properties:
+              action:
+                type: string
+                description: Action performed
+                example: "USER_DELETED"
+              details:
+                type: object
+                description: Additional details
+      responses:
+        201:
+          description: Audit log created successfully
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+# ============================================
+# CLIENT ENDPOINTS
+# ============================================
+
+  /v1/client/lounges:
+    get:
+      tags:
+        - client
+      summary: Get all lounges with pagination (for clients to browse)
+      description: |
+        Browse all available lounges with filtering, searching, and pagination.
+        Only non-blocked lounges are returned.
+        Sensitive fields (password, tokens) are automatically excluded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number (minimum 1)
+        - name: limit
+          in: query
+          type: integer
+          default: 10
+          description: Items per page (minimum 1, maximum 100)
+        - name: search
+          in: query
+          type: string
+          description: Search term (searches in loungeTitle, firstName, lastName, bio)
+          example: "Hair Salon"
+        - name: gender
+          in: query
+          type: string
+          enum: [male, female, unisex, kids]
+          description: Filter by gender category
+        - name: sortBy
+          in: query
+          type: string
+          enum: [createdAt, loungeTitle, firstName, lastName]
+          default: createdAt
+          description: Field to sort by
+        - name: sortOrder
+          in: query
+          type: string
+          enum: [asc, desc]
+          default: desc
+          description: Sort order (ascending or descending)
+      responses:
+        200:
+          description: Lounges retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungePublicProfile'
+              pagination:
+                type: object
+                properties:
+                  currentPage:
+                    type: integer
+                    example: 1
+                  totalPages:
+                    type: integer
+                    example: 5
+                  totalItems:
+                    type: integer
+                    example: 47
+                  itemsPerPage:
+                    type: integer
+                    example: 10
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+              message:
+                type: string
+                example: Lounges retrieved successfully
+        400:
+          description: Invalid pagination parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/lounges/{loungeId}:
+    get:
+      tags:
+        - client
+      summary: Get lounge details by ID (for clients to view lounge profile)
+      description: |
+        Retrieve detailed information about a specific lounge.
+        Only non-blocked lounges can be accessed.
+        Sensitive fields are automatically excluded.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Lounge details retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/LoungePublicProfile'
+              message:
+                type: string
+                example: Lounge details retrieved successfully
+        400:
+          description: Invalid lounge ID format or lounge not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/lounges/{loungeId}/services:
+    get:
+      tags:
+        - client
+      summary: Get all services offered by a specific lounge (for clients)
+      description: |
+        Retrieve all active services offered by a specific lounge.
+        Only services from non-blocked lounges with active status are returned.
+        Service details are populated including service name, category, etc.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Lounge services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              count:
+                type: integer
+                description: Number of services returned
+                example: 5
+              message:
+                type: string
+                example: Lounge services retrieved successfully
+        400:
+          description: Invalid lounge ID format or lounge not found/blocked
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+# ============================================
+# LOUNGE SERVICES ENDPOINTS
+# ============================================
+
+  /v1/lounge-services:
+    get:
+      tags:
+        - lounge services
+      summary: Get all lounge services (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number
+        - name: limit
+          in: query
+          type: integer
+          default: 20
+          description: Items per page
+      responses:
+        200:
+          description: Lounge services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              page:
+                type: integer
+              limit:
+                type: integer
+              total:
+                type: integer
+              totalPages:
+                type: integer
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+    post:
+      tags:
+        - lounge services
+      summary: Create a new lounge service
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - loungeId
+              - serviceId
+              - price
+              - duration
+            properties:
+              loungeId:
+                type: string
+                description: Lounge ID (User with type lounge)
+                example: "507f1f77bcf86cd799439011"
+              serviceId:
+                type: string
+                description: Service ID reference
+                example: "507f1f77bcf86cd799439012"
+              price:
+                type: number
+                description: Price in smallest currency unit (e.g., cents for USD)
+                example: 2500
+              duration:
+                type: integer
+                description: Duration in minutes
+                minimum: 1
+                example: 30
+              gender:
+                type: string
+                enum: [men, women, unisex, kids]
+                description: Gender category for the service
+                example: men
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE]
+                default: ACTIVE
+                description: Service status
+                example: ACTIVE
+              description:
+                type: string
+                description: Service description
+                example: "Premium haircut service"
+              isActive:
+                type: boolean
+                default: true
+                description: Service active status
+      responses:
+        201:
+          description: Lounge service created successfully
+          schema:
+            $ref: '#/definitions/LoungeServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        409:
+          description: Service already exists for this lounge
+        500:
+          description: Server error
+
+  /v1/lounge-services/search:
+    get:
+      tags:
+        - lounge services
+      summary: Search lounge services
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          type: string
+          description: Search query
+      responses:
+        200:
+          description: Search results
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid search query
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}:
+    get:
+      tags:
+        - lounge services
+      summary: Get lounge services by lounge ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+      responses:
+        200:
+          description: Lounge services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/lounge-services/{serviceId}:
+    get:
+      tags:
+        - lounge services
+      summary: Get lounge service by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+      responses:
+        200:
+          description: Lounge service retrieved successfully
+          schema:
+            $ref: '#/definitions/LoungeServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        404:
+          description: Lounge service not found
+        500:
+          description: Server error
+    put:
+      tags:
+        - lounge services
+      summary: Update lounge service (Lounge owners or Admins)
+      description: Update a lounge service. Lounge owners can update all fields of their own services. Admins can update all fields of any service.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              serviceId:
+                type: string
+                description: Service ID reference (Admin only)
+              price:
+                type: number
+                description: Price in smallest currency unit
+              duration:
+                type: integer
+                description: Duration in minutes
+                minimum: 1
+              gender:
+                type: string
+                enum: [men, women, unisex, kids]
+                description: Gender category for the service
+              status:
+                type: string
+                enum: [ACTIVE, INACTIVE]
+                description: Service status (Admin only)
+              description:
+                type: string
+                description: Service description (Admin only)
+              isActive:
+                type: boolean
+                description: Service active status
+      responses:
+        200:
+          description: Lounge service updated successfully
+          schema:
+            $ref: '#/definitions/LoungeServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Insufficient permissions to update this service
+        404:
+          description: Lounge service not found
+        500:
+          description: Server error
+    delete:
+      tags:
+        - lounge services
+      summary: Delete lounge service
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+      responses:
+        200:
+          description: Lounge service deleted successfully
+          schema:
+            $ref: '#/definitions/LoungeServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        404:
+          description: Lounge service not found
+        500:
+          description: Server error
+
+  /v1/lounge-services/service-name/{serviceId}:
+    get:
+      tags:
+        - lounge services
+      summary: Get service name by service ID
+      description: Retrieve only the name of a service by its ID for efficient display in lounge service contexts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Service name retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  name:
+                    type: string
+                    description: Service name
+                    example: "Hair Cut & Styling"
+              message:
+                type: string
+                example: "Service name retrieved successfully"
+        400:
+          description: Invalid service ID format
+        401:
+          description: Unauthorized
+        404:
+          description: Service not found
+        500:
+          description: Server error
+
+  /v1/lounge-services/{serviceId}/toggle-status:
+    patch:
+      tags:
+        - lounge services
+      summary: Toggle lounge service active status
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+      responses:
+        200:
+          description: Lounge service status toggled successfully
+          schema:
+            $ref: '#/definitions/LoungeServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        404:
+          description: Lounge service not found
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/opening-hours:
+    patch:
+      tags:
+        - lounge services
+      summary: Patch opening hours for a lounge
+      description: |
+        Update specific opening hours for a lounge.
+        This endpoint allows partial updates - you can update one or more days without affecting the others.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            description: Opening hours to update (only include days you want to modify)
+            properties:
+              monday:
+                $ref: '#/definitions/OpeningHours'
+              tuesday:
+                $ref: '#/definitions/OpeningHours'
+              wednesday:
+                $ref: '#/definitions/OpeningHours'
+              thursday:
+                $ref: '#/definitions/OpeningHours'
+              friday:
+                $ref: '#/definitions/OpeningHours'
+              saturday:
+                $ref: '#/definitions/OpeningHours'
+              sunday:
+                $ref: '#/definitions/OpeningHours'
+            example:
+              monday:
+                from: "09:00"
+                to: "18:00"
+              friday:
+                from: "09:00"
+                to: "20:00"
+              saturday:
+                from: "10:00"
+                to: "14:00"
+      responses:
+        200:
+          description: Opening hours updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Opening hours updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid opening hours data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/profile:
+    put:
+      tags:
+        - lounge services
+      summary: Update lounge profile (title and opening hours)
+      description: |
+        Update lounge-specific profile information including lounge title and opening hours.
+        This endpoint performs a full update of the specified fields.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              loungeTitle:
+                type: string
+                maxLength: 100
+                description: Lounge business title/name
+                example: "Elite Hair Studio"
+              openingHours:
+                type: object
+                description: Complete opening hours for all days of the week
+                properties:
+                  monday:
+                    $ref: '#/definitions/OpeningHours'
+                  tuesday:
+                    $ref: '#/definitions/OpeningHours'
+                  wednesday:
+                    $ref: '#/definitions/OpeningHours'
+                  thursday:
+                    $ref: '#/definitions/OpeningHours'
+                  friday:
+                    $ref: '#/definitions/OpeningHours'
+                  saturday:
+                    $ref: '#/definitions/OpeningHours'
+                  sunday:
+                    $ref: '#/definitions/OpeningHours'
+            example:
+              loungeTitle: "Elite Hair Studio"
+              openingHours:
+                monday:
+                  from: "09:00"
+                  to: "18:00"
+                tuesday:
+                  from: "09:00"
+                  to: "18:00"
+                friday:
+                  from: "09:00"
+                  to: "20:00"
+      responses:
+        200:
+          description: Lounge profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Lounge profile updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid lounge profile data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/profile:
+    put:
+      tags:
+        - lounge services
+      summary: Update lounge profile (title and opening hours)
+      description: |
+        Update lounge-specific profile information including lounge title and opening hours.
+        This endpoint performs a full update of the specified fields.
+        The lounge must exist and be of type 'lounge'.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              loungeTitle:
+                type: string
+                maxLength: 100
+                description: Lounge business title/name
+                example: "Elite Hair Studio"
+              openingHours:
+                type: object
+                description: Complete opening hours for all days of the week
+                properties:
+                  monday:
+                    $ref: '#/definitions/OpeningHours'
+                  tuesday:
+                    $ref: '#/definitions/OpeningHours'
+                  wednesday:
+                    $ref: '#/definitions/OpeningHours'
+                  thursday:
+                    $ref: '#/definitions/OpeningHours'
+                  friday:
+                    $ref: '#/definitions/OpeningHours'
+                  saturday:
+                    $ref: '#/definitions/OpeningHours'
+                  sunday:
+                    $ref: '#/definitions/OpeningHours'
+            example:
+              loungeTitle: "Elite Hair Studio"
+              openingHours:
+                monday:
+                  from: "09:00"
+                  to: "18:00"
+                tuesday:
+                  from: "09:00"
+                  to: "18:00"
+                friday:
+                  from: "09:00"
+                  to: "20:00"
+      responses:
+        200:
+          description: Lounge profile updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Lounge profile updated successfully
+        400:
+          description: Invalid request data or validation error
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Invalid lounge profile data provided"
+              errorCode:
+                type: string
+                example: "VALIDATION_ERROR"
+        401:
+          description: Unauthorized
+        403:
+          description: User is not a lounge
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "This endpoint is only for lounge accounts"
+              errorCode:
+                type: string
+                example: "NOT_LOUNGE_ACCOUNT"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
+              errorCode:
+                type: string
+                example: "LOUNGE_NOT_FOUND"
+        500:
+          description: Server error
+
+  /v1/lounge-services/bulk:
+    post:
+      tags:
+        - lounge services
+      summary: Bulk create lounge services
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - loungeId
+                - serviceId
+                - price
+                - duration
+              properties:
+                loungeId:
+                  type: string
+                serviceId:
+                  type: string
+                price:
+                  type: number
+                duration:
+                  type: integer
+                description:
+                  type: string
+                isActive:
+                  type: boolean
+      responses:
+        201:
+          description: Lounge services created successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungeServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+# ============================================
+# SERVICES ENDPOINTS (Admin CRUD)
+# ============================================
+
+  /v1/admin/services:
+    get:
+      tags:
+        - services
+      summary: Get all services (paginated)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number
+        - name: limit
+          in: query
+          type: integer
+          default: 20
+          description: Items per page
+      responses:
+        200:
+          description: Services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceResponse'
+              page:
+                type: integer
+              limit:
+                type: integer
+              total:
+                type: integer
+              totalPages:
+                type: integer
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+    post:
+      tags:
+        - services
+      summary: Create a new service (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - name
+              - gender
+              - categoryId
+            properties:
+              name:
+                type: string
+                description: Service name
+                example: "Premium Haircut"
+              gender:
+                type: string
+                enum: [male, female, unisex, kids]
+                description: Target gender
+                example: "unisex"
+              categoryId:
+                type: string
+                description: Service category ID
+                example: "507f1f77bcf86cd799439011"
+              description:
+                type: string
+                description: Service description
+                example: "A premium haircut service with styling"
+      responses:
+        201:
+          description: Service created successfully
+          schema:
+            $ref: '#/definitions/ServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        409:
+          description: Service name already exists
+        500:
+          description: Server error
+
+  /v1/admin/services/search:
+    get:
+      tags:
+        - services
+      summary: Search services
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          type: string
+          description: Search query
+      responses:
+        200:
+          description: Search results
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid search query
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/admin/services/category/{categoryId}:
+    get:
+      tags:
+        - services
+      summary: Get services by category
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+          description: Category ID
+      responses:
+        200:
+          description: Services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/admin/services/{serviceId}:
+    get:
+      tags:
+        - services
+      summary: Get service by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+      responses:
+        200:
+          description: Service retrieved successfully
+          schema:
+            $ref: '#/definitions/ServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        404:
+          description: Service not found
+        500:
+          description: Server error
+    put:
+      tags:
+        - services
+      summary: Update service (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Service name
+              gender:
+                type: string
+                enum: [male, female, unisex, kids]
+                description: Target gender
+              categoryId:
+                type: string
+                description: Service category ID
+              description:
+                type: string
+                description: Service description
+      responses:
+        200:
+          description: Service updated successfully
+          schema:
+            $ref: '#/definitions/ServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service not found
+        409:
+          description: Service name already exists
+        500:
+          description: Server error
+    delete:
+      tags:
+        - services
+      summary: Delete service (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID
+      responses:
+        200:
+          description: Service deleted successfully
+          schema:
+            $ref: '#/definitions/ServiceResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service not found
+        500:
+          description: Server error
+
+  /v1/admin/services/bulk:
+    post:
+      tags:
+        - services
+      summary: Bulk create services (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: array
+            items:
+              type: object
+              required:
+                - name
+                - gender
+                - categoryId
+              properties:
+                name:
+                  type: string
+                gender:
+                  type: string
+                  enum: [male, female, unisex, kids]
+                categoryId:
+                  type: string
+                description:
+                  type: string
+      responses:
+        201:
+          description: Services created successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
+# ============================================
+# SERVICE CATEGORIES ENDPOINTS (Admin CRUD)
+# ============================================
+
+  /v1/admin/service-categories:
+    get:
+      tags:
+        - service categories
+      summary: Get all service categories
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Service categories retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceCategoryResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+    post:
+      tags:
+        - service categories
+      summary: Create a new service category (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+                description: Category name
+                example: "Haircuts"
+              description:
+                type: string
+                description: Category description
+                example: "Various haircut services for different styles and lengths"
+      responses:
+        201:
+          description: Service category created successfully
+          schema:
+            $ref: '#/definitions/ServiceCategoryResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        409:
+          description: Category name already exists
+        500:
+          description: Server error
+
+  /v1/admin/service-categories/search:
+    get:
+      tags:
+        - service categories
+      summary: Search service categories
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          type: string
+          description: Search query
+      responses:
+        200:
+          description: Search results
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceCategoryResponse'
+              count:
+                type: integer
+              message:
+                type: string
+        400:
+          description: Invalid search query
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/admin/service-categories/{categoryId}:
+    get:
+      tags:
+        - service categories
+      summary: Get service category by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+          description: Category ID
+      responses:
+        200:
+          description: Service category retrieved successfully
+          schema:
+            $ref: '#/definitions/ServiceCategoryResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        404:
+          description: Service category not found
+        500:
+          description: Server error
+    put:
+      tags:
+        - service categories
+      summary: Update service category (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+          description: Category ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                description: Category name
+              description:
+                type: string
+                description: Category description
+      responses:
+        200:
+          description: Service category updated successfully
+          schema:
+            $ref: '#/definitions/ServiceCategoryResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service category not found
+        409:
+          description: Category name already exists
+        500:
+          description: Server error
+    delete:
+      tags:
+        - service categories
+      summary: Delete service category (admin only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+          description: Category ID
+      responses:
+        200:
+          description: Service category deleted successfully
+          schema:
+            $ref: '#/definitions/ServiceCategoryResponse'
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service category not found
+        409:
+          description: Cannot delete category that is being used by services
+        500:
+          description: Server error
+
+# ============================================
+# SERVICE SUGGESTIONS ENDPOINTS
+# ============================================
+
+  /v1/service-suggestions:
+    get:
+      tags:
+        - service-suggestions
+      summary: Get all service suggestions (Admin only)
+      description: Retrieve all service suggestions with optional filtering and pagination. Admin access required.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of items per page
+        - name: status
+          in: query
+          type: string
+          enum: [pending, rejected, implemented]
+          description: Filter by suggestion status
+        - name: loungeId
+          in: query
+          type: string
+          description: Filter by lounge ID
+      responses:
+        200:
+          description: Service suggestions retrieved successfully
+          schema:
+            type: object
+            properties:
+              suggestions:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceSuggestionResponse'
+              pagination:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 10
+                  total:
+                    type: integer
+                    example: 25
+                  pages:
+                    type: integer
+                    example: 3
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+    post:
+      tags:
+        - service-suggestions
+      summary: Create a service suggestion (Lounge only)
+      description: Create a new service suggestion. Only lounge owners can create suggestions.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateServiceSuggestionDto'
+      responses:
+        201:
+          description: Service suggestion created successfully
+          schema:
+            $ref: '#/definitions/ServiceSuggestionResponse'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Lounge access required
+        500:
+          description: Server error
+
+  /v1/service-suggestions/my:
+    get:
+      tags:
+        - service-suggestions
+      summary: Get my service suggestions (Lounge only)
+      description: Retrieve service suggestions created by the authenticated lounge user.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          minimum: 1
+          default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Number of items per page
+        - name: status
+          in: query
+          type: string
+          enum: [pending, rejected, implemented]
+          description: Filter by suggestion status
+      responses:
+        200:
+          description: Service suggestions retrieved successfully
+          schema:
+            type: object
+            properties:
+              suggestions:
+                type: array
+                items:
+                  $ref: '#/definitions/ServiceSuggestionResponse'
+              pagination:
+                type: object
+                properties:
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 10
+                  total:
+                    type: integer
+                    example: 5
+                  pages:
+                    type: integer
+                    example: 1
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Lounge access required
+        500:
+          description: Server error
+
+  /v1/service-suggestions/{id}/status:
+    patch:
+      tags:
+        - service-suggestions
+      summary: Update service suggestion status (Admin only)
+      description: Update the status of a service suggestion. Only admins can update status.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Service suggestion ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateServiceSuggestionStatusDto'
+      responses:
+        200:
+          description: Service suggestion status updated successfully. When status is approved with customization options, service and lounge service are created.
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  suggestion:
+                    $ref: '#/definitions/ServiceSuggestionResponse'
+                  service:
+                    $ref: '#/definitions/ServiceResponse'
+                  loungeService:
+                    $ref: '#/definitions/LoungeServiceResponse'
+                required:
+                  - suggestion
+              message:
+                type: string
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service suggestion not found
+        500:
+          description: Server error
+
+  /v1/service-suggestions/{id}/admin-approve:
+    patch:
+      tags:
+        - service-suggestions
+      summary: Admin approve service suggestion and create service/lounge service
+      description: Approve a service suggestion and automatically create a service and lounge service. Admins can optionally provide a custom service name, otherwise the suggestion name will be used. Only admins can perform this action.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Service suggestion ID
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AdminApproveServiceSuggestionDto'
+      responses:
+        200:
+          description: Service suggestion approved and implemented successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  suggestion:
+                    $ref: '#/definitions/ServiceSuggestionResponse'
+                  service:
+                    $ref: '#/definitions/ServiceResponse'
+                  loungeService:
+                    $ref: '#/definitions/LoungeServiceResponse'
+              message:
+                type: string
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Service suggestion not found
+        409:
+          description: Service already exists
+        500:
+          description: Server error
+
+  /v1/service-suggestions/{id}:
+    delete:
+      tags:
+        - service-suggestions
+      summary: Delete a service suggestion
+      description: Delete a service suggestion. Lounges can delete their own suggestions, admins can delete any suggestion.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Service suggestion ID
+      responses:
+        200:
+          description: Service suggestion deleted successfully
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - Not authorized to delete this suggestion
+        404:
+          description: Service suggestion not found
+        500:
+          description: Server error
+
 # ============================================
 # DEFINITIONS
 # ============================================
@@ -990,8 +3000,8 @@ definitions:
         example: "+21612345678"
       gender:
         type: string
-        enum: [male, female, both]
-        default: both
+        enum: [male, female, unisex, kids]
+        default: unisex
         description: User gender (optional)
       location:
         $ref: '#/definitions/LocationDto'
@@ -1024,7 +3034,7 @@ definitions:
         example: "+21698765432"
       gender:
         type: string
-        enum: [male, female, both]
+        enum: [male, female, unisex, kids]
       location:
         $ref: '#/definitions/LocationDto'
       profileImage:
@@ -1105,8 +3115,28 @@ definitions:
         example: 123 Main Street, Tunis, Tunisia
       placeId:
         type: string
-        description: Google Places ID
+        description: Google Places ID or custom place identifier
         example: ChIJN1t_tDeuEmsRUsoyG83frY4
+      placeName:
+        type: string
+        maxLength: 200
+        description: Human-readable place name (optional)
+        example: "Elite Hair Salon - Downtown Branch"
+
+  OpeningHours:
+    type: object
+    description: Opening hours for a specific day
+    properties:
+      from:
+        type: string
+        pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+        description: Opening time in HH:MM format (24-hour)
+        example: "09:00"
+      to:
+        type: string
+        pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+        description: Closing time in HH:MM format (24-hour)
+        example: "18:00"
 
   UserResponse:
     type: object
@@ -1123,7 +3153,7 @@ definitions:
         example: "+21612345678"
       gender:
         type: string
-        enum: [male, female, both]
+        enum: [male, female, unisex, kids]
       # Note: User type is determined by 'type' field
       # Admin users have type: 'admin', Client users have type: 'client', Lounge users have type: 'lounge'
       # Regular users have type: 'user'
@@ -1144,6 +3174,90 @@ definitions:
             type: array
             items:
               type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  LoungePublicProfile:
+    type: object
+    description: Lounge public profile (sensitive fields excluded) for client browsing
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      email:
+        type: string
+        example: lounge@example.com
+      type:
+        type: string
+        example: lounge
+      phoneNumber:
+        type: string
+        example: "+21612345678"
+      gender:
+        type: string
+        enum: [male, female, unisex, kids]
+        description: Gender category the lounge serves
+      firstName:
+        type: string
+        example: "John"
+      lastName:
+        type: string
+        example: "Doe"
+      bio:
+        type: string
+        example: "Professional hair salon with 10 years experience"
+      loungeTitle:
+        type: string
+        example: "Elite Hair Salon"
+      openingHours:
+        type: object
+        properties:
+          monday:
+            $ref: '#/definitions/OpeningHours'
+          tuesday:
+            $ref: '#/definitions/OpeningHours'
+          wednesday:
+            $ref: '#/definitions/OpeningHours'
+          thursday:
+            $ref: '#/definitions/OpeningHours'
+          friday:
+            $ref: '#/definitions/OpeningHours'
+          saturday:
+            $ref: '#/definitions/OpeningHours'
+          sunday:
+            $ref: '#/definitions/OpeningHours'
+      location:
+        $ref: '#/definitions/LocationDto'
+      profileImage:
+        type: object
+        properties:
+          url:
+            type: string
+            example: https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg
+          publicId:
+            type: string
+            example: profile_abc
+      sessionTrack:
+        type: object
+        properties:
+          isOnline:
+            type: boolean
+          lastSeen:
+            type: string
+            format: date-time
+          devices:
+            type: array
+            items:
+              type: object
+              properties:
+                name:
+                  type: string
+                ipAddress:
+                  type: string
       createdAt:
         type: string
         format: date-time
@@ -1182,3 +3296,273 @@ definitions:
         type: string
         description: Error code for client-side handling
         example: EMAIL_EXISTS
+  LoungeServiceResponse:
+    type: object
+    description: Lounge service object
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      loungeId:
+        type: string
+        description: Reference to User (lounge type)
+        example: 507f1f77bcf86cd799439010
+      serviceId:
+        type: string
+        description: Reference to Service
+        example: 507f1f77bcf86cd799439012
+      price:
+        type: number
+        description: Price in smallest currency unit (e.g., cents for USD)
+        example: 2500
+      duration:
+        type: integer
+        description: Duration in minutes
+        example: 30
+      gender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Gender category for the service
+        example: men
+      status:
+        type: string
+        enum: [ACTIVE, INACTIVE]
+        description: Service status
+        example: ACTIVE
+      description:
+        type: string
+        description: Service description
+        example: "Premium haircut service"
+      isActive:
+        type: boolean
+        description: Service active status
+        example: true
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  ServiceResponse:
+    type: object
+    description: Service object
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      name:
+        type: string
+        description: Service name
+        example: "Premium Haircut"
+      categoryId:
+        type: string
+        description: Reference to ServiceCategory
+        example: 507f1f77bcf86cd799439012
+      description:
+        type: string
+        description: Service description
+        example: "A premium haircut service with styling"
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  ServiceCategoryResponse:
+    type: object
+    description: Service category object
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      name:
+        type: string
+        description: Category name
+        example: "Haircuts"
+      description:
+        type: string
+        description: Category description
+        example: "Various haircut services for different styles and lengths"
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  CreateServiceSuggestionDto:
+    type: object
+    required:
+      - name
+      - description
+      - category
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+        description: Name of the suggested service
+        example: "Brazilian Blowout"
+      description:
+        type: string
+        minLength: 10
+        maxLength: 1000
+        description: Detailed description of the suggested service
+        example: "A smoothing treatment that makes hair straight, shiny, and frizz-free for up to 12 weeks"
+      category:
+        type: string
+        minLength: 2
+        maxLength: 50
+        description: Service category name
+        example: "Hair Treatments"
+      estimatedPrice:
+        type: number
+        minimum: 0
+        description: Estimated price in smallest currency unit (optional)
+        example: 15000
+      estimatedDuration:
+        type: integer
+        minimum: 15
+        maximum: 480
+        description: Estimated duration in minutes (optional)
+        example: 120
+      targetGender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Target gender for the service (optional)
+        example: women
+
+  UpdateServiceSuggestionStatusDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        enum: [pending, rejected, implemented]
+        description: New status for the service suggestion
+        example: implemented
+      adminNote:
+        type: string
+        maxLength: 500
+        description: Optional notes from admin about the decision
+        example: "Great suggestion! We'll implement this in our premium package."
+      categoryId:
+        type: string
+        description: Category ID to assign the service to (required when status is implemented)
+        example: "507f1f77bcf86cd799439011"
+      name:
+        type: string
+        maxLength: 100
+        description: Custom name for the service (required when status is implemented)
+        example: "Premium Haircut Service"
+      price:
+        type: number
+        minimum: 0
+        description: Price for the lounge service (used when status is implemented)
+        example: 2500
+      duration:
+        type: integer
+        minimum: 15
+        maximum: 480
+        description: Duration in minutes (used when status is implemented)
+        example: 30
+      gender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Gender category for the service (used when status is implemented)
+        example: unisex
+
+  AdminApproveServiceSuggestionDto:
+    type: object
+    required:
+      - categoryId
+    properties:
+      categoryId:
+        type: string
+        description: Category ID to assign the new service to
+        example: "507f1f77bcf86cd799439011"
+      name:
+        type: string
+        maxLength: 100
+        description: Custom name for the service (required when status is implemented)
+        example: "Premium Haircut Service"
+      price:
+        type: number
+        minimum: 0
+        description: Price for the lounge service (defaults to estimated price from suggestion)
+        example: 2500
+      duration:
+        type: integer
+        minimum: 15
+        maximum: 480
+        description: Duration in minutes (defaults to estimated duration from suggestion)
+        example: 30
+      gender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Gender category for the service (defaults to target gender from suggestion)
+        example: unisex
+      adminNote:
+        type: string
+        maxLength: 500
+        description: Optional admin notes about the approval
+        example: "Approved and implemented as requested"
+
+  ServiceSuggestionResponse:
+    type: object
+    description: Service suggestion object
+    properties:
+      _id:
+        type: string
+        example: 507f1f77bcf86cd799439011
+      loungeId:
+        type: string
+        description: Reference to User (lounge type)
+        example: 507f1f77bcf86cd799439010
+      loungeName:
+        type: string
+        description: Name of the lounge that made the suggestion
+        example: "Elegant Cuts Salon"
+      name:
+        type: string
+        description: Suggested service name
+        example: "Brazilian Blowout"
+      description:
+        type: string
+        description: Service description
+        example: "A smoothing treatment that makes hair straight, shiny, and frizz-free for up to 12 weeks"
+      category:
+        type: string
+        description: Service category
+        example: "Hair Treatments"
+      estimatedPrice:
+        type: number
+        description: Estimated price in smallest currency unit
+        example: 15000
+      estimatedDuration:
+        type: integer
+        description: Estimated duration in minutes
+        example: 120
+      targetGender:
+        type: string
+        enum: [men, women, unisex, kids]
+        description: Target gender for the service
+        example: women
+      status:
+        type: string
+        enum: [pending, rejected, implemented]
+        description: Current status of the suggestion
+        example: pending
+      adminNote:
+        type: string
+        description: Notes from admin about the decision
+        example: "Great suggestion! We'll implement this in our premium package."
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time

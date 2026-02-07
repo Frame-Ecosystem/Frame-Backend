@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import CurrentUserController from '@controllers/currentUser.controller';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateLoungeProfileDto, UpdateClientProfileDto } from '@dtos/users.dto';
+import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto } from '@dtos/users.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
@@ -36,15 +36,6 @@ class CurrentUserRoute implements Routes {
     this.router.put('/location', authMiddleware, validationMiddleware(LocationDto, 'body'), this.currentUserController.updateLocation);
     // PUT - Upload profile image
     this.router.put('/image', authMiddleware, upload.single('image'), this.currentUserController.uploadProfileImage);
-
-    // PUT - Update lounge profile (lounge users only)
-    this.router.put(
-      '/lounge',
-      authMiddleware,
-      csrfMiddleware,
-      validationMiddleware(UpdateLoungeProfileDto, 'body', true),
-      this.currentUserController.updateLoungeProfile,
-    );
 
     // PUT - Update client profile (client users only)
     this.router.put(
