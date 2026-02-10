@@ -3,6 +3,7 @@ import { User } from '@interfaces/users.interface';
 import loungeServiceModel from '@models/loungeService.model';
 import serviceModel from '@models/service.model';
 import userModel from '@models/users.model';
+import agentModel from '@models/agent.model';
 import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -12,6 +13,7 @@ class LoungeServicesService {
   public loungeServices = loungeServiceModel;
   public services = serviceModel;
   public users = userModel;
+  public agents = agentModel;
 
   /**
    * Create a new lounge service
@@ -520,6 +522,45 @@ class LoungeServicesService {
       }
       logger.error(`LoungeServicesService.updateLoungeProfile error: ${error.message}`, { loungeId, stack: error.stack });
       throw new InternalServerException('Unable to update lounge profile at this time. Please try again later.');
+    }
+  }
+
+  /**
+   * Get agents for a specific lounge
+   */
+  public async getAgentsPerLounge(loungeId: string, requestingUser: any): Promise<any> {
+    try {
+      // Verify that the lounge exists and is of type 'lounge'
+      const lounge = await this.users.findOne({ _id: loungeId, type: 'lounge' });
+      if (!lounge) {
+        logger.error(`LoungeServicesService.getAgentsPerLounge: lounge not found or not a lounge: ${loungeId}`);
+        throw new NotFoundException('Lounge not found');
+      }
+
+      // Check if the requesting user has permission to view agents for this lounge
+      // Clients can view agents for any lounge, lounges can only view their own agents
+      if (requestingUser.type === 'lounge' && requestingUser._id.toString() !== loungeId) {
+        logger.error(`LoungeServicesService.getAgentsPerLounge: lounge user ${requestingUser._id} trying to access agents for lounge ${loungeId}`);
+        throw new BadRequestException('You can only view your own agents');
+      }
+
+      // Get all agents for this lounge
+      const agents = await this.agents.find({ loungeId }).select('-password').lean();
+
+      logger.info(`LoungeServicesService.getAgentsPerLounge: retrieved ${agents.length} agents for lounge ${loungeId}`);
+      return {
+        lounge: {
+          _id: lounge._id,
+          loungeTitle: lounge.loungeTitle,
+          email: lounge.email,
+        },
+        agents,
+        totalAgents: agents.length,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`LoungeServicesService.getAgentsPerLounge error: ${error.message}`, { loungeId, stack: error.stack });
+      throw new InternalServerException('Failed to retrieve agents for lounge');
     }
   }
 }

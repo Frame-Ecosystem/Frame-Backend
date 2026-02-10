@@ -4,7 +4,7 @@ import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@interfaces/auth.interface';
 import { User } from '@interfaces/users.interface';
 import AuthService from '@services/auth.service';
-import { NODE_ENV, REFRESH_TOKEN_SECRET, ORIGIN } from '@config';
+import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
 import { stripSensitiveFields } from '@utils/util';
 
@@ -26,18 +26,51 @@ class AuthController {
       const deviceName = typeof req.body?.deviceName === 'string' ? req.body.deviceName : undefined;
       const deviceInfo = { userAgent, ip, deviceName };
 
-      const { user, tokenData, refreshToken } = await this.authService.signup(userData, deviceInfo);
+      const { message } = await this.authService.signup(userData, deviceInfo);
+
+      res.status(200).json({
+        message,
+        success: true,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public verifyMagicLink = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token } = req.query;
+
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({
+          message: 'Verification token is required',
+          success: false,
+        });
+      }
+
+      // Collect device info for session tracking
+      const userAgent =
+        typeof req.headers['user-agent'] === 'string'
+          ? req.headers['user-agent']
+          : Array.isArray(req.headers['user-agent'])
+          ? req.headers['user-agent'][0]
+          : undefined;
+      const ip = typeof req.ip === 'string' && req.ip ? req.ip : req.socket?.remoteAddress || 'Unknown';
+      const deviceName = typeof req.body?.deviceName === 'string' ? req.body.deviceName : undefined;
+      const deviceInfo = { userAgent, ip, deviceName };
+
+      const { user, tokenData, refreshToken } = await this.authService.verifyMagicLink(token, deviceInfo);
 
       // Detect client type from header
       const clientType = req.headers['x-client-type'];
       if (clientType === 'mobile') {
         // Mobile: return both tokens in body
-        res.status(201).json({
+        res.status(200).json({
           data: stripSensitiveFields(user),
           accessToken: tokenData.token,
           refreshToken,
           expiresIn: tokenData.expiresIn,
-          message: 'signup',
+          message: 'verification_successful',
         });
       } else {
         // Web: set refresh token as HttpOnly cookie, return only access token
@@ -49,13 +82,37 @@ class AuthController {
           path: '/',
         });
         setCsrfToken(res);
-        res.status(201).json({
+        res.status(200).json({
           data: stripSensitiveFields(user),
           token: tokenData.token,
           expiresIn: tokenData.expiresIn,
-          message: 'signup',
+          message: 'verification_successful',
         });
       }
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public forgotPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body;
+      await this.authService.forgotPassword(email);
+      res.status(200).json({
+        message: 'Password reset link sent to your email',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public resetPassword = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { token, newPassword } = req.body;
+      await this.authService.resetPassword(token, newPassword);
+      res.status(200).json({
+        message: 'Password reset successfully',
+      });
     } catch (error) {
       next(error);
     }
@@ -236,7 +293,7 @@ class AuthController {
           path: '/',
         });
         setCsrfToken(res);
-        const redirectUrl = `${ORIGIN || 'http://localhost:3001'}/auth/google/callback?status=success&provider=google`;
+        const redirectUrl = `${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google`;
         return res.redirect(redirectUrl);
       }
     } catch (error) {

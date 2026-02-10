@@ -7,8 +7,6 @@ import {
   REFRESH_TOKEN_EXPIRES_STRING,
   MAX_SESSIONS_PER_USER,
   BCRYPT_ROUNDS,
-  RETRY_BACKOFF_BASE_MS,
-  RETRY_MAX_ATTEMPTS,
 } from '../config/constants';
 import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
 import {
@@ -22,21 +20,26 @@ import {
 import { DataStoredInToken, TokenData, RefreshTokenPayload } from '@interfaces/auth.interface';
 import { User, RefreshTokenSession } from '@interfaces/users.interface';
 import userModel from '@models/users.model';
+import verificationTokenModel from '@models/verificationToken.model';
 import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
 import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
+import { sendMagicLinkEmail, sendPasswordResetEmail } from '@utils/email';
 
 class AuthService {
   public users = userModel;
 
-  public async signup(
-    userData: CreateUserDto,
-    deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string },
-  ): Promise<{ user: User; tokenData: TokenData; refreshToken: string }> {
+  public async signup(userData: CreateUserDto, deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string }): Promise<{ message: string }> {
     try {
       if (isEmpty(userData)) {
         logger.warn('Signup attempt with empty data');
         throw new BadRequestException('Invalid request data');
+      }
+
+      // Validate that email is provided (required for magic link verification)
+      if (!userData.email) {
+        logger.warn('Signup attempt without email');
+        throw new BadRequestException('Email is required for registration', 'EMAIL_REQUIRED');
       }
 
       // Normalize email to lowercase for consistent storage and lookup
@@ -49,7 +52,7 @@ class AuthService {
         throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
       }
 
-      // Check for existing phone number (only if provided)
+      // Check for existing phone number (if provided)
       if (userData.phoneNumber) {
         const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone) {
@@ -58,52 +61,117 @@ class AuthService {
         }
       }
 
+      // Hash the password for storage
       const hashedPassword = await hash(userData.password, BCRYPT_ROUNDS);
 
-      // Determine which model to use based on user type
-      const userType = userData.type || 'user';
+      // Generate a unique verification token
+      const verificationToken = uuidv4();
 
-      // Fix #3: Retry logic for race conditions
-      const maxRetries = RETRY_MAX_ATTEMPTS;
-      let createUserData: User | null = null;
-      let lastError: any = null;
+      // Create verification token record (expires in 10 minutes)
+      const tokenData = {
+        token: verificationToken,
+        email: normalizedEmail,
+        password: hashedPassword,
+        type: userData.type || 'user',
+        phoneNumber: userData.phoneNumber,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      };
 
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          // Create user with type
-          const baseData = {
-            ...userData,
-            email: normalizedEmail,
-            password: hashedPassword,
-            type: userType,
-          };
+      await verificationTokenModel.create(tokenData);
 
-          createUserData = await this.users.create(baseData);
-          break; // Success - exit retry loop
-        } catch (createError) {
-          lastError = createError;
-          // If it's a duplicate key error and not the last attempt, retry
-          if (createError.code === 11000 && attempt < maxRetries) {
-            const waitTime = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // Exponential backoff
-            logger.warn(`Signup: duplicate key error on attempt ${attempt}/${maxRetries}, retrying in ${waitTime}ms...`);
-            await new Promise(resolve => setTimeout(resolve, waitTime));
-            // Re-check for existing records
-            const findByEmail = await this.users.findOne({ email: normalizedEmail });
-            if (findByEmail) throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
-          } else {
-            throw createError;
-          }
+      // Generate magic link
+      const origin = process.env.ORIGIN || 'http://localhost:3001';
+      const magicLink = `${origin}/auth/verify?token=${verificationToken}`;
+
+      // Send magic link email
+      try {
+        await sendMagicLinkEmail(normalizedEmail, magicLink);
+        logger.info(`Magic link sent to: ${normalizedEmail}`);
+      } catch (emailError) {
+        logger.error(`Failed to send magic link email to ${normalizedEmail}: ${emailError.message}`);
+        // Clean up the verification token if email fails
+        await verificationTokenModel.deleteOne({ token: verificationToken });
+        throw new InternalServerException('Failed to send verification email. Please try again.');
+      }
+
+      logSecurityEvent({
+        event: 'SIGNUP_INITIATED',
+        email: normalizedEmail,
+        ip: deviceInfo?.ip,
+        userAgent: deviceInfo?.userAgent,
+        deviceName: deviceInfo?.deviceName,
+      });
+
+      return { message: 'Verification email sent. Please check your email and click the link to complete registration.' };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      handleMongoDBDuplicateKeyError(error);
+      logger.error(`Signup error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Registration failed. Please try again');
+    }
+  }
+
+  public async verifyMagicLink(
+    token: string,
+    deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string },
+  ): Promise<{ user: User; tokenData: TokenData; refreshToken: string }> {
+    try {
+      if (isEmpty(token)) {
+        logger.warn('Magic link verification attempt with empty token');
+        throw new BadRequestException('Verification token is required');
+      }
+
+      // Find and validate the verification token
+      const verificationRecord = await verificationTokenModel.findOne({ token });
+      if (!verificationRecord) {
+        logger.warn(`Magic link verification failed: token not found - ${token}`);
+        throw new BadRequestException('Invalid or expired verification link');
+      }
+
+      // Check if token has expired
+      if (new Date() > verificationRecord.expiresAt) {
+        logger.warn(`Magic link verification failed: token expired - ${token}`);
+        // Clean up expired token
+        await verificationTokenModel.deleteOne({ token });
+        throw new BadRequestException('Verification link has expired. Please sign up again.');
+      }
+
+      // Construct user data from verification token
+      const userData = {
+        email: verificationRecord.email,
+        password: verificationRecord.password,
+        phoneNumber: verificationRecord.phoneNumber,
+        type: verificationRecord.type,
+        isBlocked: false,
+        emailVerification: [{ isVerified: true }], // Mark email as verified since they clicked the magic link
+      };
+
+      // Double-check that email is still available (race condition protection)
+      const existingUser = await this.users.findOne({ email: userData.email });
+      if (existingUser) {
+        logger.warn(`Magic link verification failed: email already exists - ${userData.email}`);
+        await verificationTokenModel.deleteOne({ token });
+        throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+      }
+
+      // Check phone number if provided
+      if (userData.phoneNumber) {
+        const existingPhone = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+        if (existingPhone) {
+          logger.warn(`Magic link verification failed: phone already exists - ${userData.phoneNumber}`);
+          await verificationTokenModel.deleteOne({ token });
+          throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
         }
       }
 
-      if (!createUserData) {
-        handleMongoDBDuplicateKeyError(lastError);
-        throw lastError;
-      }
+      // Create the user account
+      const createUserData = await this.users.create(userData);
+      logger.info(`User account created via magic link verification: ${createUserData._id}`);
 
-      logger.info(`New user registered: ${createUserData._id}`);
+      // Clean up the verification token
+      await verificationTokenModel.deleteOne({ token });
 
-      // Generate tokens for immediate login
+      // Generate tokens for login
       const tokenData = this.createToken(createUserData);
       const refreshToken = await this.generateRefreshToken(createUserData, deviceInfo);
 
@@ -119,23 +187,117 @@ class AuthService {
       // Get updated user
       const updatedUser = await this.users.findById(createUserData._id);
 
-      // Send email verification code after successful signup
-      try {
-        const CurrentUserServiceModule = await import('./currentUser.service');
-        const CurrentUserService = CurrentUserServiceModule.default;
-        const currentUserService = new CurrentUserService();
-        await currentUserService.sendVerificationCode(createUserData.email);
-      } catch (verifErr) {
-        logger.error(`Signup: Failed to send verification code for user ${createUserData._id}: ${verifErr.message}`);
-      }
+      logSecurityEvent({
+        event: 'SIGNUP_COMPLETED',
+        userId: String(createUserData._id),
+        email: userData.email,
+        ip: deviceInfo?.ip,
+        userAgent: deviceInfo?.userAgent,
+        deviceName: deviceInfo?.deviceName,
+      });
 
       return { user: updatedUser, tokenData, refreshToken };
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      // Handle race condition: if unique index catches a duplicate
-      handleMongoDBDuplicateKeyError(error);
-      logger.error(`Signup error: ${error.message}`, { stack: error.stack });
-      throw new InternalServerException('Registration failed. Please try again');
+      logger.error(`Magic link verification error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Verification failed. Please try again');
+    }
+  }
+
+  public async forgotPassword(email: string): Promise<void> {
+    try {
+      // Normalize email
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Find user by email
+      const user = await this.users.findOne({ email: normalizedEmail });
+      if (!user) {
+        // Don't reveal if email exists or not for security
+        logger.info(`Password reset requested for non-existent email: ${normalizedEmail}`);
+        return; // Silently return to prevent email enumeration
+      }
+
+      // Generate reset token
+      const resetToken = uuidv4();
+
+      // Create password reset token record (expires in 10 minutes)
+      const tokenData = {
+        token: resetToken,
+        email: normalizedEmail,
+        type: user.type,
+        phoneNumber: user.phoneNumber,
+        tokenType: 'password_reset',
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+      };
+
+      await verificationTokenModel.create(tokenData);
+
+      // Generate reset link
+      const origin = process.env.ORIGIN || 'http://localhost:3001';
+      const resetLink = `${origin}/auth/reset-password?token=${resetToken}`;
+
+      // Send reset email
+      try {
+        await sendPasswordResetEmail(normalizedEmail, resetLink);
+        logger.info(`Password reset email sent to: ${normalizedEmail}`);
+      } catch (emailError) {
+        logger.error(`Failed to send password reset email to ${normalizedEmail}: ${emailError.message}`);
+        // Clean up the reset token if email fails
+        await verificationTokenModel.deleteOne({ token: resetToken });
+        throw new InternalServerException('Failed to send reset email. Please try again.');
+      }
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`Forgot password error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Password reset request failed. Please try again');
+    }
+  }
+
+  public async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      // Find and validate the reset token
+      const resetRecord = await verificationTokenModel.findOne({ token, tokenType: 'password_reset' });
+      if (!resetRecord) {
+        logger.warn(`Password reset failed: token not found - ${token}`);
+        throw new BadRequestException('Invalid or expired reset link');
+      }
+
+      // Check if token has expired
+      if (new Date() > resetRecord.expiresAt) {
+        logger.warn(`Password reset failed: token expired - ${token}`);
+        // Clean up expired token
+        await verificationTokenModel.deleteOne({ token });
+        throw new BadRequestException('Reset link has expired. Please request a new one.');
+      }
+
+      // Find user by email
+      const user = await this.users.findOne({ email: resetRecord.email });
+      if (!user) {
+        logger.error(`Password reset failed: user not found - ${resetRecord.email}`);
+        await verificationTokenModel.deleteOne({ token });
+        throw new BadRequestException('User not found');
+      }
+
+      // Hash new password
+      const hashedPassword = await hash(newPassword, BCRYPT_ROUNDS);
+
+      // Update user password
+      await this.users.findByIdAndUpdate(user._id, { password: hashedPassword });
+
+      // Clean up the reset token
+      await verificationTokenModel.deleteOne({ token });
+
+      logSecurityEvent({
+        event: 'PASSWORD_RESET',
+        userId: String(user._id),
+        email: resetRecord.email,
+      });
+
+      logger.info(`Password reset successful for user: ${user._id}`);
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`Reset password error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Password reset failed. Please try again');
     }
   }
 
@@ -149,9 +311,19 @@ class AuthService {
         throw new BadRequestException('Invalid request data');
       }
 
-      // Find user by email (normalize for case-insensitive lookup)
-      const normalizedEmail = userData.email.toLowerCase().trim();
-      const findUser: User = await this.users.findOne({ email: normalizedEmail });
+      // Determine if input is email or phone number
+      const identifier = userData.emailOrPhone.trim();
+      const isEmail = identifier.includes('@');
+
+      // Find user by email or phone
+      let findUser: User;
+      if (isEmail) {
+        const normalizedEmail = identifier.toLowerCase();
+        findUser = await this.users.findOne({ email: normalizedEmail });
+      } else {
+        // Assume it's a phone number
+        findUser = await this.users.findOne({ phoneNumber: identifier });
+      }
 
       if (!findUser) {
         logSecurityEvent({
@@ -159,9 +331,11 @@ class AuthService {
           reason: 'User not found',
           ip: deviceInfo?.ip,
           userAgent: deviceInfo?.userAgent,
-          attemptedEmail: userData.email,
+          attemptedIdentifier: identifier,
+          identifierType: isEmail ? 'email' : 'phone',
         });
-        throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
+        const fieldName = isEmail ? 'email' : 'phone number';
+        throw new UnauthorizedException(`Invalid ${fieldName}`, 'INVALID_IDENTIFIER');
       }
 
       const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
@@ -173,7 +347,7 @@ class AuthService {
           ip: deviceInfo?.ip,
           userAgent: deviceInfo?.userAgent,
         });
-        throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
+        throw new UnauthorizedException('Invalid password', 'INVALID_PASSWORD');
       }
 
       const tokenData = this.createToken(findUser);
@@ -191,14 +365,14 @@ class AuthService {
 
       // Get updated user and session count
       const updatedUser = await this.users.findById(findUser._id);
-      
+
       // Debug: Verify the isOnline status was set
       logger.info('AuthService.login: sessionTrack status after update', {
         userId: String(findUser._id),
         email: findUser.email,
         isOnline: updatedUser?.sessionTrack?.isOnline,
         lastSeen: updatedUser?.sessionTrack?.lastSeen,
-        devices: updatedUser?.sessionTrack?.devices
+        devices: updatedUser?.sessionTrack?.devices,
       });
 
       const sessionCount = (Array.isArray(updatedUser?.refreshTokens) ? updatedUser.refreshTokens : []).filter(

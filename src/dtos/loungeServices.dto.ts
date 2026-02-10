@@ -29,6 +29,10 @@ export class CreateLoungeServiceDto {
   description?: string;
 
   @IsOptional()
+  @IsString()
+  image?: string;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 }
@@ -60,6 +64,10 @@ export class UpdateLoungeServiceDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  @IsOptional()
+  @IsString()
+  image?: string;
 
   @IsOptional()
   @IsBoolean()

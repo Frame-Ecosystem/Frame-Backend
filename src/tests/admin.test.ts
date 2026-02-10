@@ -108,14 +108,19 @@ describe('AdminService', () => {
 
   describe('getOnlineUsers', () => {
     it('should return online users', async () => {
-      (userModel.find as jest.Mock).mockResolvedValue([
-        { _id: '1', email: 'a@email.com', username: 'user', sessionTrack: { isOnline: true, devices: [] } },
-      ]);
+      const mockUsers = [{ _id: '1', email: 'a@email.com', username: 'user', sessionTrack: { isOnline: true, devices: [] } }];
+      const mockQuery = {
+        select: jest.fn().mockResolvedValue(mockUsers),
+      };
+      (userModel.find as jest.Mock).mockReturnValue(mockQuery);
       const users = await adminService.getOnlineUsers();
       expect(users[0]).toMatchObject({ _id: '1', email: 'a@email.com', username: 'user' });
     });
     it('should handle errors', async () => {
-      (userModel.find as jest.Mock).mockRejectedValue(new Error('fail'));
+      const mockQuery = {
+        select: jest.fn().mockRejectedValue(new Error('fail')),
+      };
+      (userModel.find as jest.Mock).mockReturnValue(mockQuery);
       await expect(adminService.getOnlineUsers()).rejects.toThrow('Failed to retrieve online users');
     });
   });

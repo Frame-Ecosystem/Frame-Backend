@@ -50,6 +50,20 @@ class CurrentUserController {
     }
   };
 
+  public updateTheme = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const { theme } = req.body;
+      const updatedUser = await this.currentUserService.updateTheme(userId, theme);
+      res.status(200).json({
+        data: stripSensitiveFields(updatedUser),
+        message: 'Theme updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public updateMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();

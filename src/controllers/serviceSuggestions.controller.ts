@@ -40,7 +40,6 @@ class ServiceSuggestionsController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as ServiceSuggestionStatus;
-      const loungeId = req.query.loungeId as string;
 
       // TEMPORARY: Bypass filtering to check if data exists
       // If user is a lounge, only show their own suggestions; admins see all
@@ -52,14 +51,6 @@ class ServiceSuggestionsController {
       //   // Admins can see all suggestions - don't filter by loungeId
       //   filterLoungeId = undefined;
       // }
-
-      // Debug: Log the filter being applied
-      console.log('Service suggestions filter:', {
-        userType: req.user.type,
-        userId: req.user._id?.toString(),
-        requestedLoungeId: loungeId,
-        appliedFilterLoungeId: filterLoungeId,
-      });
 
       const result = await this.serviceSuggestionsService.getServiceSuggestionsPaginated(page, limit, status, filterLoungeId);
 

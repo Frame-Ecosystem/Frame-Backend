@@ -98,6 +98,19 @@ class AdminController {
       next(error);
     }
   };
+
+  public getAllLoungeNames = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const lounges = await this.adminService.getAllLoungeNames();
+      res.status(200).json({
+        data: lounges,
+        count: lounges.length,
+        message: 'Lounge names retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 export default AdminController;

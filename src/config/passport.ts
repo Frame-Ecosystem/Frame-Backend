@@ -1,6 +1,7 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { User } from '@interfaces/users.interface';
+import { Document } from 'mongoose';
 import userModel from '@models/users.model';
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '@config';
 import { logger } from '@utils/logger';
@@ -118,7 +119,7 @@ passport.use(
 );
 
 // Serialize user for session
-passport.serializeUser((user: User, done) => {
+passport.serializeUser((user: User & Document, done) => {
   done(null, user._id);
 });
 

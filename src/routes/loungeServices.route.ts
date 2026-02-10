@@ -72,10 +72,12 @@ class LoungeServicesRoute implements Routes {
     this.router.put(
       '/lounge/:loungeId/profile',
       authMiddleware,
-      csrfMiddleware,
       validationMiddleware(UpdateLoungeProfileDto, 'body', true),
       this.loungeServicesController.updateLoungeProfile,
     );
+
+    // GET - Get agents for a specific lounge
+    this.router.get('/lounge/:loungeId/agents', authMiddleware, this.loungeServicesController.getAgentsPerLounge);
   }
 }
 

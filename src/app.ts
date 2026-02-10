@@ -39,10 +39,11 @@ class App {
   }
 
   public listen() {
-    this.app.listen(this.port, () => {
+    this.app.listen(this.port, '0.0.0.0', () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on the port ${this.port}`);
+      logger.info(`🚀 App listening on 0.0.0.0:${this.port}`);
+      logger.info(`📱 WiFi Access: http://[YOUR_IP]:${this.port}`);
       logger.info(`📚 Swagger API Docs: http://localhost:${this.port}/api-docs`);
       logger.info(`=================================`);
     });
@@ -113,7 +114,31 @@ class App {
 
   private initializeMiddlewares() {
     this.app.use(morgan(LOG_FORMAT, { stream }));
-    this.app.use(cors({ origin: ORIGIN, credentials: CREDENTIALS }));
+
+    // CORS configuration for WiFi access
+    const corsOptions = {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+        // Allow requests with no origin (mobile apps, Postman, etc.)
+        if (!origin) return callback(null, true);
+
+        // Allow localhost for development
+        if (origin.startsWith('http://localhost')) return callback(null, true);
+
+        // Allow 127.0.0.1 for local access
+        if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
+
+        // Allow WiFi network IPs (192.168.x.x range)
+        if (origin.match(/^http:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
+
+        // Allow specific configured origin
+        if (ORIGIN && origin === ORIGIN) return callback(null, true);
+
+        return callback(new Error('Not allowed by CORS'));
+      },
+      credentials: CREDENTIALS,
+    };
+
+    this.app.use(cors(corsOptions));
     this.app.use(hpp());
     this.app.use(helmet());
     this.app.use(compression());

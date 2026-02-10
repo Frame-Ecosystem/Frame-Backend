@@ -106,7 +106,6 @@ export interface OAuth {
 }
 
 export interface User {
-  _id: string;
   email: string;
   type: 'user' | 'client' | 'lounge' | 'admin';
   password?: string; // Optional for OAuth users
@@ -115,6 +114,7 @@ export interface User {
   firstName?: string; // Client-specific
   lastName?: string; // Client-specific
   bio?: string;
+  theme?: string;
   loungeTitle?: string; // Lounge-specific
   openingHours?: DayOpeningHours; // Lounge-specific
   location?: Location;

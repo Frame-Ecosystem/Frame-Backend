@@ -30,6 +30,23 @@ export class VerifyEmailCodeDto {
   public code: string;
 }
 
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'A valid email is required' })
+  @IsNotEmpty({ message: 'Email is required' })
+  public email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString({ message: 'Reset token is required' })
+  @IsNotEmpty({ message: 'Reset token is required' })
+  public token: string;
+
+  @IsString({ message: 'New password is required' })
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  public newPassword: string;
+}
+
 import { Type } from 'class-transformer';
 
 // ENUMS
@@ -61,10 +78,9 @@ const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@
 
 /**
  * Phone number:
- * - International format with optional +
- * - 8-15 digits
+ * - Exactly 8 digits
  */
-const PHONE_REGEX = /^\+?[1-9]\d{7,14}$/;
+const PHONE_REGEX = /^\d{8}$/;
 
 /**
  * Google Place ID format (for location validation)
@@ -85,7 +101,7 @@ const VALIDATION_MESSAGES = {
     maxLength: 'Password cannot exceed 128 characters',
   },
   phoneNumber: {
-    invalid: 'Please provide a valid phone number (e.g., +21612345678)',
+    invalid: 'Please provide a valid phone number (exactly 8 digits)',
     required: 'Phone number is required',
   },
   gender: {
@@ -116,7 +132,7 @@ const VALIDATION_MESSAGES = {
     invalid: 'Profile image must be a valid URL',
   },
   login: {
-    email: 'Email is required',
+    emailOrPhone: 'Email or phone number is required',
     password: 'Password is required',
   },
 };
@@ -204,9 +220,9 @@ export class DayOpeningHoursDto {
 // CREATE USER DTO (Signup)
 
 export class CreateUserDto {
+  @IsOptional()
   @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.email.required })
-  public email: string;
+  public email?: string;
 
   @IsString({ message: VALIDATION_MESSAGES.password.required })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.password.required })
@@ -257,7 +273,7 @@ export class CreateUserDto {
   public isBlocked?: boolean = false;
 
   @IsOptional()
-  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: false }];
+  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: true }];
 }
 
 // UPDATE USER DTO (Partial updates)
@@ -297,6 +313,11 @@ export class UpdateUserDto {
   @IsString({ message: 'Bio must be a string' })
   @MaxLength(500, { message: 'Bio cannot exceed 500 characters' })
   public bio?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Theme must be a string' })
+  @MaxLength(50, { message: 'Theme name cannot exceed 50 characters' })
+  public theme?: string;
 
   @IsOptional()
   @IsString({ message: 'Lounge title must be a string' })
@@ -353,9 +374,9 @@ export class UpdateLocationDto {
 // LOGIN USER DTO
 
 export class LoginUserDto {
-  @IsEmail({}, { message: VALIDATION_MESSAGES.email.invalid })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.email.required })
-  public email: string;
+  @IsString({ message: 'Email or phone number is required' })
+  @IsNotEmpty({ message: 'Email or phone number is required' })
+  public emailOrPhone: string;
 
   @IsString({ message: VALIDATION_MESSAGES.login.password })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.login.password })
@@ -579,4 +600,11 @@ export class UpdateLoungeServiceDto {
   @IsOptional()
   @IsBoolean({ message: 'isActive must be a boolean' })
   public isActive?: boolean;
+}
+
+export class UpdateThemeDto {
+  @IsString({ message: 'Theme name must be a string' })
+  @IsNotEmpty({ message: 'Theme name is required' })
+  @MaxLength(50, { message: 'Theme name cannot exceed 50 characters' })
+  public theme: string;
 }

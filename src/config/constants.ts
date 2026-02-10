@@ -1,6 +1,6 @@
 // Centralized application constants
 
-export const REQUEST_BODY_LIMIT = '10kb';
+export const REQUEST_BODY_LIMIT = '10mb'; // Increased to support base64 image uploads
 export const ACCESS_TOKEN_EXPIRES_SECONDS = 15 * 60; // 15 minutes
 export const REFRESH_TOKEN_EXPIRES_SECONDS = 7 * 24 * 60 * 60; // 7 days
 export const REFRESH_TOKEN_EXPIRES_STRING = '7d';

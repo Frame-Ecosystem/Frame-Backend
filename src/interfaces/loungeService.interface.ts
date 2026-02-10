@@ -19,6 +19,10 @@ export interface LoungeService {
   gender: ServiceLoungeGender;
   status: LoungeServiceStatus;
   description?: string;
+  image?: {
+    url: string;
+    publicId: string;
+  };
   isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;

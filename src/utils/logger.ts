@@ -121,7 +121,9 @@ type SecurityEventType =
   | 'USER_ONLINE'
   | 'ADMIN_ACCESS_DENIED'
   | 'CLIENT_ACCESS_DENIED'
-  | 'LOUNGE_ACCESS_DENIED';
+  | 'LOUNGE_ACCESS_DENIED'
+  | 'ADMIN_LOUNGE_ACCESS_DENIED'
+  | 'CLIENT_ADMIN_ACCESS_DENIED';
 
 interface SecurityEventData {
   event: SecurityEventType;
