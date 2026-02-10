@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import AuthController from '@controllers/auth.controller';
-import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
+import { CreateUserDto, LoginUserDto, ForgotPasswordDto, ResetPasswordDto } from '@dtos/users.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { loginRateLimiter, signupRateLimiter } from '@middlewares/rate-limit.middleware';
 import passport from 'passport';
+import { FRONTEND_BASE_URL } from '@config';
 
 class AuthRoute implements Routes {
   public path = '/v1/auth';
@@ -19,11 +20,14 @@ class AuthRoute implements Routes {
   private initializeRoutes() {
     // Auth endpoints with rate limiting
     this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
+    this.router.get('/verify', this.authController.verifyMagicLink);
     this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
     this.router.post('/logout', authMiddleware, this.authController.logOut);
     this.router.post('/logout-all', authMiddleware, this.authController.logOutAllDevices);
     // Refresh token endpoint (no CSRF needed - refresh token cookie provides security)
     this.router.post('/refresh-token', this.authController.refreshToken);
+    this.router.post('/forgot-password', validationMiddleware(ForgotPasswordDto, 'body'), this.authController.forgotPassword);
+    this.router.post('/reset-password', validationMiddleware(ResetPasswordDto, 'body'), this.authController.resetPassword);
 
     // Google OAuth endpoints
     this.router.get('/google/login', (req, res, next) => {
@@ -45,8 +49,7 @@ class AuthRoute implements Routes {
     );
     // Failure redirect endpoint
     this.router.get('/google/failure', (req, res) => {
-      const origin = process.env.ORIGIN || 'http://localhost:3001';
-      const failureRedirect = `${origin}/auth/google/callback?status=error&error=oauth_failed`;
+      const failureRedirect = `${FRONTEND_BASE_URL}/auth/google/callback?status=error&error=oauth_failed`;
       return res.redirect(failureRedirect);
     });
   }

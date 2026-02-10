@@ -160,7 +160,23 @@ paths:
         200:
           description: Login successful
         401:
-          description: Invalid credentials
+          description: Authentication failed
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                enum:
+                  - Invalid email
+                  - Invalid phone number
+                  - Invalid password
+                example: Invalid email
+              code:
+                type: string
+                enum:
+                  - INVALID_IDENTIFIER
+                  - INVALID_PASSWORD
+                example: INVALID_IDENTIFIER
         429:
           description: Rate limit exceeded
         500:
@@ -216,6 +232,83 @@ paths:
           description: Refresh token missing, expired, or invalid
         403:
           description: CSRF token missing or invalid
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/forgot-password:
+    post:
+      tags:
+        - auth
+      summary: Request password reset
+      description: Send a password reset link to the user's email address.
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+                format: email
+                example: user@example.com
+                description: The email address of the user requesting password reset
+      responses:
+        200:
+          description: Password reset link sent successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Password reset link sent to your email
+        400:
+          description: Invalid email format
+        429:
+          description: Rate limit exceeded
+        500:
+          description: Server error
+
+  /v1/auth/reset-password:
+    post:
+      tags:
+        - auth
+      summary: Reset password using token
+      description: Reset the user's password using the token received via email.
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - token
+              - newPassword
+            properties:
+              token:
+                type: string
+                example: abc123-def456-ghi789
+                description: The reset token received via email
+              newPassword:
+                type: string
+                minLength: 8
+                example: newpassword123
+                description: The new password (minimum 8 characters)
+      responses:
+        200:
+          description: Password reset successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: Password reset successfully
+        400:
+          description: Invalid or expired token, or weak password
         429:
           description: Rate limit exceeded
         500:
@@ -940,6 +1033,53 @@ paths:
           schema:
             $ref: '#/definitions/ErrorResponse'
 
+  /v1/me/theme:
+    put:
+      tags:
+        - current users
+      summary: Update current user theme
+      description: Update the currently authenticated user's theme preference. Accepts any string value for the theme name.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            type: object
+            required:
+              - theme
+            properties:
+              theme:
+                type: string
+                description: Theme name (any string value)
+                example: "dark"
+      responses:
+        200:
+          description: Theme updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Theme updated successfully
+        400:
+          description: Validation error or invalid request data
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
   /v1/me/send-verification-code:
       post:
         tags:
@@ -1341,7 +1481,7 @@ paths:
     get:
       tags:
         - client
-      summary: Get all lounges with pagination (for clients to browse)
+      summary: Get all lounges with pagination (for clients and admins to browse)
       description: |
         Browse all available lounges with filtering, searching, and pagination.
         Only non-blocked lounges are returned.
@@ -1432,7 +1572,7 @@ paths:
     get:
       tags:
         - client
-      summary: Get lounge details by ID (for clients to view lounge profile)
+      summary: Get lounge details by ID (for clients and admins to view lounge profile)
       description: |
         Retrieve detailed information about a specific lounge.
         Only non-blocked lounges can be accessed.
@@ -1474,7 +1614,7 @@ paths:
     get:
       tags:
         - client
-      summary: Get all services offered by a specific lounge (for clients)
+      summary: Get all services offered by a specific lounge (for clients and admins)
       description: |
         Retrieve all active services offered by a specific lounge.
         Only services from non-blocked lounges with active status are returned.
@@ -2257,6 +2397,112 @@ paths:
           description: Invalid request data
         401:
           description: Unauthorized
+        500:
+          description: Server error
+
+  /v1/lounge-services/lounge/{loungeId}/agents:
+    get:
+      tags:
+        - lounge services
+      summary: Get agents for a specific lounge
+      description: |
+        Retrieve all agents belonging to a specific lounge.
+        - **Admins** can view agents for any lounge
+        - **Lounges** can only view their own agents
+        - **Clients** can view agents for any lounge (for booking purposes)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID (MongoDB ObjectId)
+      responses:
+        200:
+          description: Agents retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  lounge:
+                    type: object
+                    properties:
+                      _id:
+                        type: string
+                        example: "507f1f77bcf86cd799439011"
+                      loungeTitle:
+                        type: string
+                        example: "Elite Hair Salon"
+                      email:
+                        type: string
+                        example: "lounge@example.com"
+                  agents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        _id:
+                          type: string
+                          example: "507f1f77bcf86cd799439012"
+                        agentName:
+                          type: string
+                          example: "john_doe"
+                        loungeId:
+                          type: string
+                          example: "507f1f77bcf86cd799439011"
+                        profileImage:
+                          type: object
+                          properties:
+                            url:
+                              type: string
+                              example: "https://cloudinary.com/image.jpg"
+                            publicId:
+                              type: string
+                              example: "agents/agent_123"
+                        isBlocked:
+                          type: boolean
+                          example: false
+                        createdAt:
+                          type: string
+                          format: date-time
+                        updatedAt:
+                          type: string
+                          format: date-time
+                  totalAgents:
+                    type: integer
+                    example: 3
+              message:
+                type: string
+                example: "Agents retrieved successfully"
+        400:
+          description: Invalid lounge ID
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge ID is required"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Lounge can only access their own agents
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "You can only view your own agents"
+        404:
+          description: Lounge not found
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Lounge not found"
         500:
           description: Server error
 

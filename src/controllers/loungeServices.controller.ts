@@ -220,6 +220,29 @@ class LoungeServicesController {
   };
 
   /**
+   * Get agents for a specific lounge
+   */
+  public getAgentsPerLounge = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const loungeId = req.params.loungeId;
+
+      if (!loungeId) {
+        return res.status(400).json({
+          message: 'Lounge ID is required',
+        });
+      }
+
+      const result = await this.loungeServicesService.getAgentsPerLounge(loungeId, req.user);
+      res.status(200).json({
+        data: result,
+        message: 'Agents retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Update lounge profile
    */
   public updateLoungeProfile = async (req: RequestWithUser, res: Response, next: NextFunction) => {

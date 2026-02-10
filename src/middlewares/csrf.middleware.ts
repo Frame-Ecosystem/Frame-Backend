@@ -57,6 +57,21 @@ const csrfMiddleware = (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
+  // Skip CSRF check for mobile clients (they use different auth patterns)
+  const clientType = req.headers['x-client-type'];
+  if (clientType === 'mobile') {
+    return next();
+  }
+
+  // Skip CSRF check for authenticated requests (JWT provides sufficient protection)
+  const authHeader = req.headers.authorization;
+  const hasBearerToken = authHeader && authHeader.startsWith('Bearer ');
+  const isAuthenticated = (req as any).user !== undefined;
+
+  if (hasBearerToken || isAuthenticated) {
+    return next();
+  }
+
   // Get CSRF token from cookie and header
   const cookieToken = req.cookies[CSRF_COOKIE_NAME];
   const headerToken = req.header(CSRF_HEADER_NAME);

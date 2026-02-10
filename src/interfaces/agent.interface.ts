@@ -1,5 +1,4 @@
 export interface Agent {
-  _id?: string;
   agentName: string;
   password: string;
   loungeId: string; // Reference to Lounge (User with type 'lounge')

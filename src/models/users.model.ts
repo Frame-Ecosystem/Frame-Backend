@@ -54,6 +54,11 @@ const userSchema: Schema = new Schema(
       type: String,
       required: false,
     },
+    theme: {
+      type: String,
+      default: 'monochrome-light',
+      required: false,
+    },
     loungeTitle: {
       type: String,
       required: false,
@@ -120,12 +125,12 @@ const userSchema: Schema = new Schema(
     emailVerification: {
       type: [
         {
-          isVerified: { type: Boolean, default: false, required: true },
+          isVerified: { type: Boolean, default: true, required: true },
           verifCode: { type: String, required: false },
           verifCodeExpiresAt: { type: Date, required: false },
         },
       ],
-      default: [{ isVerified: false }],
+      default: [{ isVerified: true }],
       required: false,
     },
     isBlocked: {

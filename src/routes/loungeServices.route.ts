@@ -2,6 +2,7 @@ import { Router } from 'express';
 import LoungeServicesController from '@controllers/loungeServices.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import adminOrLoungeMiddleware from '@middlewares/adminOrLounge.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
@@ -72,10 +73,12 @@ class LoungeServicesRoute implements Routes {
     this.router.put(
       '/lounge/:loungeId/profile',
       authMiddleware,
-      csrfMiddleware,
       validationMiddleware(UpdateLoungeProfileDto, 'body', true),
       this.loungeServicesController.updateLoungeProfile,
     );
+
+    // GET - Get agents for a specific lounge
+    this.router.get('/lounge/:loungeId/agents', authMiddleware, adminOrLoungeMiddleware, this.loungeServicesController.getAgentsPerLounge);
   }
 }
 

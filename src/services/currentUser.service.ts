@@ -342,6 +342,46 @@ class CurrentUserService {
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
+
+  /**
+   * Update user theme preference
+   * @param userId - User ID
+   * @param theme - Theme name (string)
+   */
+  public async updateTheme(userId: string, theme: string): Promise<User> {
+    try {
+      if (isEmpty(userId)) {
+        logger.error('updateTheme: User ID is required');
+        throw new BadRequestException('User ID is required');
+      }
+
+      if (isEmpty(theme)) {
+        logger.error('updateTheme: Theme is required');
+        throw new BadRequestException('Theme is required');
+      }
+
+      const user = await this.users.findById(userId);
+      if (!user) {
+        logger.error(`updateTheme: User not found for userId=${userId}`);
+        throw new NotFoundException('User not found');
+      }
+
+      // Update the theme
+      const updatedUser = await this.users.findByIdAndUpdate(userId, { theme }, { new: true });
+
+      if (!updatedUser) {
+        logger.error(`updateTheme: Failed to update theme for userId=${userId}`);
+        throw new InternalServerException('Failed to update theme');
+      }
+
+      logger.info(`updateTheme: Theme updated successfully for userId=${userId}, theme=${theme}`);
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`CurrentUserService.updateTheme error: ${error.message}`, { userId, stack: error.stack });
+      throw new InternalServerException('Failed to update theme. Please try again');
+    }
+  }
 }
 
 export default CurrentUserService;

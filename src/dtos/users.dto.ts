@@ -30,6 +30,23 @@ export class VerifyEmailCodeDto {
   public code: string;
 }
 
+export class ForgotPasswordDto {
+  @IsEmail({}, { message: 'A valid email is required' })
+  @IsNotEmpty({ message: 'Email is required' })
+  public email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString({ message: 'Reset token is required' })
+  @IsNotEmpty({ message: 'Reset token is required' })
+  public token: string;
+
+  @IsString({ message: 'New password is required' })
+  @IsNotEmpty({ message: 'New password is required' })
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  public newPassword: string;
+}
+
 import { Type } from 'class-transformer';
 
 // ENUMS
@@ -256,7 +273,7 @@ export class CreateUserDto {
   public isBlocked?: boolean = false;
 
   @IsOptional()
-  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: false }];
+  public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: true }];
 }
 
 // UPDATE USER DTO (Partial updates)
@@ -296,6 +313,11 @@ export class UpdateUserDto {
   @IsString({ message: 'Bio must be a string' })
   @MaxLength(500, { message: 'Bio cannot exceed 500 characters' })
   public bio?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Theme must be a string' })
+  @MaxLength(50, { message: 'Theme name cannot exceed 50 characters' })
+  public theme?: string;
 
   @IsOptional()
   @IsString({ message: 'Lounge title must be a string' })
@@ -578,4 +600,11 @@ export class UpdateLoungeServiceDto {
   @IsOptional()
   @IsBoolean({ message: 'isActive must be a boolean' })
   public isActive?: boolean;
+}
+
+export class UpdateThemeDto {
+  @IsString({ message: 'Theme name must be a string' })
+  @IsNotEmpty({ message: 'Theme name is required' })
+  @MaxLength(50, { message: 'Theme name cannot exceed 50 characters' })
+  public theme: string;
 }

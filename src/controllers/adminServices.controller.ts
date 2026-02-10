@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { RequestWithUser } from '@interfaces/auth.interface';
 import AdminServicesService from '@services/adminServices.service';
 
 class AdminServicesController {
@@ -125,10 +126,10 @@ class AdminServicesController {
   /**
    * Create audit log
    */
-  public createAuditLog = async (req: Request, res: Response, next: NextFunction) => {
+  public createAuditLog = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { action, details } = req.body;
-      const userId = req.user?.id;
+      const userId = req.user?._id;
 
       if (!action) {
         return res.status(400).json({
