@@ -538,6 +538,7 @@ class LoungeServicesService {
       }
 
       // Check if the requesting user has permission to view agents for this lounge
+      // Clients can view agents for any lounge, lounges can only view their own agents
       if (requestingUser.type === 'lounge' && requestingUser._id.toString() !== loungeId) {
         logger.error(`LoungeServicesService.getAgentsPerLounge: lounge user ${requestingUser._id} trying to access agents for lounge ${loungeId}`);
         throw new BadRequestException('You can only view your own agents');
