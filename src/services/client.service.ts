@@ -182,7 +182,7 @@ class ClientService {
           isActive: true,
           status: 'active',
         })
-        .populate('serviceId')
+        .populate('serviceId', 'name categoryId description createdAt updatedAt')
         .lean()
         .exec();
 

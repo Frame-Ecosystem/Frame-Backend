@@ -14,7 +14,7 @@ const validUserData: CreateUserDto = {
 };
 
 const validLoginData: LoginUserDto = {
-  email: 'test@email.com',
+  emailOrPhone: 'test@email.com',
   password: 'Test@123!',
 };
 

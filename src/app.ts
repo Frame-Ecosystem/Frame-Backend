@@ -39,7 +39,7 @@ class App {
   }
 
   public listen() {
-    this.app.listen(this.port, '0.0.0.0', () => {
+    this.app.listen(Number(this.port), '0.0.0.0', () => {
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
       logger.info(`🚀 App listening on 0.0.0.0:${this.port}`);
