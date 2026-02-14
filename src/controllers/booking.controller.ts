@@ -102,6 +102,22 @@ class BookingController {
     const clientId = booking.clientId._id.toString();
     const loungeId = booking.loungeId._id.toString();
 
+    // Automatically set cancelledBy when status is set to cancelled and not already provided
+    if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
+      if (userType === 'client') {
+        bookingData.cancelledBy = 'client';
+      } else if (userType === 'lounge') {
+        bookingData.cancelledBy = 'lounge';
+      } else if (userType === 'admin') {
+        bookingData.cancelledBy = 'admin';
+      }
+    }
+
+    // Validate that cancelledBy is provided when status is cancelled
+    if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
+      throw new HttpException(400, 'cancelledBy is required when status is cancelled');
+    }
+
     if (userType === 'client') {
       if (clientId !== userId) {
         throw new HttpException(403, 'You can only update your own bookings');

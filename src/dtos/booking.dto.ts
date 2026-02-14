@@ -46,6 +46,10 @@ export class UpdateBookingDto {
   status?: BookingStatus;
 
   @IsOptional()
+  @IsString({ message: 'Cancellation source must be a string' })
+  cancelledBy?: string;
+
+  @IsOptional()
   @IsDateString({}, { message: 'Booking date must be a valid ISO 8601 date string' })
   bookingDate?: string;
 

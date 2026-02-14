@@ -31,6 +31,10 @@ const bookingSchema: Schema = new Schema(
       default: BookingStatus.PENDING,
       required: true,
     },
+    cancelledBy: {
+      type: String,
+      required: false,
+    },
     bookingDate: {
       type: Date,
       required: true,

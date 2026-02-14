@@ -12,6 +12,7 @@ export interface Booking {
   agentId?: string; // Reference to User (agent type)
   loungeServiceIds?: string[]; // List of lounge service IDs being booked
   status: BookingStatus;
+  cancelledBy: string;
   bookingDate: Date;
   totalPrice?: number;
   totalDuration?: number; // Total duration in minutes for all services

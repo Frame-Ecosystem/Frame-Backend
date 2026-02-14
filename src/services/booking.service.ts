@@ -10,8 +10,8 @@ import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import mongoose from 'mongoose';
 
 const POPULATE_FIELDS = {
-  CLIENT: 'firstName lastName email',
-  LOUNGE: 'firstName lastName email',
+  CLIENT: 'firstName lastName email profileImage location',
+  LOUNGE: 'firstName lastName email profileImage loungeTitle location',
   AGENT: 'agentName profileImage',
   SERVICE: {
     path: 'loungeServiceIds',
@@ -189,6 +189,12 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(bookingId)) {
         throw new BadRequestException('Invalid booking ID format', 'INVALID_BOOKING_ID');
       }
+
+      // Validate that cancelledBy is required when status is cancelled
+      if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
+        throw new BadRequestException('cancelledBy is required when status is cancelled', 'MISSING_CANCELLED_BY');
+      }
+
       const booking = await this.bookings.findByIdAndUpdate(bookingId, bookingData, { new: true });
       if (!booking) {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
