@@ -13,11 +13,13 @@ const bookingSchema: Schema = new Schema(
       ref: 'User',
       required: true,
     },
-    agentId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Agent',
-      required: false,
-    },
+    agentIds: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'Agent',
+        required: false,
+      },
+    ],
     loungeServiceIds: [
       {
         type: Schema.Types.ObjectId,

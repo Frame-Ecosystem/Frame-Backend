@@ -6,6 +6,7 @@ import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
 import { DayOpeningHoursDto, UpdateLoungeProfileDto } from '@dtos/users.dto';
+import upload from '@middlewares/image-upload.middleware';
 
 class LoungeServicesRoute implements Routes {
   public path = '/v1/lounge-services';
@@ -32,10 +33,18 @@ class LoungeServicesRoute implements Routes {
     // GET - Get service name by service ID
     this.router.get('/service-name/:serviceId', authMiddleware, this.loungeServicesController.getServiceNameById);
 
-    // POST - Create a new lounge service
+    // POST - Create a new lounge service (supports both file upload and base64 image)
     this.router.post(
       '/',
       authMiddleware,
+      (req, res, next) => {
+        // Check if this is a multipart request (file upload) or JSON request (base64)
+        if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+          upload.single('image')(req, res, next);
+        } else {
+          next();
+        }
+      },
       csrfMiddleware,
       validationMiddleware(CreateLoungeServiceDto, 'body'),
       this.loungeServicesController.createLoungeService,
@@ -44,10 +53,18 @@ class LoungeServicesRoute implements Routes {
     // POST - Bulk create lounge services
     this.router.post('/bulk', authMiddleware, csrfMiddleware, this.loungeServicesController.bulkCreateLoungeServices);
 
-    // PUT - Update lounge service
+    // PUT - Update lounge service (supports both file upload and base64 image)
     this.router.put(
       '/:serviceId',
       authMiddleware,
+      (req, res, next) => {
+        // Check if this is a multipart request (file upload) or JSON request (base64)
+        if (req.headers['content-type'] && req.headers['content-type'].includes('multipart/form-data')) {
+          upload.single('image')(req, res, next);
+        } else {
+          next();
+        }
+      },
       csrfMiddleware,
       validationMiddleware(UpdateLoungeServiceDto, 'body'),
       this.loungeServicesController.updateLoungeService,

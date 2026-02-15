@@ -9,8 +9,9 @@ export class CreateBookingDto {
   loungeId: string;
 
   @IsOptional()
-  @IsMongoId({ message: 'Invalid agent ID format' })
-  agentId?: string;
+  @IsArray({ message: 'Agent IDs must be an array' })
+  @IsMongoId({ each: true, message: 'Each agent ID must be a valid MongoDB ID' })
+  agentIds?: string[];
 
   @IsOptional()
   @IsArray({ message: 'Lounge service IDs must be an array' })

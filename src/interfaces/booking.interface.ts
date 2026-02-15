@@ -9,7 +9,7 @@ export interface Booking {
   _id?: string;
   clientId: string; // Reference to User (client type)
   loungeId: string; // Reference to User (lounge type)
-  agentId?: string; // Reference to User (agent type)
+  agentIds?: string[]; // List of agent IDs (Reference to User - agent type)
   loungeServiceIds?: string[]; // List of lounge service IDs being booked
   status: BookingStatus;
   cancelledBy: string;

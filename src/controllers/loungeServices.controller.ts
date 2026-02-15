@@ -13,7 +13,7 @@ class LoungeServicesController {
   public createLoungeService = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const data: CreateLoungeServiceDto = req.body;
-      const service = await this.loungeServicesService.createLoungeService(data);
+      const service = await this.loungeServicesService.createLoungeService(data, req.file);
       res.status(201).json({
         data: service,
         message: 'Lounge service created successfully',
@@ -105,7 +105,7 @@ class LoungeServicesController {
       const { serviceId } = req.params;
       const data: UpdateLoungeServiceDto = req.body;
 
-      const service = await this.loungeServicesService.updateLoungeService(serviceId, data, req.user);
+      const service = await this.loungeServicesService.updateLoungeService(serviceId, data, req.user, req.file);
       res.status(200).json({
         data: stripSensitiveFields(service),
         message: 'Lounge service updated successfully',

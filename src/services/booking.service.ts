@@ -12,7 +12,10 @@ import mongoose from 'mongoose';
 const POPULATE_FIELDS = {
   CLIENT: 'firstName lastName email profileImage location',
   LOUNGE: 'firstName lastName email profileImage loungeTitle location',
-  AGENT: 'agentName profileImage',
+  AGENTS: {
+    path: 'agentIds',
+    select: 'firstName lastName agentName profileImage',
+  },
   SERVICE: {
     path: 'loungeServiceIds',
     select: 'price duration image',
@@ -50,12 +53,12 @@ class BookingService {
         throw new BadRequestException('Lounge not found or is not a valid lounge', 'INVALID_LOUNGE');
       }
 
-      // Validate agent (if provided)
-      if (bookingData.agentId) {
-        const agent = await this.agents.findById(bookingData.agentId);
-        if (!agent) {
-          throw new BadRequestException('Agent not found', 'INVALID_AGENT');
-        }
+      // Validate agents (if provided)
+      let uniqueAgentIds: string[] = [];
+      if (bookingData.agentIds && bookingData.agentIds.length > 0) {
+        // Remove duplicates from agentIds
+        uniqueAgentIds = [...new Set(bookingData.agentIds)];
+        await this.validateAgents(uniqueAgentIds, bookingData.loungeId);
       }
 
       // Validate and calculate lounge services
@@ -74,7 +77,7 @@ class BookingService {
       const booking = await this.bookings.create({
         clientId: bookingData.clientId,
         loungeId: bookingData.loungeId,
-        agentId: bookingData.agentId,
+        agentIds: uniqueAgentIds,
         loungeServiceIds: bookingData.loungeServiceIds,
         bookingDate,
         totalPrice,
@@ -102,6 +105,20 @@ class BookingService {
     }
   }
 
+  private async validateAgents(agentIds: string[], loungeId: string): Promise<void> {
+    // Remove duplicates from agentIds
+    const uniqueAgentIds = [...new Set(agentIds)];
+
+    const agents = await this.agents.find({ _id: { $in: uniqueAgentIds } });
+    if (agents.length !== uniqueAgentIds.length) {
+      throw new BadRequestException('One or more agents not found', 'INVALID_AGENTS');
+    }
+    const invalidAgents = agents.filter(a => a.loungeId?.toString() !== loungeId);
+    if (invalidAgents.length > 0) {
+      throw new BadRequestException('All agents must belong to the specified lounge', 'AGENT_LOUNGE_MISMATCH');
+    }
+  }
+
   private async calculateServiceTotals(serviceIds: string[]): Promise<{ price: number; duration: number }> {
     const services = await this.loungeServices.find({ _id: { $in: serviceIds } });
     const price = services.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -115,7 +132,7 @@ class BookingService {
         .find()
         .populate('clientId', POPULATE_FIELDS.CLIENT)
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate('agentId', POPULATE_FIELDS.AGENT)
+        .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
         .sort({ createdAt: -1 });
     } catch (error) {
@@ -133,7 +150,7 @@ class BookingService {
         .findById(bookingId)
         .populate('clientId', POPULATE_FIELDS.CLIENT)
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate('agentId', POPULATE_FIELDS.AGENT)
+        .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE);
       if (!booking) {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
@@ -154,7 +171,7 @@ class BookingService {
         .find({ clientId })
         .populate('clientId', POPULATE_FIELDS.CLIENT)
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate('agentId', POPULATE_FIELDS.AGENT)
+        .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
         .sort({ createdAt: -1 });
     } catch (error) {
@@ -172,7 +189,7 @@ class BookingService {
         .find({ loungeId })
         .populate('clientId', POPULATE_FIELDS.CLIENT)
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate('agentId', POPULATE_FIELDS.AGENT)
+        .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
         .sort({ createdAt: -1 });
     } catch (error) {

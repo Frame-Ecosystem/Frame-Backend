@@ -1487,6 +1487,11 @@ paths:
         Browse all available lounges with filtering, searching, and pagination.
         Only non-blocked lounges are returned.
         Sensitive fields (password, tokens) are automatically excluded.
+
+        **Location-based sorting**: If the authenticated client has location data stored,
+        lounges are automatically sorted by distance from the client's location (nearest first).
+        Lounges without location data appear at the end. If no client location is available,
+        traditional sorting is used.
       security:
         - bearerAuth: []
       parameters:
@@ -1515,13 +1520,13 @@ paths:
           type: string
           enum: [createdAt, loungeTitle, firstName, lastName]
           default: createdAt
-          description: Field to sort by
+          description: Field to sort by (only used when client has no location data)
         - name: sortOrder
           in: query
           type: string
           enum: [asc, desc]
           default: desc
-          description: Sort order (ascending or descending)
+          description: Sort order (only used when client has no location data)
       responses:
         200:
           description: Lounges retrieved successfully
@@ -1652,6 +1657,112 @@ paths:
             $ref: '#/definitions/ErrorResponse'
         401:
           description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/services/{serviceId}/lounges:
+    get:
+      tags:
+        - client
+      summary: Filter lounges by service (for clients to find lounges offering specific services)
+      description: |
+        Find lounges that offer a specific service. Results can be sorted by distance if user location is provided.
+        Supports pagination, search, gender filtering, and location-based sorting.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID to filter lounges by
+          example: "507f1f77bcf86cd799439011"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number
+        - name: limit
+          in: query
+          type: integer
+          default: 10
+          maximum: 100
+          description: Items per page (max 100)
+        - name: search
+          in: query
+          type: string
+          description: Search term (searches in loungeTitle, firstName, lastName, bio)
+        - name: gender
+          in: query
+          type: string
+          enum: [male, female, unisex, kids]
+          description: Filter by gender
+        - name: sortBy
+          in: query
+          type: string
+          enum: [createdAt, loungeTitle, firstName, lastName, distance]
+          default: createdAt
+          description: Sort field (distance when location provided)
+        - name: sortOrder
+          in: query
+          type: string
+          enum: [asc, desc]
+          default: desc
+          description: Sort order
+        - name: userLatitude
+          in: query
+          type: number
+          format: float
+          description: User's latitude for distance-based sorting
+        - name: userLongitude
+          in: query
+          type: number
+          format: float
+          description: User's longitude for distance-based sorting
+      responses:
+        200:
+          description: Lounges filtered by service retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungePublicProfile'
+              pagination:
+                type: object
+                properties:
+                  currentPage:
+                    type: integer
+                    example: 1
+                  totalPages:
+                    type: integer
+                    example: 5
+                  totalItems:
+                    type: integer
+                    example: 42
+                  itemsPerPage:
+                    type: integer
+                    example: 10
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+              message:
+                type: string
+                example: Lounges filtered by service retrieved successfully
+        400:
+          description: Invalid service ID or pagination parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client/admin
           schema:
             $ref: '#/definitions/ErrorResponse'
         500:
@@ -4722,6 +4833,12 @@ definitions:
         type: string
         description: Reference to the lounge this agent belongs to
         example: 507f1f77bcf86cd799439012
+      idLoungeService:
+        type: array
+        items:
+          type: string
+        description: List of lounge service IDs that this agent can perform
+        example: ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
       profileImage:
         type: object
         description: Agent's profile image information
@@ -4752,6 +4869,7 @@ definitions:
       - agentName
       - password
       - loungeId
+      - idLoungeService
     properties:
       agentName:
         type: string
@@ -4767,6 +4885,13 @@ definitions:
         type: string
         description: ID of the lounge this agent belongs to
         example: 507f1f77bcf86cd799439012
+      idLoungeService:
+        type: array
+        items:
+          type: string
+        description: List of lounge service IDs that this agent can perform
+        example: ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+        minItems: 1
       isBlocked:
         type: boolean
         description: Whether the agent should be blocked (optional, defaults to false)

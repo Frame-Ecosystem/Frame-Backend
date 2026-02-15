@@ -18,6 +18,9 @@ class ClientController {
       const sortBy = (req.query.sortBy as string) || 'createdAt';
       const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
 
+      // Get the authenticated client's ID for location-based sorting
+      const clientId = req.user._id.toString();
+
       const result = await this.clientService.getAllLounges({
         page,
         limit,
@@ -25,6 +28,7 @@ class ClientController {
         gender,
         sortBy,
         sortOrder,
+        clientId,
       });
 
       res.status(200).json({
@@ -66,6 +70,44 @@ class ClientController {
         data: services,
         count: services.length,
         message: 'Lounge services retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Filter lounges by service (for clients to find lounges offering specific services)
+   */
+  public getLoungesByService = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const { serviceId } = req.params;
+
+      // Extract query parameters
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const search = (req.query.search as string) || '';
+      const gender = req.query.gender as string;
+      const sortBy = (req.query.sortBy as string) || 'createdAt';
+      const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
+      const userLatitude = req.query.userLatitude ? parseFloat(req.query.userLatitude as string) : undefined;
+      const userLongitude = req.query.userLongitude ? parseFloat(req.query.userLongitude as string) : undefined;
+
+      const result = await this.clientService.getLoungesByService(serviceId, {
+        page,
+        limit,
+        search,
+        gender,
+        sortBy,
+        sortOrder,
+        userLatitude,
+        userLongitude,
+      });
+
+      res.status(200).json({
+        data: result.lounges,
+        pagination: result.pagination,
+        message: 'Lounges filtered by service retrieved successfully',
       });
     } catch (error) {
       next(error);

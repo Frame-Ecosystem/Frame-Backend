@@ -8,6 +8,7 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/loungeServices.dto';
+import CloudinaryService from '@services/cloudinary.service';
 
 class LoungeServicesService {
   public loungeServices = loungeServiceModel;
@@ -18,7 +19,7 @@ class LoungeServicesService {
   /**
    * Create a new lounge service
    */
-  public async createLoungeService(data: CreateLoungeServiceDto): Promise<LoungeService> {
+  public async createLoungeService(data: CreateLoungeServiceDto, file?: Express.Multer.File): Promise<LoungeService> {
     try {
       if (isEmpty(data) || !data.loungeId || !data.serviceId) {
         logger.warn('LoungeServicesService.createLoungeService: invalid data provided');
@@ -36,13 +37,60 @@ class LoungeServicesService {
         throw new ConflictException('This service is already offered by this lounge', 'SERVICE_ALREADY_EXISTS');
       }
 
-      const newLoungeService = await this.loungeServices.create({
-        ...data,
+      // Create the lounge service first without image
+      const createData = {
+        loungeId: data.loungeId,
+        serviceId: data.serviceId,
+        price: data.price,
+        duration: data.duration,
+        gender: data.gender,
+        status: data.status,
+        description: data.description,
         isActive: data.isActive !== undefined ? data.isActive : true,
-      });
+      };
+      const newLoungeService = await this.loungeServices.create(createData);
 
+      // Handle image upload (either from file or base64) after creating the service
+      let imageData = {};
+      if (file || data.image) {
+        try {
+          let imageBuffer: Buffer;
+          const fileName = newLoungeService._id;
+
+          if (data.image) {
+            // Handle base64 image
+            const base64Data = data.image.replace(/^data:image\/\w+;base64,/, '');
+            imageBuffer = Buffer.from(base64Data, 'base64');
+          } else if (file) {
+            // Handle file upload
+            imageBuffer = file.buffer;
+          }
+
+          if (imageBuffer) {
+            // Upload new image
+            const { url, publicId } = await CloudinaryService.uploadLoungeServiceImage(imageBuffer, fileName);
+            imageData = {
+              image: {
+                url,
+                publicId,
+              },
+            };
+          }
+        } catch (imageError) {
+          logger.warn(`LoungeServicesService.createLoungeService: image upload failed: ${imageError.message}`);
+          // Continue with creation even if image upload fails
+        }
+      }
+
+      // Update the service with image if upload was successful
+      if (Object.keys(imageData).length > 0) {
+        await this.loungeServices.findByIdAndUpdate(newLoungeService._id, imageData);
+      }
+
+      // Fetch final lounge service
+      const finalLoungeService = await this.loungeServices.findById(newLoungeService._id).populate('loungeId').populate('serviceId');
       logger.info(`LoungeServicesService.createLoungeService: created service ${newLoungeService._id} for lounge ${data.loungeId}`);
-      return newLoungeService;
+      return finalLoungeService;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle MongoDB validation errors
@@ -163,7 +211,7 @@ class LoungeServicesService {
   /**
    * Update lounge service
    */
-  public async updateLoungeService(serviceId: string, data: UpdateLoungeServiceDto, user?: User): Promise<LoungeService> {
+  public async updateLoungeService(serviceId: string, data: UpdateLoungeServiceDto, user?: User, file?: Express.Multer.File): Promise<LoungeService> {
     try {
       if (isEmpty(serviceId) || isEmpty(data)) {
         logger.warn('LoungeServicesService.updateLoungeService: invalid parameters provided');
@@ -189,7 +237,53 @@ class LoungeServicesService {
         // Lounge users can update all fields of their own services
       }
 
-      const updatedService = await this.loungeServices.findByIdAndUpdate(serviceId, data, { new: true }).populate('loungeId').populate('serviceId');
+      // Handle image upload (either from file or base64) before updating the service
+      let imageData = {};
+      if (file || data.image) {
+        try {
+          let imageBuffer: Buffer;
+          const fileName = serviceId;
+
+          if (data.image) {
+            // Handle base64 image
+            const base64Data = data.image.replace(/^data:image\/\w+;base64,/, '');
+            imageBuffer = Buffer.from(base64Data, 'base64');
+          } else if (file) {
+            // Handle file upload
+            imageBuffer = file.buffer;
+          }
+
+          if (imageBuffer) {
+            // Delete existing image if it exists
+            const existingService = await this.loungeServices.findById(serviceId);
+            if (existingService?.image?.publicId) {
+              try {
+                await CloudinaryService.deleteLoungeServiceImage(existingService.image.publicId);
+              } catch (deleteError) {
+                logger.warn(`LoungeServicesService.updateLoungeService: failed to delete old image: ${deleteError.message}`);
+                // Continue with upload even if delete fails
+              }
+            }
+
+            // Upload new image
+            const { url, publicId } = await CloudinaryService.uploadLoungeServiceImage(imageBuffer, fileName);
+            imageData = {
+              image: {
+                url,
+                publicId,
+              },
+            };
+          }
+        } catch (imageError) {
+          logger.warn(`LoungeServicesService.updateLoungeService: image upload failed: ${imageError.message}`);
+          // Continue with update even if image upload fails
+        }
+      }
+
+      const updatedService = await this.loungeServices
+        .findByIdAndUpdate(serviceId, { ...data, ...imageData }, { new: true })
+        .populate('loungeId')
+        .populate('serviceId');
 
       if (!updatedService) {
         logger.error(`LoungeServicesService.updateLoungeService: service not found: ${serviceId}`);
