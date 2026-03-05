@@ -3,6 +3,7 @@ import AgentController from '@controllers/agent.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import adminOrLoungeMiddleware from '@middlewares/adminOrLounge.middleware';
+import adminOrLoungeOrClientMiddleware from '@middlewares/adminOrLoungeOrClient.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import upload from '@middlewares/image-upload.middleware';
 
@@ -16,11 +17,11 @@ class AgentRoute implements Routes {
   }
 
   private initializeRoutes() {
-    // GET - Get all agents (filtered by user type: admin sees all, lounge sees their own)
-    this.router.get('/', authMiddleware, adminOrLoungeMiddleware, this.agentController.getAllAgents);
+    // GET - Get all agents (filtered by user type: admin sees all, lounge sees their own, client sees all for booking)
+    this.router.get('/', authMiddleware, adminOrLoungeOrClientMiddleware, this.agentController.getAllAgents);
 
     // GET - Get agent by ID
-    this.router.get('/:agentId', authMiddleware, adminOrLoungeMiddleware, this.agentController.getAgentById);
+    this.router.get('/:agentId', authMiddleware, adminOrLoungeOrClientMiddleware, this.agentController.getAgentById);
 
     // POST - Create a new agent (supports both file upload and base64 image)
     this.router.post(

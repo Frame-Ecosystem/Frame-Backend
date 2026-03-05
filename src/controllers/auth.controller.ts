@@ -196,7 +196,7 @@ class AuthController {
 
   public logOutAllDevices = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const userData: User = req.user;
+      const userData = req.user;
       await this.authService.logoutAllDevices(userData._id);
 
       // Clear refresh token cookie and CSRF token

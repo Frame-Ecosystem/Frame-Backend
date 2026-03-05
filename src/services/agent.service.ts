@@ -2,6 +2,7 @@ import { Agent } from '@/interfaces/agent.interface';
 import { CreateAgentDto, UpdateAgentDto } from '@/dtos/agent.dto';
 import agentModel from '@/models/agent.model';
 import userModel from '@/models/users.model';
+import loungeServiceModel from '@/models/loungeService.model';
 import { BadRequestException, NotFoundException, ConflictException } from '@/exceptions/HttpException';
 import { isEmpty } from '@/utils/util';
 import { logger } from '@utils/logger';
@@ -9,15 +10,16 @@ import CloudinaryService from '@/services/cloudinary.service';
 class AgentService {
   public agents = agentModel;
   public users = userModel;
+  public loungeServices = loungeServiceModel;
 
   /**
    * Create a new agent
    */
   public async createAgent(data: CreateAgentDto, file?: Express.Multer.File): Promise<Agent> {
     try {
-      if (isEmpty(data) || !data.agentName || !data.password || !data.loungeId) {
+      if (isEmpty(data) || !data.agentName || !data.password || !data.loungeId || !data.idLoungeService || data.idLoungeService.length === 0) {
         logger.warn('AgentService.createAgent: invalid data provided');
-        throw new BadRequestException('Agent name, password, and lounge ID are required', 'MISSING_REQUIRED_FIELDS');
+        throw new BadRequestException('Agent name, password, lounge ID, and lounge services are required', 'MISSING_REQUIRED_FIELDS');
       }
 
       // Check if lounge exists and is of type 'lounge'
@@ -25,6 +27,19 @@ class AgentService {
       if (!lounge) {
         logger.error(`AgentService.createAgent: lounge not found or not a lounge: ${data.loungeId}`);
         throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
+      }
+
+      // Validate that all lounge services exist and belong to the same lounge
+      const loungeServices = await this.loungeServices.find({
+        _id: { $in: data.idLoungeService },
+        loungeId: data.loungeId,
+        isActive: true,
+        status: 'active',
+      });
+
+      if (loungeServices.length !== data.idLoungeService.length) {
+        logger.error(`AgentService.createAgent: some lounge services not found or don't belong to lounge ${data.loungeId}`);
+        throw new BadRequestException('Some lounge services not found or do not belong to the specified lounge', 'INVALID_LOUNGE_SERVICES');
       }
 
       // Check if agent name already exists
@@ -72,7 +87,7 @@ class AgentService {
       }
 
       // Fetch updated agent
-      const finalAgent = await this.agents.findById(agent._id).populate('loungeId', 'loungeTitle email');
+      const finalAgent = await this.agents.findById(agent._id).populate('loungeId', 'loungeTitle email').populate('idLoungeService', 'serviceId');
       logger.info(`AgentService.createAgent: agent created ${imageUploaded ? 'with' : 'without'} image successfully: ${agent._id}`);
       return finalAgent;
     } catch (error) {
@@ -90,7 +105,7 @@ class AgentService {
         throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
       }
 
-      const agents = await this.agents.find({ loungeId }).populate('loungeId', 'loungeTitle email');
+      const agents = await this.agents.find({ loungeId }).populate('loungeId', 'loungeTitle email').populate('idLoungeService', 'serviceId');
       return agents;
     } catch (error) {
       logger.error('AgentService.getAgentsByLounge: error getting agents', error);

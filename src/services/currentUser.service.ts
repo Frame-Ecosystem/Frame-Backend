@@ -160,7 +160,7 @@ class CurrentUserService {
 
       // Check for phone number uniqueness if phoneNumber is being updated
       if (userData.phoneNumber) {
-        const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+        const findByPhone = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone && findByPhone._id.toString() !== userId) {
           logger.info(`CurrentUserService.updateUser: phone conflict for userId ${userId}, phone: ${userData.phoneNumber}`);
           throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');

@@ -31,6 +31,7 @@ tags:
   - name: service categories
   - name: agents
   - name: lounge
+  - name: bookings
 paths:
  # ============================================
   # AUTH ENDPOINTS
@@ -1486,6 +1487,11 @@ paths:
         Browse all available lounges with filtering, searching, and pagination.
         Only non-blocked lounges are returned.
         Sensitive fields (password, tokens) are automatically excluded.
+
+        **Location-based sorting**: If the authenticated client has location data stored,
+        lounges are automatically sorted by distance from the client's location (nearest first).
+        Lounges without location data appear at the end. If no client location is available,
+        traditional sorting is used.
       security:
         - bearerAuth: []
       parameters:
@@ -1514,13 +1520,13 @@ paths:
           type: string
           enum: [createdAt, loungeTitle, firstName, lastName]
           default: createdAt
-          description: Field to sort by
+          description: Field to sort by (only used when client has no location data)
         - name: sortOrder
           in: query
           type: string
           enum: [asc, desc]
           default: desc
-          description: Sort order (ascending or descending)
+          description: Sort order (only used when client has no location data)
       responses:
         200:
           description: Lounges retrieved successfully
@@ -1651,6 +1657,112 @@ paths:
             $ref: '#/definitions/ErrorResponse'
         401:
           description: Not authenticated or not a client
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/client/services/{serviceId}/lounges:
+    get:
+      tags:
+        - client
+      summary: Filter lounges by service (for clients to find lounges offering specific services)
+      description: |
+        Find lounges that offer a specific service. Results can be sorted by distance if user location is provided.
+        Supports pagination, search, gender filtering, and location-based sorting.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: serviceId
+          in: path
+          required: true
+          type: string
+          description: Service ID to filter lounges by
+          example: "507f1f77bcf86cd799439011"
+        - name: page
+          in: query
+          type: integer
+          default: 1
+          description: Page number
+        - name: limit
+          in: query
+          type: integer
+          default: 10
+          maximum: 100
+          description: Items per page (max 100)
+        - name: search
+          in: query
+          type: string
+          description: Search term (searches in loungeTitle, firstName, lastName, bio)
+        - name: gender
+          in: query
+          type: string
+          enum: [male, female, unisex, kids]
+          description: Filter by gender
+        - name: sortBy
+          in: query
+          type: string
+          enum: [createdAt, loungeTitle, firstName, lastName, distance]
+          default: createdAt
+          description: Sort field (distance when location provided)
+        - name: sortOrder
+          in: query
+          type: string
+          enum: [asc, desc]
+          default: desc
+          description: Sort order
+        - name: userLatitude
+          in: query
+          type: number
+          format: float
+          description: User's latitude for distance-based sorting
+        - name: userLongitude
+          in: query
+          type: number
+          format: float
+          description: User's longitude for distance-based sorting
+      responses:
+        200:
+          description: Lounges filtered by service retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/LoungePublicProfile'
+              pagination:
+                type: object
+                properties:
+                  currentPage:
+                    type: integer
+                    example: 1
+                  totalPages:
+                    type: integer
+                    example: 5
+                  totalItems:
+                    type: integer
+                    example: 42
+                  itemsPerPage:
+                    type: integer
+                    example: 10
+                  hasNextPage:
+                    type: boolean
+                    example: true
+                  hasPrevPage:
+                    type: boolean
+                    example: false
+              message:
+                type: string
+                example: Lounges filtered by service retrieved successfully
+        400:
+          description: Invalid service ID or pagination parameters
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated or not a client/admin
           schema:
             $ref: '#/definitions/ErrorResponse'
         500:
@@ -3806,6 +3918,293 @@ paths:
           description: Server error
 
 # ============================================
+# BOOKING ENDPOINTS
+# ============================================
+
+  /v1/bookings:
+    post:
+      tags:
+        - bookings
+      summary: Create a new booking
+      description: Create a booking for a lounge service with multiple services included
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateBookingDto'
+      responses:
+        201:
+          description: Booking created successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Booking'
+              message:
+                type: string
+                example: "Booking created successfully"
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized - Authentication required
+        500:
+          description: Server error
+    get:
+      tags:
+        - bookings
+      summary: Get all bookings
+      description: Retrieve bookings based on user role (clients see their bookings, lounges see bookings for their services, admins see all)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Bookings retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Booking'
+              count:
+                type: integer
+                example: 5
+              message:
+                type: string
+                example: "Bookings retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        500:
+          description: Server error
+
+  /v1/bookings/{id}:
+    get:
+      tags:
+        - bookings
+      summary: Get booking by ID
+      description: Retrieve a specific booking with full details
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Booking retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Booking'
+              message:
+                type: string
+                example: "Booking retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Access denied
+        404:
+          description: Booking not found
+        500:
+          description: Server error
+    put:
+      tags:
+        - bookings
+      summary: Update booking
+      description: Update booking status, date, or notes. Clients can only cancel their own bookings. Lounges can update bookings for their lounge. Admins have full access.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439011"
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateBookingDto'
+      responses:
+        200:
+          description: Booking updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Booking'
+              message:
+                type: string
+                example: "Booking updated successfully"
+        400:
+          description: Invalid request data
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Access denied or insufficient permissions
+        404:
+          description: Booking not found
+        500:
+          description: Server error
+    delete:
+      tags:
+        - bookings
+      summary: Delete booking
+      description: Delete a booking (admins only)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Booking deleted successfully
+          schema:
+            type: object
+            properties:
+              message:
+                type: string
+                example: "Booking deleted successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin access required
+        404:
+          description: Booking not found
+        500:
+          description: Server error
+
+  /v1/bookings/{id}/services:
+    get:
+      tags:
+        - bookings
+      summary: Get booking services
+      description: Retrieve all services included in a specific booking
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Booking services retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/BookingService'
+              count:
+                type: integer
+                example: 3
+              message:
+                type: string
+                example: "Booking services retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Access denied
+        404:
+          description: Booking not found
+        500:
+          description: Server error
+
+  /v1/bookings/stats/client/{clientId}:
+    get:
+      tags:
+        - bookings
+      summary: Get client booking statistics
+      description: Retrieve booking statistics for a specific client
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: clientId
+          in: path
+          required: true
+          type: string
+          description: Client ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Client booking stats retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/BookingStats'
+              message:
+                type: string
+                example: "Client booking stats retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Access denied
+        500:
+          description: Server error
+
+  /v1/bookings/stats/lounge/{loungeId}:
+    get:
+      tags:
+        - bookings
+      summary: Get lounge booking statistics
+      description: Retrieve booking statistics for a specific lounge
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+      responses:
+        200:
+          description: Lounge booking stats retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/BookingStats'
+              message:
+                type: string
+                example: "Lounge booking stats retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Access denied
+        500:
+          description: Server error
+
+# ============================================
 # DEFINITIONS
 # ============================================
 
@@ -4434,6 +4833,12 @@ definitions:
         type: string
         description: Reference to the lounge this agent belongs to
         example: 507f1f77bcf86cd799439012
+      idLoungeService:
+        type: array
+        items:
+          type: string
+        description: List of lounge service IDs that this agent can perform
+        example: ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
       profileImage:
         type: object
         description: Agent's profile image information
@@ -4464,6 +4869,7 @@ definitions:
       - agentName
       - password
       - loungeId
+      - idLoungeService
     properties:
       agentName:
         type: string
@@ -4479,6 +4885,13 @@ definitions:
         type: string
         description: ID of the lounge this agent belongs to
         example: 507f1f77bcf86cd799439012
+      idLoungeService:
+        type: array
+        items:
+          type: string
+        description: List of lounge service IDs that this agent can perform
+        example: ["507f1f77bcf86cd799439013", "507f1f77bcf86cd799439014"]
+        minItems: 1
       isBlocked:
         type: boolean
         description: Whether the agent should be blocked (optional, defaults to false)
@@ -4502,3 +4915,153 @@ definitions:
         type: boolean
         description: Whether the agent should be blocked
         example: true
+
+  # ============================================
+  # BOOKING DEFINITIONS
+  # ============================================
+
+  BookingStatus:
+    type: string
+    enum:
+      - pending
+      - confirmed
+      - inQueue
+      - cancelled
+    description: Status of the booking
+    example: "pending"
+
+  Booking:
+    type: object
+    properties:
+      _id:
+        type: string
+        description: Unique identifier for the booking
+        example: "507f1f77bcf86cd799439011"
+      clientId:
+        $ref: '#/definitions/User'
+        description: Reference to the client who made the booking
+      loungeId:
+        $ref: '#/definitions/User'
+        description: Reference to the lounge where the booking is made
+      loungeServiceIds:
+        type: array
+        items:
+          $ref: '#/definitions/LoungeService'
+        description: List of lounge service IDs being booked
+      status:
+        $ref: '#/definitions/BookingStatus'
+      bookingDate:
+        type: string
+        format: date-time
+        description: Date and time of the booking
+        example: "2024-01-15T14:30:00.000Z"
+      totalPrice:
+        type: number
+        description: Total price of the booking
+        example: 150.00
+      totalDuration:
+        type: number
+        description: Total duration in minutes for all services in the booking
+        example: 120
+        minimum: 0
+      notes:
+        type: string
+        description: Additional notes for the booking
+        example: "Please prepare the VIP room"
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+
+  CreateBookingDto:
+    type: object
+    required:
+      - clientId
+      - loungeId
+      - bookingDate
+    properties:
+      clientId:
+        type: string
+        description: ID of the client making the booking
+        example: "507f1f77bcf86cd799439014"
+      loungeId:
+        type: string
+        description: ID of the lounge where the booking is made
+        example: "507f1f77bcf86cd799439015"
+      loungeServiceIds:
+        type: array
+        items:
+          type: string
+        description: List of lounge service IDs being booked (optional)
+        example: ["507f1f77bcf86cd799439016", "507f1f77bcf86cd799439017"]
+      bookingDate:
+        type: string
+        format: date-time
+        description: Date and time for the booking
+        example: "2024-01-20T10:00:00.000Z"
+      status:
+        $ref: '#/definitions/BookingStatus'
+        description: Initial status (defaults to pending)
+      totalPrice:
+        type: number
+        description: Total price (auto-calculated if not provided)
+        example: 150.00
+        minimum: 0
+      totalDuration:
+        type: number
+        description: Total duration in minutes (auto-calculated if not provided)
+        example: 120
+        minimum: 0
+      notes:
+        type: string
+        description: Additional booking notes
+        example: "Early appointment preferred"
+
+  UpdateBookingDto:
+    type: object
+    description: Data transfer object for updating booking details. Clients can only update status to 'cancelled' and notes. Lounges and admins have full update access.
+    properties:
+      status:
+        $ref: '#/definitions/BookingStatus'
+        description: New status for the booking (clients can only set to 'cancelled')
+      bookingDate:
+        type: string
+        format: date-time
+        description: Updated booking date and time (lounges and admins only)
+        example: "2024-01-21T11:00:00.000Z"
+      totalPrice:
+        type: number
+        description: Updated total price (lounges and admins only)
+        example: 175.00
+        minimum: 0
+      totalDuration:
+        type: number
+        description: Updated total duration in minutes (lounges and admins only)
+        example: 150
+        minimum: 0
+      notes:
+        type: string
+        description: Updated booking notes (all authenticated users)
+        example: "Customer requested additional services"
+
+  BookingStats:
+    type: object
+    properties:
+      _id:
+        $ref: '#/definitions/BookingStatus'
+        description: Status for which stats are provided
+      count:
+        type: integer
+        description: Number of bookings with this status
+        example: 15
+      totalSpent:
+        type: number
+        description: Total amount spent (for client stats)
+        example: 2250.00
+      totalRevenue:
+        type: number
+        description: Total revenue generated (for lounge stats)
+        example: 2250.00

@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, ArrayNotEmpty } from 'class-validator';
 
 export class CreateAgentDto {
   @IsString()
@@ -9,6 +9,11 @@ export class CreateAgentDto {
 
   @IsString()
   loungeId: string;
+
+  @IsArray()
+  @ArrayNotEmpty()
+  @IsString({ each: true })
+  idLoungeService: string[]; // List of lounge service IDs
 
   @IsOptional()
   @IsBoolean()

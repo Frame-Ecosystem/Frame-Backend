@@ -20,6 +20,13 @@ const agentSchema: Schema = new Schema(
       ref: 'User', // Reference to User model where type is 'lounge'
       required: true,
     },
+    idLoungeService: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'LoungeService', // Reference to LoungeService model
+        required: true,
+      },
+    ],
     profileImage: {
       url: { type: String, required: false },
       publicId: { type: String, required: false },

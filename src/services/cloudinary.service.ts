@@ -57,6 +57,40 @@ class CloudinaryService {
     }
   }
 
+  public async uploadLoungeServiceImage(fileBuffer: Buffer, serviceId: string): Promise<{ url: string; publicId: string }> {
+    if (!this.ensureConfigured()) {
+      throw new HttpException(500, 'Cloudinary is not properly configured');
+    }
+    try {
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `lounge-services/${serviceId}`,
+            resource_type: 'auto',
+            public_id: `service-${Date.now()}`,
+          },
+          (error, result) => {
+            if (error) {
+              logger.error(`[CloudinaryService] Lounge service image upload failed: ${error.message}`);
+              reject(error);
+            } else {
+              logger.info(`[CloudinaryService] Lounge service image uploaded successfully: ${result.secure_url}`);
+              resolve({
+                url: result.secure_url,
+                publicId: result.public_id,
+              });
+            }
+          },
+        );
+
+        uploadStream.end(fileBuffer);
+      });
+    } catch (error) {
+      logger.error(`[CloudinaryService] Cloudinary upload error: ${error.message}`);
+      throw new HttpException(500, `Failed to upload lounge service image: ${error.message}`);
+    }
+  }
+
   public async deleteProfileImage(publicId: string): Promise<void> {
     if (!this.ensureConfigured()) {
       throw new HttpException(500, 'Cloudinary is not properly configured');
@@ -72,6 +106,11 @@ class CloudinaryService {
       logger.error(`[CloudinaryService] Failed to delete image: ${error.message}`);
       throw new HttpException(500, `Failed to delete image: ${error.message}`);
     }
+  }
+
+  public async deleteLoungeServiceImage(publicId: string): Promise<void> {
+    // Lounge service images can be deleted using the same method as profile images
+    return this.deleteProfileImage(publicId);
   }
 }
 

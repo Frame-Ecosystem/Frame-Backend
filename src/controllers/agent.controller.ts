@@ -15,14 +15,15 @@ class AgentController {
         agentName: req.body.agentName,
         password: req.body.password,
         loungeId: req.body.loungeId,
+        idLoungeService: req.body.idLoungeService, // Array of lounge service IDs
         isBlocked: req.body.isBlocked === 'true' || req.body.isBlocked === true,
         profileImage: req.body.profileImage, // Base64 image string
       };
 
       // Validate required fields
-      if (!data.agentName || !data.password) {
+      if (!data.agentName || !data.password || !data.idLoungeService || !Array.isArray(data.idLoungeService) || data.idLoungeService.length === 0) {
         return res.status(400).json({
-          message: 'Agent name and password are required',
+          message: 'Agent name, password, and lounge services are required',
         });
       }
 

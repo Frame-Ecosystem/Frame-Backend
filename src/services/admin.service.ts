@@ -146,7 +146,7 @@ class AdminService {
         throw lastError;
       }
 
-      logger.info(`AdminService.createUser: new user created: ${createUserData._id}`);
+      logger.info(`AdminService.createUser: new user created: ${(createUserData as any)._id}`);
       return createUserData;
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -169,7 +169,7 @@ class AdminService {
 
       if (userData.email) {
         const normalizedEmail = userData.email.toLowerCase().trim();
-        const findUser: User = await this.users.findOne({ email: normalizedEmail });
+        const findUser = await this.users.findOne({ email: normalizedEmail });
         if (findUser && findUser._id.toString() !== userId) {
           logger.info(`AdminService.updateUser: email conflict for userId ${userId}, email: ${normalizedEmail}`);
           throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
@@ -179,14 +179,14 @@ class AdminService {
       }
 
       if (userData.phoneNumber) {
-        const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
+        const findByPhone = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone && findByPhone._id.toString() !== userId) {
           logger.info(`AdminService.updateUser: phone conflict for userId ${userId}, phone: ${userData.phoneNumber}`);
           throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
         }
       }
 
-      const updateUserById: User = await this.users.findByIdAndUpdate(userId, userData, { new: true });
+      const updateUserById = await this.users.findByIdAndUpdate(userId, userData, { new: true });
       if (!updateUserById) {
         logger.info(`AdminService.updateUser: user not found: ${userId}`);
         throw new NotFoundException('User not found');
