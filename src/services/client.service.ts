@@ -41,7 +41,7 @@ class ClientService {
   /**
    * Get all lounges with pagination (for clients to browse)
    */
-  public async getAllLounges(params: PaginationParams, clientId?: string): Promise<PaginatedLoungesResponse> {
+  public async getAllLounges(params: PaginationParams): Promise<PaginatedLoungesResponse> {
     try {
       const { page = 1, limit = 10, search = '', gender, sortBy = 'createdAt', sortOrder = 'desc', clientId } = params; // eslint-disable-line @typescript-eslint/no-unused-vars
 

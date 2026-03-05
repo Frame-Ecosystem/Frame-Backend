@@ -91,7 +91,40 @@ class CloudinaryService {
     }
   }
 
-  public async deleteProfileImage(publicId: string): Promise<void> {
+  public async uploadCoverImage(fileBuffer: Buffer, userId: string): Promise<{ url: string; publicId: string }> {
+    if (!this.ensureConfigured()) {
+      throw new HttpException(500, 'Cloudinary is not properly configured');
+    }
+    try {
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          {
+            folder: `user-covers/${userId}`,
+            resource_type: 'auto',
+            public_id: `cover-${Date.now()}`,
+          },
+          (error, result) => {
+            if (error) {
+              logger.error(`[CloudinaryService] Upload failed: ${error.message}`);
+              reject(error);
+            } else {
+              logger.info(`[CloudinaryService] Cover image uploaded successfully: ${result.secure_url}`);
+              resolve({
+                url: result.secure_url,
+                publicId: result.public_id,
+              });
+            }
+          },
+        );
+        uploadStream.end(fileBuffer);
+      });
+    } catch (error) {
+      logger.error(`[CloudinaryService] Failed to upload cover image: ${error.message}`);
+      throw new HttpException(500, `Failed to upload cover image: ${error.message}`);
+    }
+  }
+
+  public async deleteImage(publicId: string): Promise<void> {
     if (!this.ensureConfigured()) {
       throw new HttpException(500, 'Cloudinary is not properly configured');
     }
@@ -108,9 +141,17 @@ class CloudinaryService {
     }
   }
 
+  public async deleteProfileImage(publicId: string): Promise<void> {
+    return this.deleteImage(publicId);
+  }
+
+  public async deleteCoverImage(publicId: string): Promise<void> {
+    return this.deleteImage(publicId);
+  }
+
   public async deleteLoungeServiceImage(publicId: string): Promise<void> {
-    // Lounge service images can be deleted using the same method as profile images
-    return this.deleteProfileImage(publicId);
+    // Lounge service images can be deleted using the same generic delete method
+    return this.deleteImage(publicId);
   }
 }
 

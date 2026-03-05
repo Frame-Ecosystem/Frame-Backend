@@ -36,6 +36,9 @@ class CurrentUserRoute implements Routes {
     // PUT - Upload profile image
     this.router.put('/image', authMiddleware, upload.single('image'), this.currentUserController.uploadProfileImage);
 
+    // PUT - Upload cover image
+    this.router.put('/cover-image', authMiddleware, upload.single('coverImage'), this.currentUserController.uploadCoverImage);
+
     // PUT - Update client profile (client users only)
     this.router.put(
       '/client',

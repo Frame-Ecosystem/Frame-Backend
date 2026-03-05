@@ -106,6 +106,7 @@ export interface OAuth {
 }
 
 export interface User {
+  _id?: any; // MongoDB ObjectId - optional since it's only present after DB operations
   email: string;
   type: 'user' | 'client' | 'lounge' | 'admin';
   password?: string; // Optional for OAuth users
@@ -119,6 +120,7 @@ export interface User {
   openingHours?: DayOpeningHours; // Lounge-specific
   location?: Location;
   profileImage?: { url?: string; publicId?: string };
+  coverImage?: { url?: string; publicId?: string };
   isBlocked?: boolean;
   emailVerification?: Array<{ isVerified: boolean; verifCode?: string; verifCodeExpiresAt?: Date }>;
   refreshTokens?: RefreshTokenSession[]; // Multi-device session support

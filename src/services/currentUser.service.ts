@@ -255,6 +255,56 @@ class CurrentUserService {
   }
 
   /**
+   * Upload cover image for current user
+   */
+  public async uploadCoverImage(userId: string, file: Express.Multer.File): Promise<User> {
+    try {
+      if (isEmpty(userId) || !file) {
+        logger.warn('CurrentUserService.uploadCoverImage: empty userId or file provided');
+        throw new BadRequestException('Invalid request data');
+      }
+
+      const user = await this.users.findById(userId);
+      if (!user) {
+        logger.info(`CurrentUserService.uploadCoverImage: user not found: ${userId}`);
+        throw new NotFoundException('User not found');
+      }
+
+      // Delete old cover image from Cloudinary if it exists
+      if (user.coverImage?.publicId) {
+        try {
+          await CloudinaryService.deleteCoverImage(user.coverImage.publicId);
+        } catch (deleteError) {
+          logger.warn(`Failed to delete old cover image: ${deleteError.message}`);
+          // Continue with upload even if delete fails
+        }
+      }
+
+      // Upload new image to Cloudinary
+      const { url, publicId } = await CloudinaryService.uploadCoverImage(file.buffer, userId);
+
+      // Update user document with new cover image URL and publicId
+      const updatedUser = await this.users.findByIdAndUpdate(
+        userId,
+        {
+          coverImage: {
+            url,
+            publicId,
+          },
+        },
+        { new: true },
+      );
+
+      logger.info(`CurrentUserService.uploadCoverImage: cover image uploaded successfully for user: ${userId}`);
+      return updatedUser;
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`CurrentUserService.uploadCoverImage error: ${error.message}`, { userId, stack: error.stack });
+      throw new InternalServerException('Operation failed. Please try again');
+    }
+  }
+
+  /**
    * Delete current user's own account
    * Verifies password before delegating to AdminService for actual deletion
    */

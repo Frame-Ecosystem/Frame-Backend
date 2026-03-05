@@ -197,6 +197,29 @@ class BookingController {
       next(error);
     }
   };
+
+  public getAgentAvailability = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { agentIds } = req.query;
+      if (!agentIds || typeof agentIds !== 'string') {
+        throw new HttpException(400, 'Agent IDs are required');
+      }
+      const ids = agentIds.split(',').map(id => id.trim());
+      if (ids.length === 0) {
+        throw new HttpException(400, 'At least one agent ID is required');
+      }
+
+      const unavailability = await this.bookingService.getAgentUnavailability(ids);
+      res.status(200).json({
+        success: true,
+        data: unavailability,
+        message: 'Agent unavailability retrieved successfully',
+      });
+    } catch (error) {
+      logger.error(`Error in getAgentAvailability: ${error.message}`);
+      next(error);
+    }
+  };
 }
 
 export default BookingController;

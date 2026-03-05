@@ -1,10 +1,26 @@
 import { ChangePasswordDto } from '../dtos/users.dto';
 import bcrypt from 'bcrypt';
+import CurrentUserService from '../services/currentUser.service';
+import userModel from '../models/users.model';
+
+jest.mock('../models/users.model');
+jest.mock('../services/cloudinary.service', () => ({
+  __esModule: true,
+  default: {
+    uploadProfileImage: jest.fn().mockResolvedValue({ url: 'http://example.com/image.jpg', publicId: 'test-id' }),
+    uploadCoverImage: jest.fn().mockResolvedValue({ url: 'http://example.com/cover.jpg', publicId: 'cover-id' }),
+    deleteProfileImage: jest.fn().mockResolvedValue(undefined),
+    deleteCoverImage: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
+const currentUserService = new CurrentUserService();
+
 describe('changePassword', () => {
   const userId = '1';
   const user = {
     _id: userId,
-    password: '$2b$10$saltsaltsaltsaltsaltsaltsaltsaltsaltsalt123456', // bcrypt hash
+    password: '$2b$10$saltsaltsaltsaltsaltsaltsaltsaltsaltsalt123456',
     refreshTokens: ['token1'],
     sessionTrack: { isOnline: true, devices: ['dev1'] },
   };
@@ -43,14 +59,12 @@ describe('changePassword', () => {
     await expect(currentUserService.changePassword(userId, validDto)).rejects.toThrow('Current password is incorrect');
   });
 });
-import CurrentUserService from '../services/currentUser.service';
-import userModel from '../models/users.model';
-
-jest.mock('../models/users.model');
-
-const currentUserService = new CurrentUserService();
 
 describe('CurrentUserService', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   describe('updateUser', () => {
     it('should update user', async () => {
       (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue({ _id: '1', email: 'a@email.com' });
@@ -89,21 +103,26 @@ describe('CurrentUserService', () => {
 
   describe('uploadProfileImage', () => {
     it('should upload image', async () => {
-      (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue({ _id: '1', profileImage: 'img.png' });
-      const user = await currentUserService.uploadProfileImage('1', { filename: 'img.png' } as Express.Multer.File);
-      expect(user).toMatchObject({ _id: '1', profileImage: 'img.png' });
+      (userModel.findById as jest.Mock).mockResolvedValue({ _id: '1', profileImage: {} });
+      (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue({
+        _id: '1',
+        profileImage: { url: 'http://example.com/img.jpg', publicId: 'test-id' },
+      });
+      const user = await currentUserService.uploadProfileImage('1', { filename: 'img.png', buffer: Buffer.from('test') } as Express.Multer.File);
+      expect(user).toMatchObject({ _id: '1' });
     });
     it('should throw if not found', async () => {
-      (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(null);
-      await expect(currentUserService.uploadProfileImage('1', { filename: 'img.png' } as Express.Multer.File)).rejects.toThrow('User not found');
+      (userModel.findById as jest.Mock).mockResolvedValue(null);
+      await expect(
+        currentUserService.uploadProfileImage('1', { filename: 'img.png', buffer: Buffer.from('test') } as Express.Multer.File),
+      ).rejects.toThrow('User not found');
     });
     it('should handle errors', async () => {
+      (userModel.findById as jest.Mock).mockResolvedValue({ _id: '1', profileImage: {} });
       (userModel.findByIdAndUpdate as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(currentUserService.uploadProfileImage('1', { filename: 'img.png' } as Express.Multer.File)).rejects.toThrow(
-        'Operation failed. Please try again',
-      );
+      await expect(
+        currentUserService.uploadProfileImage('1', { filename: 'img.png', buffer: Buffer.from('test') } as Express.Multer.File),
+      ).rejects.toThrow('Operation failed. Please try again');
     });
   });
-
-  // Add more tests for deleteMe and other methods as needed
 });

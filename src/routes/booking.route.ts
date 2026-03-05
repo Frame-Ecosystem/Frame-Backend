@@ -21,6 +21,10 @@ class BookingRoute implements Routes {
     // Booking CRUD
     this.router.post('/', validationMiddleware(CreateBookingDto, 'body'), this.bookingController.createBooking);
     this.router.get('/', this.bookingController.getAllBookings);
+
+    // Availability (must come before /:id to avoid route conflict)
+    this.router.get('/availability', this.bookingController.getAgentAvailability);
+
     this.router.get('/:id', this.bookingController.getBookingById);
     this.router.put('/:id', validationMiddleware(UpdateBookingDto, 'body'), this.bookingController.updateBooking);
     this.router.delete('/:id', this.bookingController.deleteBooking);

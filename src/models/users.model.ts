@@ -122,6 +122,10 @@ const userSchema: Schema = new Schema(
       url: { type: String, required: false },
       publicId: { type: String, required: false },
     },
+    coverImage: {
+      url: { type: String, required: false },
+      publicId: { type: String, required: false },
+    },
     emailVerification: {
       type: [
         {

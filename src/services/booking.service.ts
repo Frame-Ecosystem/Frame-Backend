@@ -8,13 +8,14 @@ import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import mongoose from 'mongoose';
+import QueueService from '@services/queue.service';
 
 const POPULATE_FIELDS = {
-  CLIENT: 'firstName lastName email profileImage location',
-  LOUNGE: 'firstName lastName email profileImage loungeTitle location',
+  CLIENT: 'firstName lastName email profileImage coverImage location',
+  LOUNGE: 'firstName lastName email profileImage coverImage loungeTitle location',
   AGENTS: {
     path: 'agentIds',
-    select: 'firstName lastName agentName profileImage',
+    select: 'firstName lastName agentName profileImage coverImage',
   },
   SERVICE: {
     path: 'loungeServiceIds',
@@ -28,6 +29,7 @@ class BookingService {
   private users = userModel;
   private loungeServices = loungeServiceModel;
   private agents = agentModel;
+  private queueService = new QueueService();
 
   public async createBooking(bookingData: CreateBookingDto): Promise<Booking> {
     try {
@@ -217,6 +219,20 @@ class BookingService {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
       }
       logger.info(`Booking updated: ${bookingId}`);
+
+      // Auto-add booking to each assigned agent's queue when status changes to inQueue
+      if (bookingData.status === BookingStatus.IN_QUEUE && booking.agentIds && booking.agentIds.length > 0) {
+        for (const agentId of booking.agentIds) {
+          try {
+            await this.queueService.addPersonToQueue(agentId.toString(), { bookingId });
+            logger.info(`Booking ${bookingId} auto-added to agent ${agentId} queue`);
+          } catch (queueError) {
+            // Don't fail the booking update if queue addition fails (e.g., already in queue)
+            logger.warn(`Failed to auto-add booking ${bookingId} to agent ${agentId} queue: ${queueError.message}`);
+          }
+        }
+      }
+
       return this.getBookingById(bookingId);
     } catch (error) {
       logger.error(`Error updating booking ${bookingId}: ${error.message}`);
@@ -282,6 +298,133 @@ class BookingService {
     } catch (error) {
       logger.error(`Error fetching stats for lounge ${loungeId}: ${error.message}`);
       throw new InternalServerException('Failed to fetch lounge booking stats');
+    }
+  }
+
+  public async getAgentUnavailability(agentIds: string[]): Promise<any> {
+    let uniqueAgentIds: string[] = [];
+
+    try {
+      // Remove duplicates from agentIds
+      uniqueAgentIds = [...new Set(agentIds)];
+
+      // Validate agent IDs format
+      for (const id of uniqueAgentIds) {
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+          throw new BadRequestException(`Invalid agent ID format: ${id}`);
+        }
+      }
+
+      // Find agents
+      const agents = await this.agents.find({ _id: { $in: uniqueAgentIds } }).populate('loungeId');
+      if (agents.length === 0) {
+        throw new NotFoundException('No agents found with the provided IDs');
+      }
+
+      if (agents.length !== uniqueAgentIds.length) {
+        throw new NotFoundException('Some agent IDs do not exist');
+      }
+
+      // Check all agents have loungeId
+      const agentsWithoutLounge = agents.filter(a => !a.loungeId);
+      if (agentsWithoutLounge.length > 0) {
+        throw new BadRequestException('Some agents do not have an associated lounge');
+      }
+
+      // Check all agents from same lounge
+      const loungeIds = [...new Set(agents.map(a => (a.loungeId as any)._id.toString()))];
+      if (loungeIds.length > 1) {
+        throw new BadRequestException('All agents must be from the same lounge');
+      }
+
+      const loungeId = loungeIds[0];
+      if (!mongoose.Types.ObjectId.isValid(loungeId)) {
+        throw new BadRequestException('Invalid lounge ID format');
+      }
+
+      const lounge = await this.users.findById(loungeId);
+      if (!lounge || lounge.type !== 'lounge') {
+        throw new NotFoundException('Lounge not found or is not a valid lounge');
+      }
+
+      // Get bookings for these agents, not cancelled, future dates
+      const bookings = await this.bookings.find({
+        agentIds: { $in: uniqueAgentIds },
+        status: { $ne: BookingStatus.CANCELLED },
+        bookingDate: { $gte: new Date() },
+      });
+
+      // Generate unavailable times based on opening hours and bookings
+      const unavailableSlots = [];
+      const today = new Date();
+
+      for (let i = 0; i < 30; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        const dateStr = date.toISOString().split('T')[0];
+        const dayOfWeek = date.toLocaleString('en-US', { weekday: 'long' }).toLowerCase();
+        const hours = lounge.openingHours[dayOfWeek];
+
+        if (!hours || !hours.from || !hours.to) {
+          continue; // Lounge is closed this day
+        }
+
+        const fromTime = new Date(`${dateStr}T${hours.from}:00`);
+        const toTime = new Date(`${dateStr}T${hours.to}:00`);
+        const dayUnavailableTimes = [];
+
+        // Generate 30-min slots during opening hours
+        let current = new Date(fromTime);
+        while (current < toTime) {
+          const slotStart = new Date(current);
+          const slotEnd = new Date(current.getTime() + 30 * 60 * 1000);
+
+          // Check if this slot overlaps with any booking
+          let isUnavailable = false;
+          for (const booking of bookings) {
+            const bookingStart = new Date(booking.bookingDate);
+            const bookingEnd = new Date(bookingStart.getTime() + (booking.totalDuration || 60) * 60 * 1000);
+
+            // Check overlap: booking starts before slot ends AND booking ends after slot starts
+            if (bookingStart < slotEnd && bookingEnd > slotStart) {
+              isUnavailable = true;
+              break;
+            }
+          }
+
+          if (isUnavailable) {
+            dayUnavailableTimes.push(current.toTimeString().substring(0, 5)); // HH:MM
+          }
+
+          current = new Date(current.getTime() + 30 * 60 * 1000);
+        }
+
+        if (dayUnavailableTimes.length > 0) {
+          unavailableSlots.push({
+            date: dateStr,
+            unavailableTimes: dayUnavailableTimes,
+          });
+        }
+      }
+
+      // Also return lounge opening hours for reference
+      const openingHours = {
+        monday: lounge.openingHours.monday,
+        tuesday: lounge.openingHours.tuesday,
+        wednesday: lounge.openingHours.wednesday,
+        thursday: lounge.openingHours.thursday,
+        friday: lounge.openingHours.friday,
+        saturday: lounge.openingHours.saturday,
+        sunday: lounge.openingHours.sunday,
+      };
+
+      return {
+        unavailableSlots,
+        loungeOpeningHours: openingHours,
+      };
+    } catch (error) {
+      logger.error(`Error fetching agent availability: ${error.message}`, { error, agentIds: uniqueAgentIds });
+      throw error; // Re-throw the original error with its specific message
     }
   }
 }
