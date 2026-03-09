@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import QueueService from '@services/queue.service';
-import { AddToQueueDto, UpdateQueuePersonDto } from '@dtos/queue.dto';
+import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dtos/queue.dto';
 
 class QueueController {
   public queueService = new QueueService();
@@ -92,11 +92,32 @@ class QueueController {
   public removePersonFromQueue = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { agentId, bookingId } = req.params;
+      const markAbsent = req.query.markAbsent === 'true';
 
-      const queue = await this.queueService.removePersonFromQueue(agentId, bookingId);
+      const queue = await this.queueService.removePersonFromQueue(agentId, bookingId, markAbsent);
       res.status(200).json({
         data: queue,
-        message: 'Person removed from queue successfully',
+        message: markAbsent ? 'Person removed and marked absent' : 'Person removed from queue successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Reorder a person's position in the queue
+   */
+  public reorderPerson = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { agentId, bookingId } = req.params;
+      const data: ReorderQueuePersonDto = {
+        newPosition: req.body.newPosition,
+      };
+
+      const queue = await this.queueService.reorderPerson(agentId, bookingId, data);
+      res.status(200).json({
+        data: queue,
+        message: 'Queue person reordered successfully',
       });
     } catch (error) {
       next(error);

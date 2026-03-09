@@ -1,16 +1,21 @@
 import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
+import authMiddleware from '@middlewares/auth.middleware';
+import { loungeMiddleware } from '@middlewares/role.middleware';
+import LoungeController from '@controllers/lounge.controller';
 
 class LoungeRoute implements Routes {
   public path = '/v1/lounge';
   public router = Router();
+  public loungeController = new LoungeController();
 
   constructor() {
     this.initializeRoutes();
   }
 
   private initializeRoutes() {
-    // Lounge-specific routes can be added here if needed
+    this.router.get('/clients/:clientId', authMiddleware, loungeMiddleware, this.loungeController.getClientById);
+    this.router.patch('/agents/:agentId/queue-booking', authMiddleware, loungeMiddleware, this.loungeController.updateAgentQueueBooking);
   }
 }
 

@@ -7,12 +7,30 @@ import agentModel from '@models/agent.model';
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
-import { AddToQueueDto, UpdateQueuePersonDto } from '@dtos/queue.dto';
+import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dtos/queue.dto';
+import SocketService from '@services/socket.service';
 
 class QueueService {
   public queues = queueModel;
   private bookings = bookingModel;
   private agents = agentModel;
+  private socketService = SocketService.getInstance();
+
+  /**
+   * Emit queue update via WebSocket to agent and lounge rooms.
+   */
+  private async emitQueueUpdate(agentId: string, queue: any): Promise<void> {
+    try {
+      this.socketService.emitQueueUpdated(agentId, queue);
+      // Also emit to lounge room
+      const agent = await this.agents.findById(agentId);
+      if (agent?.loungeId) {
+        this.socketService.emitLoungeQueuesUpdated(agent.loungeId.toString(), queue);
+      }
+    } catch (err) {
+      logger.warn(`Failed to emit queue WebSocket update: ${err.message}`);
+    }
+  }
 
   /**
    * Create an empty queue for an agent for a given date.
@@ -168,7 +186,9 @@ class QueueService {
 
       logger.info(`QueueService.addPersonToQueue: booking ${data.bookingId} added to agent ${agentId} queue at position ${position}`);
 
-      return this.getQueueByAgent(agentId, queueDate);
+      const updatedQueue = await this.getQueueByAgent(agentId, queueDate);
+      await this.emitQueueUpdate(agentId, updatedQueue);
+      return updatedQueue;
     } catch (error) {
       logger.error('QueueService.addPersonToQueue: error adding person to queue', error);
       throw error;
@@ -198,9 +218,24 @@ class QueueService {
       person.status = data.status;
       await queue.save();
 
+      // When queue person is completed, also mark the booking as completed
+      if (data.status === QueuePersonStatus.COMPLETED) {
+        try {
+          const booking = await this.bookings.findByIdAndUpdate(bookingId, { status: BookingStatus.COMPLETED }, { new: true });
+          if (booking) {
+            this.socketService.emitBookingUpdated(booking);
+            logger.info(`QueueService.updatePersonStatus: booking ${bookingId} status updated to completed`);
+          }
+        } catch (bookingErr) {
+          logger.warn(`QueueService.updatePersonStatus: failed to update booking ${bookingId} status: ${bookingErr.message}`);
+        }
+      }
+
       logger.info(`QueueService.updatePersonStatus: booking ${bookingId} in agent ${agentId} queue updated to ${data.status}`);
 
-      return this.getQueueByAgent(agentId, queueDate);
+      const updatedQueue = await this.getQueueByAgent(agentId, queueDate);
+      await this.emitQueueUpdate(agentId, updatedQueue);
+      return updatedQueue;
     } catch (error) {
       logger.error('QueueService.updatePersonStatus: error updating person status', error);
       throw error;
@@ -209,8 +244,9 @@ class QueueService {
 
   /**
    * Remove a person from the queue and re-order positions.
+   * If markAbsent is true, also set the booking status to ABSENT.
    */
-  public async removePersonFromQueue(agentId: string, bookingId: string): Promise<Queue> {
+  public async removePersonFromQueue(agentId: string, bookingId: string, markAbsent = false): Promise<Queue> {
     try {
       const queueDate = this.getStartOfToday();
       const queue = await this.queues.findOne({ agentId, date: queueDate });
@@ -236,11 +272,92 @@ class QueueService {
 
       await queue.save();
 
+      // Mark booking as absent if requested
+      if (markAbsent) {
+        try {
+          const booking = await this.bookings.findByIdAndUpdate(bookingId, { status: BookingStatus.ABSENT }, { new: true });
+          if (booking) {
+            this.socketService.emitBookingUpdated(booking);
+            logger.info(`QueueService.removePersonFromQueue: booking ${bookingId} marked as absent`);
+          }
+        } catch (bookingErr) {
+          logger.warn(`QueueService.removePersonFromQueue: failed to mark booking ${bookingId} as absent: ${bookingErr.message}`);
+        }
+      }
+
       logger.info(`QueueService.removePersonFromQueue: booking ${bookingId} removed from agent ${agentId} queue`);
 
-      return this.getQueueByAgent(agentId, queueDate);
+      const updatedQueue = await this.getQueueByAgent(agentId, queueDate);
+      await this.emitQueueUpdate(agentId, updatedQueue);
+      return updatedQueue;
     } catch (error) {
       logger.error('QueueService.removePersonFromQueue: error removing person from queue', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Reorder a person's position in the queue.
+   * Shifts other persons' positions accordingly and emits real-time update.
+   */
+  public async reorderPerson(agentId: string, bookingId: string, data: ReorderQueuePersonDto): Promise<Queue> {
+    try {
+      if (isEmpty(agentId) || isEmpty(bookingId)) {
+        throw new BadRequestException('Agent ID and Booking ID are required', 'MISSING_IDS');
+      }
+
+      const queueDate = this.getStartOfToday();
+      const queue = await this.queues.findOne({ agentId, date: queueDate });
+
+      if (!queue) {
+        throw new NotFoundException('Queue not found', 'QUEUE_NOT_FOUND');
+      }
+
+      const person = queue.persons.find(p => p.bookingId.toString() === bookingId);
+      if (!person) {
+        throw new NotFoundException('Booking not found in this queue', 'PERSON_NOT_IN_QUEUE');
+      }
+
+      const oldPosition = person.position;
+      const newPosition = Math.min(data.newPosition, queue.persons.length);
+
+      if (oldPosition === newPosition) {
+        // No change needed
+        return this.getQueueByAgent(agentId, queueDate);
+      }
+
+      // Shift positions of affected persons
+      if (newPosition < oldPosition) {
+        // Moving up: shift persons in [newPosition, oldPosition-1] down by 1
+        queue.persons.forEach(p => {
+          if (p.position >= newPosition && p.position < oldPosition) {
+            p.position += 1;
+          }
+        });
+      } else {
+        // Moving down: shift persons in [oldPosition+1, newPosition] up by 1
+        queue.persons.forEach(p => {
+          if (p.position > oldPosition && p.position <= newPosition) {
+            p.position -= 1;
+          }
+        });
+      }
+
+      // Set the target person's new position
+      person.position = newPosition;
+
+      // Sort by position for consistency
+      queue.persons.sort((a, b) => a.position - b.position);
+
+      await queue.save();
+
+      logger.info(`QueueService.reorderPerson: booking ${bookingId} moved from position ${oldPosition} to ${newPosition} in agent ${agentId} queue`);
+
+      const updatedQueue = await this.getQueueByAgent(agentId, queueDate);
+      await this.emitQueueUpdate(agentId, updatedQueue);
+      return updatedQueue;
+    } catch (error) {
+      logger.error('QueueService.reorderPerson: error reordering person in queue', error);
       throw error;
     }
   }
@@ -303,7 +420,7 @@ class QueueService {
   private validateStatusTransition(current: QueuePersonStatus, next: QueuePersonStatus): void {
     const allowed: Record<QueuePersonStatus, QueuePersonStatus[]> = {
       [QueuePersonStatus.WAITING]: [QueuePersonStatus.IN_SERVICE, QueuePersonStatus.ABSENT],
-      [QueuePersonStatus.IN_SERVICE]: [QueuePersonStatus.COMPLETED],
+      [QueuePersonStatus.IN_SERVICE]: [QueuePersonStatus.COMPLETED, QueuePersonStatus.WAITING],
       [QueuePersonStatus.COMPLETED]: [],
       [QueuePersonStatus.ABSENT]: [QueuePersonStatus.WAITING],
     };

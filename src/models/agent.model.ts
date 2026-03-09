@@ -35,6 +35,10 @@ const agentSchema: Schema = new Schema(
       type: Boolean,
       default: false,
     },
+    acceptQueueBooking: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

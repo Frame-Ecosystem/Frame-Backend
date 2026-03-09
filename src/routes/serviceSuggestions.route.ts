@@ -2,8 +2,7 @@ import { Router } from 'express';
 import ServiceSuggestionsController from '@controllers/serviceSuggestions.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import adminMiddleware from '@middlewares/admin.middleware';
-import loungeMiddleware from '@middlewares/lounge.middleware';
+import { adminMiddleware, loungeMiddleware } from '@middlewares/role.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import {

@@ -11,6 +11,7 @@ import YAML from 'yamljs';
 import swaggerUi from 'swagger-ui-express';
 import path from 'path';
 import os from 'os';
+import { createServer, Server as HTTPServer } from 'http';
 import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
@@ -18,17 +19,23 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
 import { REQUEST_BODY_LIMIT } from './config/constants';
+import SocketService from '@services/socket.service';
 import './config/passport'; // Initialize Passport
 
 class App {
   public app: express.Application;
   public env: string;
   public port: string | number;
+  public httpServer: HTTPServer;
 
   constructor(routes: Routes[]) {
     this.app = express();
+    this.httpServer = createServer(this.app);
     this.env = NODE_ENV || 'development';
     this.port = PORT || 3000;
+
+    // Initialize Socket.IO on the HTTP server
+    SocketService.getInstance().initialize(this.httpServer);
 
     // Note: connectToDatabase is async but called without await here
     // This is intentional - the app initializes routes/middleware while DB connects
@@ -55,13 +62,14 @@ class App {
   }
 
   public listen() {
-    this.app.listen(Number(this.port), '0.0.0.0', () => {
+    this.httpServer.listen(Number(this.port), '0.0.0.0', () => {
       const localIP = this.getLocalIPAddress();
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
       logger.info(`🚀 App listening on ${localIP}:${this.port}`);
       logger.info(`📱 WiFi Access: http://${localIP}:${this.port}`);
       logger.info(`📚 Swagger API Docs: http://${localIP}:${this.port}/api-docs`);
+      logger.info(`🔌 WebSocket: ws://${localIP}:${this.port}`);
       logger.info(`=================================`);
     });
   }

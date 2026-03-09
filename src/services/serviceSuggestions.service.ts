@@ -6,7 +6,7 @@ import {
   AdminApproveServiceSuggestionDto,
 } from '@/dtos/serviceSuggestions.dto';
 import serviceSuggestionModel from '@/models/serviceSuggestion.model';
-import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException } from '@/exceptions/HttpException';
+import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException, ForbiddenException } from '@/exceptions/HttpException';
 import { isEmpty } from '@/utils/util';
 import { logger } from '@utils/logger';
 import { ServiceSuggestionStatus } from '@/interfaces/serviceSuggestion.interface';
@@ -51,7 +51,7 @@ class ServiceSuggestionsService {
       });
 
       logger.info(`ServiceSuggestionsService.createServiceSuggestion: created suggestion ${newSuggestion._id} - ${data.name} for lounge ${loungeId}`);
-      return newSuggestion;
+      return newSuggestion.toObject() as ServiceSuggestion;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle MongoDB validation errors
@@ -99,7 +99,8 @@ class ServiceSuggestionsService {
         .populate('loungeId', 'email type')
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit);
+        .limit(limit)
+        .lean();
 
       const total = await this.serviceSuggestions.countDocuments(filter);
       const totalPages = Math.ceil(total / limit);
@@ -107,7 +108,7 @@ class ServiceSuggestionsService {
       logger.info(
         `ServiceSuggestionsService.getServiceSuggestionsPaginated: retrieved ${suggestions.length} suggestions (page ${page}/${totalPages})`,
       );
-      return { suggestions, total, page, totalPages };
+      return { suggestions: suggestions as ServiceSuggestion[], total, page, totalPages };
     } catch (error) {
       logger.error(`ServiceSuggestionsService.getServiceSuggestionsPaginated error: ${error.message}`, {
         page,
@@ -130,14 +131,14 @@ class ServiceSuggestionsService {
         throw new BadRequestException('Service suggestion ID is required to retrieve the suggestion', 'MISSING_SUGGESTION_ID');
       }
 
-      const suggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type');
+      const suggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type').lean();
 
       if (!suggestion) {
         logger.error(`ServiceSuggestionsService.getServiceSuggestionById: suggestion not found: ${suggestionId}`);
         throw new NotFoundException('The requested service suggestion could not be found', 'SUGGESTION_NOT_FOUND');
       }
 
-      return suggestion;
+      return suggestion as ServiceSuggestion;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle invalid ObjectId format
@@ -189,7 +190,8 @@ class ServiceSuggestionsService {
 
       const updatedSuggestion = await this.serviceSuggestions
         .findByIdAndUpdate(suggestionId, updateData, { new: true })
-        .populate('loungeId', 'email type');
+        .populate('loungeId', 'email type')
+        .lean();
 
       if (!updatedSuggestion) {
         logger.error(`ServiceSuggestionsService.updateServiceSuggestion: failed to update suggestion: ${suggestionId}`);
@@ -197,7 +199,7 @@ class ServiceSuggestionsService {
       }
 
       logger.info(`ServiceSuggestionsService.updateServiceSuggestion: updated suggestion ${suggestionId}`);
-      return updatedSuggestion;
+      return updatedSuggestion as ServiceSuggestion;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle MongoDB validation errors
@@ -325,7 +327,7 @@ class ServiceSuggestionsService {
 
           // Create the lounge service
           const loungeServiceData = {
-            loungeId: suggestion.loungeId._id,
+            loungeId: (suggestion.loungeId as any)._id,
             serviceId: createdService._id,
             price: data.price || suggestion.estimatedPrice || 0,
             duration: data.duration || suggestion.estimatedDuration || 30,
@@ -333,7 +335,7 @@ class ServiceSuggestionsService {
             description: suggestion.description,
             status: LoungeServiceStatus.ACTIVE,
             isActive: true,
-          };
+          } as any;
 
           createdLoungeService = await loungeServicesService.createLoungeService(loungeServiceData);
 
@@ -405,9 +407,9 @@ class ServiceSuggestionsService {
       }
 
       // Return the updated suggestion with created services if any
-      const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type');
+      const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type').lean();
       return {
-        suggestion: updatedSuggestion,
+        suggestion: updatedSuggestion as ServiceSuggestion,
         service: createdService,
         loungeService: createdLoungeService,
       };
@@ -480,7 +482,7 @@ class ServiceSuggestionsService {
         filter.loungeId = loungeId;
       }
 
-      const deletedSuggestion = await this.serviceSuggestions.findOneAndDelete(filter);
+      const deletedSuggestion = await this.serviceSuggestions.findOneAndDelete(filter).lean();
 
       if (!deletedSuggestion) {
         logger.error(`ServiceSuggestionsService.deleteServiceSuggestion: suggestion not found: ${suggestionId}`);
@@ -488,7 +490,7 @@ class ServiceSuggestionsService {
       }
 
       logger.info(`ServiceSuggestionsService.deleteServiceSuggestion: deleted suggestion ${suggestionId}`);
-      return deletedSuggestion;
+      return deletedSuggestion as ServiceSuggestion;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle invalid ObjectId format
@@ -588,7 +590,7 @@ class ServiceSuggestionsService {
 
         // Create the lounge service
         const loungeServiceData = {
-          loungeId: suggestion.loungeId._id,
+          loungeId: (suggestion.loungeId as any)._id,
           serviceId: createdService._id,
           price: data.price || suggestion.estimatedPrice || 0, // Default to 0 if not provided
           duration: data.duration || suggestion.estimatedDuration || 30,
@@ -596,7 +598,7 @@ class ServiceSuggestionsService {
           description: suggestion.description,
           status: LoungeServiceStatus.ACTIVE,
           isActive: true,
-        };
+        } as any;
 
         createdLoungeService = await loungeServicesService.createLoungeService(loungeServiceData);
 
@@ -620,10 +622,10 @@ class ServiceSuggestionsService {
       }
 
       // Return the updated suggestion with populated data
-      const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type');
+      const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type').lean();
 
       return {
-        suggestion: updatedSuggestion,
+        suggestion: updatedSuggestion as ServiceSuggestion,
         service: createdService,
         loungeService: createdLoungeService,
       };

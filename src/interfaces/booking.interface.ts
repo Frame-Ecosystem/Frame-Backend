@@ -2,7 +2,9 @@ export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
   IN_QUEUE = 'inQueue',
+  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
+  ABSENT = 'absent',
 }
 
 export interface Booking {

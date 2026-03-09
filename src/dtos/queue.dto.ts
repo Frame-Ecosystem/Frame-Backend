@@ -18,6 +18,13 @@ export class UpdateQueuePersonDto {
   status: QueuePersonStatus;
 }
 
+// Used when reordering a person's position within the queue
+export class ReorderQueuePersonDto {
+  @IsNumber({ allowNaN: false, allowInfinity: false }, { message: 'New position must be a valid number' })
+  @Min(1, { message: 'New position must be at least 1' })
+  newPosition: number;
+}
+
 // Used when querying queues by date
 export class GetQueueByDateDto {
   @IsOptional()

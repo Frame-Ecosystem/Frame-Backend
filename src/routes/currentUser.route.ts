@@ -1,9 +1,10 @@
 import { Router } from 'express';
 import CurrentUserController from '@controllers/currentUser.controller';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto } from '@dtos/users.dto';
+import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, ChangePasswordDto } from '@dtos/users.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
+import { strictRateLimiter } from '@middlewares/rate-limit.middleware';
 import upload from '@middlewares/image-upload.middleware';
 
 class CurrentUserRoute implements Routes {
@@ -16,13 +17,11 @@ class CurrentUserRoute implements Routes {
   }
 
   private initializeRoutes() {
-    // Change password for current user (strict rate limit)
-    const { strictRateLimiter } = require('./../middlewares/rate-limit.middleware');
     this.router.post(
       '/change-password',
       authMiddleware,
       strictRateLimiter,
-      validationMiddleware(require('../dtos/users.dto').ChangePasswordDto, 'body'),
+      validationMiddleware(ChangePasswordDto, 'body'),
       this.currentUserController.changePassword,
     );
     // GET - Get current user profile

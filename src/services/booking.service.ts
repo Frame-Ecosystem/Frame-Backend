@@ -9,6 +9,7 @@ import { logger } from '@utils/logger';
 import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import mongoose from 'mongoose';
 import QueueService from '@services/queue.service';
+import SocketService from '@services/socket.service';
 
 const POPULATE_FIELDS = {
   CLIENT: 'firstName lastName email profileImage coverImage location',
@@ -30,6 +31,7 @@ class BookingService {
   private loungeServices = loungeServiceModel;
   private agents = agentModel;
   private queueService = new QueueService();
+  private socketService = SocketService.getInstance();
 
   public async createBooking(bookingData: CreateBookingDto): Promise<Booking> {
     try {
@@ -89,9 +91,98 @@ class BookingService {
       });
 
       logger.info(`Booking created: ${booking._id}`);
-      return this.getBookingById(booking._id.toString());
+      const populatedBooking = await this.getBookingById(booking._id.toString());
+      this.socketService.emitBookingCreated(populatedBooking);
+      return populatedBooking;
     } catch (error) {
       logger.error(`Error creating booking: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Create a booking and immediately add it to the agent's queue for today.
+   * Status: booking = inQueue, queue person = waiting.
+   * Price and duration are always auto-calculated from loungeServiceIds.
+   */
+  public async createQueueBooking(bookingData: {
+    clientId: string;
+    loungeId: string;
+    agentId: string;
+    loungeServiceIds?: string[];
+    notes?: string;
+  }): Promise<Booking> {
+    try {
+      if (isEmpty(bookingData)) {
+        throw new BadRequestException('Booking data is required');
+      }
+
+      // Validate client
+      const client = await this.users.findById(bookingData.clientId);
+      if (!client || client.type !== 'client') {
+        throw new BadRequestException('Client not found or is not a valid client', 'INVALID_CLIENT');
+      }
+
+      // Validate lounge
+      const lounge = await this.users.findById(bookingData.loungeId);
+      if (!lounge || lounge.type !== 'lounge') {
+        throw new BadRequestException('Lounge not found or is not a valid lounge', 'INVALID_LOUNGE');
+      }
+
+      // Validate the single agent belongs to this lounge
+      await this.validateAgents([bookingData.agentId], bookingData.loungeId);
+
+      // Check if agent accepts queue bookings
+      const agent = await this.agents.findById(bookingData.agentId);
+      if (!agent.acceptQueueBooking) {
+        throw new BadRequestException('This agent does not accept queue bookings', 'QUEUE_BOOKING_DISABLED');
+      }
+
+      // Validate and auto-calculate price & duration from services
+      let totalPrice = 0;
+      let totalDuration = 0;
+
+      if (bookingData.loungeServiceIds && bookingData.loungeServiceIds.length > 0) {
+        await this.validateLoungeServices(bookingData.loungeServiceIds, bookingData.loungeId);
+        const { price, duration } = await this.calculateServiceTotals(bookingData.loungeServiceIds);
+        totalPrice = price;
+        totalDuration = duration;
+      }
+
+      // Booking date is current date/time
+      const bookingDate = new Date();
+
+      // Create booking with inQueue status
+      const booking = await this.bookings.create({
+        clientId: bookingData.clientId,
+        loungeId: bookingData.loungeId,
+        agentIds: [bookingData.agentId],
+        loungeServiceIds: bookingData.loungeServiceIds,
+        bookingDate,
+        totalPrice,
+        totalDuration,
+        status: BookingStatus.IN_QUEUE,
+        notes: bookingData.notes,
+      });
+
+      // Add to agent's queue immediately
+      try {
+        await this.queueService.addPersonToQueue(bookingData.agentId, {
+          bookingId: booking._id.toString(),
+        });
+        logger.info(`Queue booking ${booking._id} added to agent ${bookingData.agentId} queue`);
+      } catch (queueError) {
+        // If queue addition fails, delete the booking to avoid orphans
+        await this.bookings.findByIdAndDelete(booking._id);
+        throw new BadRequestException(`Failed to add to queue: ${queueError.message}`, 'QUEUE_ADD_FAILED');
+      }
+
+      logger.info(`Queue booking created: ${booking._id}`);
+      const populatedBooking = await this.getBookingById(booking._id.toString());
+      this.socketService.emitBookingCreated(populatedBooking);
+      return populatedBooking;
+    } catch (error) {
+      logger.error(`Error creating queue booking: ${error.message}`);
       throw error;
     }
   }
@@ -136,7 +227,7 @@ class BookingService {
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
         .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ createdAt: -1 });
+        .sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching all bookings: ${error.message}`);
       throw new InternalServerException('Failed to fetch bookings');
@@ -175,9 +266,37 @@ class BookingService {
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
         .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ createdAt: -1 });
+        .sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for client ${clientId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  public async getBookingHistory(userId: string, userType: string): Promise<Booking[]> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(userId)) {
+        throw new BadRequestException('Invalid user ID format', 'INVALID_USER_ID');
+      }
+
+      const filter: any = { status: { $in: [BookingStatus.COMPLETED, BookingStatus.CANCELLED, BookingStatus.ABSENT] } };
+
+      if (userType === 'client') {
+        filter.clientId = userId;
+      } else if (userType === 'lounge') {
+        filter.loungeId = userId;
+      }
+      // admin: no extra filter — gets all history bookings
+
+      return await this.bookings
+        .find(filter)
+        .populate('clientId', POPULATE_FIELDS.CLIENT)
+        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
+        .populate(POPULATE_FIELDS.AGENTS)
+        .populate(POPULATE_FIELDS.SERVICE)
+        .sort({ bookingDate: -1 });
+    } catch (error) {
+      logger.error(`Error fetching booking history for user ${userId}: ${error.message}`);
       throw error;
     }
   }
@@ -193,7 +312,7 @@ class BookingService {
         .populate('loungeId', POPULATE_FIELDS.LOUNGE)
         .populate(POPULATE_FIELDS.AGENTS)
         .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ createdAt: -1 });
+        .sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for lounge ${loungeId}: ${error.message}`);
       throw error;
@@ -233,7 +352,9 @@ class BookingService {
         }
       }
 
-      return this.getBookingById(bookingId);
+      const populatedBooking = await this.getBookingById(bookingId);
+      this.socketService.emitBookingUpdated(populatedBooking);
+      return populatedBooking;
     } catch (error) {
       logger.error(`Error updating booking ${bookingId}: ${error.message}`);
       throw error;
@@ -249,7 +370,10 @@ class BookingService {
       if (!booking) {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
       }
+      const clientId = booking.clientId?.toString();
+      const loungeId = booking.loungeId?.toString();
       await this.bookings.findByIdAndDelete(bookingId);
+      this.socketService.emitBookingDeleted(bookingId, clientId, loungeId);
       logger.info(`Booking deleted: ${bookingId}`);
     } catch (error) {
       logger.error(`Error deleting booking ${bookingId}: ${error.message}`);

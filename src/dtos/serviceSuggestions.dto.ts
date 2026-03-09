@@ -96,6 +96,10 @@ export class UpdateServiceSuggestionStatusDto {
 }
 
 export class AdminApproveServiceSuggestionDto {
+  @IsOptional()
+  @IsEnum(ServiceSuggestionStatus, { message: 'Status must be one of: pending, rejected, implemented' })
+  status?: ServiceSuggestionStatus;
+
   @IsString()
   categoryId: string;
 

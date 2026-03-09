@@ -41,6 +41,27 @@ export class CreateBookingDto {
   notes?: string;
 }
 
+export class CreateQueueBookingDto {
+  @IsMongoId({ message: 'Invalid client ID format' })
+  clientId: string;
+
+  @IsMongoId({ message: 'Invalid lounge ID format' })
+  loungeId: string;
+
+  @IsMongoId({ message: 'Invalid agent ID format' })
+  agentId: string;
+
+  @IsOptional()
+  @IsArray({ message: 'Lounge service IDs must be an array' })
+  @IsMongoId({ each: true, message: 'Each lounge service ID must be a valid MongoDB ID' })
+  loungeServiceIds?: string[];
+
+  @IsOptional()
+  @IsString({ message: 'Notes must be a string' })
+  @MaxLength(500, { message: 'Notes cannot exceed 500 characters' })
+  notes?: string;
+}
+
 export class UpdateBookingDto {
   @IsOptional()
   @IsEnum(BookingStatus, { message: 'Invalid booking status' })

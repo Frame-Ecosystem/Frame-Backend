@@ -1,4 +1,3 @@
-import { User } from '@interfaces/users.interface';
 import { ConflictException } from '@exceptions/HttpException';
 
 /**
@@ -22,23 +21,22 @@ export const isEmpty = (value: string | number | object): boolean => {
 };
 
 /**
- * Strip sensitive fields from user object before sending to client
+ * Strip sensitive fields from any object before sending to client.
  * Removes: password, refreshTokens
- * @param user - The user object (can be Mongoose document or plain object)
- * @returns User object without sensitive fields
+ * @param obj - The object (can be Mongoose document or plain object)
+ * @returns Object without sensitive fields
  */
-export const stripSensitiveFields = (user: User): Partial<User> => {
-  // Use runtime check for Mongoose document
-  let userObj: Record<string, unknown>;
-  if (typeof user === 'object' && user !== null && 'toObject' in user && typeof user.toObject === 'function') {
-    userObj = user.toObject();
+export const stripSensitiveFields = <T extends Record<string, any>>(obj: T): Partial<T> => {
+  let plainObj: Record<string, unknown>;
+  if (typeof obj === 'object' && obj !== null && 'toObject' in obj && typeof obj.toObject === 'function') {
+    plainObj = obj.toObject();
   } else {
-    userObj = user as unknown as Record<string, unknown>;
+    plainObj = obj as unknown as Record<string, unknown>;
   }
-  const { password, refreshTokens, ...safeUser } = userObj;
+  const { password, refreshTokens, ...safeFields } = plainObj;
   void password;
   void refreshTokens;
-  return safeUser;
+  return safeFields as Partial<T>;
 };
 
 /**

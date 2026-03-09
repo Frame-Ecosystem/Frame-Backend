@@ -2,10 +2,10 @@ import { Router } from 'express';
 import QueueController from '@controllers/queue.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import adminOrLoungeMiddleware from '@middlewares/adminOrLounge.middleware';
-import adminOrLoungeOrClientMiddleware from '@middlewares/adminOrLoungeOrClient.middleware';
-import adminMiddleware from '@middlewares/admin.middleware';
+import { adminOrLoungeMiddleware, adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
+import validationMiddleware from '@middlewares/validation.middleware';
+import { ReorderQueuePersonDto } from '@dtos/queue.dto';
 
 class QueueRoute implements Routes {
   public path = '/v1/queues';
@@ -36,6 +36,16 @@ class QueueRoute implements Routes {
       adminOrLoungeMiddleware,
       csrfMiddleware,
       this.queueController.updatePersonStatus,
+    );
+
+    // PUT - Reorder a person's position in the queue (real-time)
+    this.router.put(
+      '/agent/:agentId/persons/:bookingId/reorder',
+      authMiddleware,
+      adminOrLoungeMiddleware,
+      csrfMiddleware,
+      validationMiddleware(ReorderQueuePersonDto, 'body'),
+      this.queueController.reorderPerson,
     );
 
     // DELETE - Remove a person from an agent's queue

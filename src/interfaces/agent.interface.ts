@@ -5,6 +5,7 @@ export interface Agent {
   idLoungeService: string[]; // List of lounge service IDs that this agent can perform
   profileImage?: { url?: string; publicId?: string };
   isBlocked?: boolean;
+  acceptQueueBooking?: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
