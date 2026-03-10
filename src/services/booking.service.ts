@@ -10,6 +10,7 @@ import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import mongoose from 'mongoose';
 import QueueService from '@services/queue.service';
 import SocketService from '@services/socket.service';
+import NotificationService from '@services/notification.service';
 
 const POPULATE_FIELDS = {
   CLIENT: 'firstName lastName email profileImage coverImage location',
@@ -32,6 +33,18 @@ class BookingService {
   private agents = agentModel;
   private queueService = new QueueService();
   private socketService = SocketService.getInstance();
+  private notificationService = NotificationService.getInstance();
+
+  /**
+   * Apply standard populate chain for fully-populated booking responses.
+   */
+  private populateBooking(query: any) {
+    return query
+      .populate('clientId', POPULATE_FIELDS.CLIENT)
+      .populate('loungeId', POPULATE_FIELDS.LOUNGE)
+      .populate(POPULATE_FIELDS.AGENTS)
+      .populate(POPULATE_FIELDS.SERVICE);
+  }
 
   public async createBooking(bookingData: CreateBookingDto): Promise<Booking> {
     try {
@@ -93,6 +106,7 @@ class BookingService {
       logger.info(`Booking created: ${booking._id}`);
       const populatedBooking = await this.getBookingById(booking._id.toString());
       this.socketService.emitBookingCreated(populatedBooking);
+      await this.notificationService.notifyBookingCreated(populatedBooking);
       return populatedBooking;
     } catch (error) {
       logger.error(`Error creating booking: ${error.message}`);
@@ -180,6 +194,8 @@ class BookingService {
       logger.info(`Queue booking created: ${booking._id}`);
       const populatedBooking = await this.getBookingById(booking._id.toString());
       this.socketService.emitBookingCreated(populatedBooking);
+      await this.notificationService.notifyQueueBookingCreated(populatedBooking);
+      await this.notificationService.notifyBookingInQueue(populatedBooking);
       return populatedBooking;
     } catch (error) {
       logger.error(`Error creating queue booking: ${error.message}`);
@@ -221,13 +237,9 @@ class BookingService {
 
   public async getAllBookings(): Promise<Booking[]> {
     try {
-      return await this.bookings
-        .find()
-        .populate('clientId', POPULATE_FIELDS.CLIENT)
-        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate(POPULATE_FIELDS.AGENTS)
-        .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ bookingDate: -1 });
+      return await this.populateBooking(
+        this.bookings.find(),
+      ).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching all bookings: ${error.message}`);
       throw new InternalServerException('Failed to fetch bookings');
@@ -239,12 +251,9 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(bookingId)) {
         throw new BadRequestException('Invalid booking ID format', 'INVALID_BOOKING_ID');
       }
-      const booking = await this.bookings
-        .findById(bookingId)
-        .populate('clientId', POPULATE_FIELDS.CLIENT)
-        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate(POPULATE_FIELDS.AGENTS)
-        .populate(POPULATE_FIELDS.SERVICE);
+      const booking = await this.populateBooking(
+        this.bookings.findById(bookingId),
+      );
       if (!booking) {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
       }
@@ -260,13 +269,9 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(clientId)) {
         throw new BadRequestException('Invalid client ID format', 'INVALID_CLIENT_ID');
       }
-      return await this.bookings
-        .find({ clientId })
-        .populate('clientId', POPULATE_FIELDS.CLIENT)
-        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate(POPULATE_FIELDS.AGENTS)
-        .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ bookingDate: -1 });
+      return await this.populateBooking(
+        this.bookings.find({ clientId }),
+      ).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for client ${clientId}: ${error.message}`);
       throw error;
@@ -288,13 +293,9 @@ class BookingService {
       }
       // admin: no extra filter — gets all history bookings
 
-      return await this.bookings
-        .find(filter)
-        .populate('clientId', POPULATE_FIELDS.CLIENT)
-        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate(POPULATE_FIELDS.AGENTS)
-        .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ bookingDate: -1 });
+      return await this.populateBooking(
+        this.bookings.find(filter),
+      ).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching booking history for user ${userId}: ${error.message}`);
       throw error;
@@ -306,13 +307,9 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(loungeId)) {
         throw new BadRequestException('Invalid lounge ID format', 'INVALID_LOUNGE_ID');
       }
-      return await this.bookings
-        .find({ loungeId })
-        .populate('clientId', POPULATE_FIELDS.CLIENT)
-        .populate('loungeId', POPULATE_FIELDS.LOUNGE)
-        .populate(POPULATE_FIELDS.AGENTS)
-        .populate(POPULATE_FIELDS.SERVICE)
-        .sort({ bookingDate: -1 });
+      return await this.populateBooking(
+        this.bookings.find({ loungeId }),
+      ).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for lounge ${loungeId}: ${error.message}`);
       throw error;
@@ -329,7 +326,7 @@ class BookingService {
       }
 
       // Validate that cancelledBy is required when status is cancelled
-      if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
+      if (bookingData.status === 'cancelled' && !bookingData.cancelledBy?.idUser) {
         throw new BadRequestException('cancelledBy is required when status is cancelled', 'MISSING_CANCELLED_BY');
       }
 
@@ -354,6 +351,28 @@ class BookingService {
 
       const populatedBooking = await this.getBookingById(bookingId);
       this.socketService.emitBookingUpdated(populatedBooking);
+
+      // Send notifications based on status change
+      if (bookingData.status) {
+        switch (bookingData.status) {
+          case BookingStatus.CONFIRMED:
+            await this.notificationService.notifyBookingConfirmed(populatedBooking);
+            break;
+          case BookingStatus.CANCELLED:
+            await this.notificationService.notifyBookingCancelled(populatedBooking);
+            break;
+          case BookingStatus.IN_QUEUE:
+            await this.notificationService.notifyBookingInQueue(populatedBooking);
+            break;
+          case BookingStatus.COMPLETED:
+            await this.notificationService.notifyBookingCompleted(populatedBooking);
+            break;
+          case BookingStatus.ABSENT:
+            await this.notificationService.notifyBookingAbsent(populatedBooking);
+            break;
+        }
+      }
+
       return populatedBooking;
     } catch (error) {
       logger.error(`Error updating booking ${bookingId}: ${error.message}`);
@@ -372,6 +391,10 @@ class BookingService {
       }
       const clientId = booking.clientId?.toString();
       const loungeId = booking.loungeId?.toString();
+
+      // Remove from queue if this booking has a queue entry
+      await this.queueService.removePersonByBookingId(bookingId);
+
       await this.bookings.findByIdAndDelete(bookingId);
       this.socketService.emitBookingDeleted(bookingId, clientId, loungeId);
       logger.info(`Booking deleted: ${bookingId}`);
@@ -382,46 +405,31 @@ class BookingService {
   }
 
   public async getClientBookingStats(clientId: string): Promise<any> {
-    try {
-      if (!mongoose.Types.ObjectId.isValid(clientId)) {
-        throw new BadRequestException('Invalid client ID format', 'INVALID_CLIENT_ID');
-      }
-      const stats = await this.bookings.aggregate([
-        { $match: { clientId: new mongoose.Types.ObjectId(clientId) } },
-        {
-          $group: {
-            _id: '$status',
-            count: { $sum: 1 },
-            totalSpent: { $sum: '$totalPrice' },
-          },
-        },
-      ]);
-      return stats;
-    } catch (error) {
-      logger.error(`Error fetching stats for client ${clientId}: ${error.message}`);
-      throw new InternalServerException('Failed to fetch client booking stats');
-    }
+    return this.getBookingStats('clientId', clientId, 'client');
   }
 
   public async getLoungeBookingStats(loungeId: string): Promise<any> {
+    return this.getBookingStats('loungeId', loungeId, 'lounge');
+  }
+
+  private async getBookingStats(field: string, id: string, label: string): Promise<any> {
     try {
-      if (!mongoose.Types.ObjectId.isValid(loungeId)) {
-        throw new BadRequestException('Invalid lounge ID format', 'INVALID_LOUNGE_ID');
+      if (!mongoose.Types.ObjectId.isValid(id)) {
+        throw new BadRequestException(`Invalid ${label} ID format`, `INVALID_${label.toUpperCase()}_ID`);
       }
-      const stats = await this.bookings.aggregate([
-        { $match: { loungeId: new mongoose.Types.ObjectId(loungeId) } },
+      return await this.bookings.aggregate([
+        { $match: { [field]: new mongoose.Types.ObjectId(id) } },
         {
           $group: {
             _id: '$status',
             count: { $sum: 1 },
-            totalRevenue: { $sum: '$totalPrice' },
+            totalAmount: { $sum: '$totalPrice' },
           },
         },
       ]);
-      return stats;
     } catch (error) {
-      logger.error(`Error fetching stats for lounge ${loungeId}: ${error.message}`);
-      throw new InternalServerException('Failed to fetch lounge booking stats');
+      logger.error(`Error fetching stats for ${label} ${id}: ${error.message}`);
+      throw error instanceof BadRequestException ? error : new InternalServerException(`Failed to fetch ${label} booking stats`);
     }
   }
 

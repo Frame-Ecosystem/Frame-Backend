@@ -23,12 +23,8 @@ class ServicesService {
         )
         // Remove possessive forms
         .replace(/\b(men|women|boys|girls|kids|ladies|gentlemen)'s?\b/g, '')
-        // Remove spaces and special characters
+        // Remove spaces, special characters, and trim
         .replace(/[^\w]/g, '')
-        // Remove extra spaces
-        .replace(/\s+/g, '')
-        // Trim
-        .trim()
     );
   }
 

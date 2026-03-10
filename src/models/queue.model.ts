@@ -31,6 +31,10 @@ const queuePersonSchema: Schema = new Schema(
       required: true,
       default: Date.now,
     },
+    reminderSent: {
+      type: Boolean,
+      default: false,
+    },
   },
   { _id: false },
 );

@@ -1,20 +1,36 @@
-import { Queue } from '@interfaces/queue.interface';
-import { QueuePersonStatus } from '@interfaces/queue.interface';
+import { Queue, QueuePersonStatus } from '@interfaces/queue.interface';
 import { BookingStatus } from '@interfaces/booking.interface';
 import queueModel from '@models/queue.model';
 import bookingModel from '@models/booking.model';
 import agentModel from '@models/agent.model';
+import userModel from '@models/users.model';
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dtos/queue.dto';
 import SocketService from '@services/socket.service';
+import NotificationService from '@services/notification.service';
+
+/** Populate fields for queue agent info */
+const QUEUE_POPULATE = {
+  AGENT: 'agentName profileImage coverImage',
+  BOOKING: 'totalDuration totalPrice loungeServiceIds status bookingDate notes',
+  CLIENT: 'firstName lastName email profileImage coverImage',
+} as const;
+
+/** Populate fields used when fetching bookings for notifications */
+const BOOKING_NOTIFY_POPULATE = {
+  CLIENT: 'firstName lastName',
+  LOUNGE: 'loungeTitle firstName lastName',
+} as const;
 
 class QueueService {
   public queues = queueModel;
   private bookings = bookingModel;
   private agents = agentModel;
+  private users = userModel;
   private socketService = SocketService.getInstance();
+  private notificationService = NotificationService.getInstance();
 
   /**
    * Emit queue update via WebSocket to agent and lounge rooms.
@@ -78,9 +94,9 @@ class QueueService {
 
       const queue = await this.queues
         .findOne({ agentId, date: queueDate })
-        .populate('agentId', 'agentName profileImage coverImage')
-        .populate('persons.bookingId', 'totalDuration totalPrice loungeServiceIds status bookingDate notes')
-        .populate('persons.clientId', 'firstName lastName email profileImage coverImage');
+        .populate('agentId', QUEUE_POPULATE.AGENT)
+        .populate('persons.bookingId', QUEUE_POPULATE.BOOKING)
+        .populate('persons.clientId', QUEUE_POPULATE.CLIENT);
 
       if (!queue) {
         throw new NotFoundException('Queue not found for this agent on this date', 'QUEUE_NOT_FOUND');
@@ -110,9 +126,9 @@ class QueueService {
 
       const queues = await this.queues
         .find({ agentId: { $in: agentIds }, date: queueDate })
-        .populate('agentId', 'agentName profileImage coverImage')
-        .populate('persons.bookingId', 'totalDuration totalPrice loungeServiceIds status bookingDate notes')
-        .populate('persons.clientId', 'firstName lastName email profileImage coverImage');
+        .populate('agentId', QUEUE_POPULATE.AGENT)
+        .populate('persons.bookingId', QUEUE_POPULATE.BOOKING)
+        .populate('persons.clientId', QUEUE_POPULATE.CLIENT);
 
       return queues;
     } catch (error) {
@@ -218,18 +234,8 @@ class QueueService {
       person.status = data.status;
       await queue.save();
 
-      // When queue person is completed, also mark the booking as completed
-      if (data.status === QueuePersonStatus.COMPLETED) {
-        try {
-          const booking = await this.bookings.findByIdAndUpdate(bookingId, { status: BookingStatus.COMPLETED }, { new: true });
-          if (booking) {
-            this.socketService.emitBookingUpdated(booking);
-            logger.info(`QueueService.updatePersonStatus: booking ${bookingId} status updated to completed`);
-          }
-        } catch (bookingErr) {
-          logger.warn(`QueueService.updatePersonStatus: failed to update booking ${bookingId} status: ${bookingErr.message}`);
-        }
-      }
+      // Handle side effects of the status change (booking update, notifications)
+      await this.handlePersonStatusSideEffects(bookingId, data.status);
 
       logger.info(`QueueService.updatePersonStatus: booking ${bookingId} in agent ${agentId} queue updated to ${data.status}`);
 
@@ -274,15 +280,8 @@ class QueueService {
 
       // Mark booking as absent if requested
       if (markAbsent) {
-        try {
-          const booking = await this.bookings.findByIdAndUpdate(bookingId, { status: BookingStatus.ABSENT }, { new: true });
-          if (booking) {
-            this.socketService.emitBookingUpdated(booking);
-            logger.info(`QueueService.removePersonFromQueue: booking ${bookingId} marked as absent`);
-          }
-        } catch (bookingErr) {
-          logger.warn(`QueueService.removePersonFromQueue: failed to mark booking ${bookingId} as absent: ${bookingErr.message}`);
-        }
+        await this.finalizeBooking(bookingId, BookingStatus.ABSENT, { notify: 'absent' });
+        logger.info(`QueueService.removePersonFromQueue: booking ${bookingId} marked as absent`);
       }
 
       logger.info(`QueueService.removePersonFromQueue: booking ${bookingId} removed from agent ${agentId} queue`);
@@ -293,6 +292,39 @@ class QueueService {
     } catch (error) {
       logger.error('QueueService.removePersonFromQueue: error removing person from queue', error);
       throw error;
+    }
+  }
+
+  /**
+   * Remove a person from any queue by bookingId (used when a booking is deleted).
+   * Silently succeeds if no queue contains this booking.
+   */
+  public async removePersonByBookingId(bookingId: string): Promise<void> {
+    try {
+      const queue = await this.queues.findOne({ 'persons.bookingId': bookingId });
+      if (!queue) return;
+
+      const personIndex = queue.persons.findIndex(p => p.bookingId.toString() === bookingId);
+      if (personIndex === -1) return;
+
+      const removedPosition = queue.persons[personIndex].position;
+      queue.persons.splice(personIndex, 1);
+
+      // Re-order positions after removal
+      queue.persons.forEach(p => {
+        if (p.position > removedPosition) {
+          p.position -= 1;
+        }
+      });
+
+      await queue.save();
+
+      const agentId = queue.agentId.toString();
+      const updatedQueue = await this.getQueueByAgent(agentId, queue.date);
+      await this.emitQueueUpdate(agentId, updatedQueue);
+      logger.info(`QueueService.removePersonByBookingId: booking ${bookingId} removed from queue`);
+    } catch (error) {
+      logger.error(`QueueService.removePersonByBookingId: error for booking ${bookingId}`, error);
     }
   }
 
@@ -412,6 +444,324 @@ class QueueService {
       logger.error('QueueService.populateDailyQueues: error populating daily queues', error);
       throw error;
     }
+  }
+
+  /**
+   * Cleanup past queues: finalize any queue persons still in non-terminal statuses
+   * when their queue date has passed.
+   *
+   * - waiting  → queue person: absent, booking: cancelled (cancelledBy = lounge title)
+   * - absent   → booking: absent
+   * - inService → queue person: completed, booking: completed
+   */
+  public async cleanupPastQueues(): Promise<{ processed: number; errors: string[] }> {
+    const today = this.getStartOfToday();
+    const errors: string[] = [];
+    let processed = 0;
+
+    try {
+      const pastQueues = await this.queues.find({
+        date: { $lt: today },
+        'persons.status': { $in: [QueuePersonStatus.WAITING, QueuePersonStatus.ABSENT, QueuePersonStatus.IN_SERVICE] },
+      });
+
+      for (const queue of pastQueues) {
+        const loungeInfo = await this.resolveLoungeInfo(queue.agentId);
+
+        for (const person of queue.persons) {
+          try {
+            const result = await this.finalizeQueuePerson(person, loungeInfo);
+            if (result) processed++;
+          } catch (personErr) {
+            errors.push(`Failed to cleanup booking ${person.bookingId} in queue ${(queue as any)._id}: ${personErr.message}`);
+          }
+        }
+
+        await queue.save();
+      }
+
+      return { processed, errors };
+    } catch (error) {
+      logger.error('QueueService.cleanupPastQueues: error cleaning up past queues', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send ~15-minute reminders to waiting queue persons.
+   * For each queue today, calculate estimated wait time by summing totalDuration
+   * of persons ahead (inService + waiting with lower position).
+   * If estimated wait <= 15 min and reminderSent is false, send notification.
+   */
+  public async sendQueueReminders(): Promise<{ sent: number; errors: string[] }> {
+    let sent = 0;
+    const errors: string[] = [];
+
+    try {
+      const today = this.getStartOfToday();
+
+      // Find today's queues that have waiting persons who haven't received a reminder
+      const queues = await this.queues.find({
+        date: today,
+        'persons.status': QueuePersonStatus.WAITING,
+        'persons.reminderSent': false,
+      });
+
+      for (const queue of queues) {
+        // Get the person currently inService (their remaining time counts)
+        const inServicePerson = queue.persons.find(p => p.status === QueuePersonStatus.IN_SERVICE);
+        let inServiceRemainingMin = 0;
+
+        if (inServicePerson) {
+          // Estimate remaining time for the inService person
+          const inServiceBooking = await this.bookings.findById(inServicePerson.bookingId).lean();
+          if (inServiceBooking?.totalDuration) {
+            // No exact start time tracked, so we conservatively use full duration
+            inServiceRemainingMin = inServiceBooking.totalDuration;
+          }
+        }
+
+        // Sort waiting persons by position
+        const waitingPersons = queue.persons
+          .filter(p => p.status === QueuePersonStatus.WAITING)
+          .sort((a, b) => a.position - b.position);
+
+        // Pre-load all booking durations for waiting persons
+        const bookingIds = waitingPersons.map(p => p.bookingId);
+        const bookings = await this.bookings.find({ _id: { $in: bookingIds } }).lean();
+        const durationMap = new Map<string, number>();
+        for (const b of bookings) {
+          durationMap.set((b as any)._id.toString(), b.totalDuration || 0);
+        }
+
+        let cumulativeWait = inServiceRemainingMin;
+
+        for (const person of waitingPersons) {
+          if (person.reminderSent) {
+            // Already sent — just accumulate their duration for the next person
+            cumulativeWait += durationMap.get(person.bookingId.toString()) || 0;
+            continue;
+          }
+
+          if (cumulativeWait <= 15) {
+            // This person is within ~15 min — send reminder
+            try {
+              const booking = await this.populateBookingForNotify(person.bookingId.toString());
+
+              if (booking) {
+                await this.notificationService.notifyQueueReminder(booking, Math.max(1, Math.round(cumulativeWait)));
+                person.reminderSent = true;
+                sent++;
+              }
+            } catch (err) {
+              errors.push(`Failed to send reminder for booking ${person.bookingId}: ${err.message}`);
+            }
+          }
+
+          // Add this person's duration for the next person's wait calculation
+          cumulativeWait += durationMap.get(person.bookingId.toString()) || 0;
+        }
+
+        await queue.save();
+      }
+
+      return { sent, errors };
+    } catch (error) {
+      logger.error('QueueService.sendQueueReminders: error sending reminders', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Cleanup queues for lounges that have closed today.
+   * Reads each lounge's openingHours for the current day of the week.
+   * If current time >= closing time, finalize any open queue persons.
+   */
+  public async cleanupClosedLoungeQueues(): Promise<{ processed: number; errors: string[] }> {
+    let processed = 0;
+    const errors: string[] = [];
+
+    try {
+      const now = new Date();
+      const today = this.getStartOfToday();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const todayDay = dayNames[now.getUTCDay()];
+
+      const queues = await this.queues.find({
+        date: today,
+        'persons.status': { $in: [QueuePersonStatus.WAITING, QueuePersonStatus.IN_SERVICE, QueuePersonStatus.ABSENT] },
+      });
+
+      for (const queue of queues) {
+        try {
+          const agent = await this.agents.findById(queue.agentId);
+          if (!agent?.loungeId) continue;
+
+          const lounge = await this.users.findById(agent.loungeId);
+          if (!lounge?.openingHours) continue;
+
+          const todayHours = (lounge.openingHours as any)[todayDay];
+          if (!todayHours?.to) continue;
+
+          // Parse closing time (HH:MM format, assumed UTC)
+          const [closeHour, closeMin] = todayHours.to.split(':').map(Number);
+          const closingTime = new Date(today);
+          closingTime.setUTCHours(closeHour, closeMin, 0, 0);
+
+          if (now < closingTime) continue;
+
+          const loungeInfo = { loungeId: lounge._id.toString(), loungeTitle: lounge.loungeTitle || 'the lounge' };
+
+          for (const person of queue.persons) {
+            try {
+              const result = await this.finalizeQueuePerson(person, loungeInfo);
+              if (result) processed++;
+            } catch (personErr) {
+              errors.push(`Failed to cleanup booking ${person.bookingId} in closed lounge queue: ${personErr.message}`);
+            }
+          }
+
+          await queue.save();
+        } catch (queueErr) {
+          errors.push(`Failed to process queue ${(queue as any)._id}: ${queueErr.message}`);
+        }
+      }
+
+      return { processed, errors };
+    } catch (error) {
+      logger.error('QueueService.cleanupClosedLoungeQueues: error', error);
+      throw error;
+    }
+  }
+
+  // ─── Private Helpers ─────────────────────────────────────────────
+
+  /**
+   * Fetch a booking with notification-ready populates.
+   */
+  private populateBookingForNotify(bookingId: string) {
+    return this.bookings.findById(bookingId)
+      .populate('clientId', BOOKING_NOTIFY_POPULATE.CLIENT)
+      .populate('loungeId', BOOKING_NOTIFY_POPULATE.LOUNGE);
+  }
+
+  /**
+   * Update a booking's status, emit socket event, and return the populated booking.
+   */
+  private async finalizeBooking(
+    bookingId: string,
+    status: BookingStatus,
+    options: { cancelledBy?: { idUser: string; cancelledByName: string }; notify?: 'completed' | 'absent' | 'autoCancelled'; loungeTitle?: string } = {},
+  ): Promise<void> {
+    try {
+      const update: any = { status };
+      if (options.cancelledBy) update.cancelledBy = options.cancelledBy;
+
+      const booking = await this.bookings.findByIdAndUpdate(bookingId, update, { new: true })
+        .populate('clientId', BOOKING_NOTIFY_POPULATE.CLIENT)
+        .populate('loungeId', BOOKING_NOTIFY_POPULATE.LOUNGE);
+
+      if (!booking) return;
+
+      this.socketService.emitBookingUpdated(booking);
+
+      if (options.notify === 'completed') {
+        this.notificationService.notifyBookingCompleted(booking);
+      } else if (options.notify === 'absent') {
+        this.notificationService.notifyBookingAbsent(booking);
+      } else if (options.notify === 'autoCancelled' && options.loungeTitle) {
+        this.notificationService.notifyQueueAutoCancelled(booking, options.loungeTitle);
+      }
+    } catch (err) {
+      logger.warn(`QueueService.finalizeBooking: failed for booking ${bookingId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Handle side effects when a queue person's status changes.
+   * Maps status → booking update + notification.
+   */
+  private async handlePersonStatusSideEffects(bookingId: string, status: QueuePersonStatus): Promise<void> {
+    try {
+      switch (status) {
+        case QueuePersonStatus.COMPLETED:
+          await this.finalizeBooking(bookingId, BookingStatus.COMPLETED, { notify: 'completed' });
+          logger.info(`QueueService: booking ${bookingId} status updated to completed`);
+          break;
+        case QueuePersonStatus.IN_SERVICE: {
+          const booking = await this.populateBookingForNotify(bookingId);
+          if (booking) this.notificationService.notifyQueueInService(booking);
+          break;
+        }
+        case QueuePersonStatus.ABSENT: {
+          const booking = await this.populateBookingForNotify(bookingId);
+          if (booking) this.notificationService.notifyBookingAbsent(booking);
+          break;
+        }
+        case QueuePersonStatus.WAITING: {
+          const booking = await this.populateBookingForNotify(bookingId);
+          if (booking) this.notificationService.notifyBackInQueue(booking);
+          break;
+        }
+      }
+    } catch (err) {
+      logger.warn(`QueueService.handlePersonStatusSideEffects: failed for booking ${bookingId}: ${err.message}`);
+    }
+  }
+
+  /**
+   * Finalize a single queue person during cleanup (past queues or closed lounges).
+   * Returns true if the person was processed, false if skipped (already terminal).
+   *
+   * - waiting  → queue person: absent, booking: cancelled
+   * - absent   → booking: absent (no queue status change)
+   * - inService → queue person: completed, booking: completed
+   */
+  private async finalizeQueuePerson(person: any, loungeInfo: { loungeId: string; loungeTitle: string }): Promise<boolean> {
+    switch (person.status) {
+      case QueuePersonStatus.WAITING:
+        person.status = QueuePersonStatus.ABSENT;
+        await this.finalizeBooking(person.bookingId, BookingStatus.CANCELLED, {
+          cancelledBy: { idUser: loungeInfo.loungeId, cancelledByName: loungeInfo.loungeTitle },
+          notify: 'autoCancelled',
+          loungeTitle: loungeInfo.loungeTitle,
+        });
+        return true;
+
+      case QueuePersonStatus.ABSENT:
+        await this.finalizeBooking(person.bookingId, BookingStatus.ABSENT, { notify: 'absent' });
+        return true;
+
+      case QueuePersonStatus.IN_SERVICE:
+        person.status = QueuePersonStatus.COMPLETED;
+        await this.finalizeBooking(person.bookingId, BookingStatus.COMPLETED, { notify: 'completed' });
+        return true;
+
+      default:
+        return false;
+    }
+  }
+
+  /**
+   * Resolve the lounge info for an agent (used in cleanup notifications).
+   * Returns { loungeId, loungeTitle } for building cancelledBy.
+   */
+  private async resolveLoungeInfo(agentId: any): Promise<{ loungeId: string; loungeTitle: string }> {
+    try {
+      const agent = await this.agents.findById(agentId);
+      if (agent?.loungeId) {
+        const lounge = await this.users.findById(agent.loungeId);
+        if (lounge) {
+          return {
+            loungeId: lounge._id.toString(),
+            loungeTitle: lounge.loungeTitle || 'Lounge',
+          };
+        }
+      }
+    } catch (err) {
+      logger.warn(`QueueService: could not resolve lounge info for agent ${agentId}: ${err.message}`);
+    }
+    return { loungeId: '', loungeTitle: 'Lounge' };
   }
 
   /**

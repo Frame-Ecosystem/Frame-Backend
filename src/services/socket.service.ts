@@ -15,6 +15,9 @@ export const SocketEvents = {
   BOOKING_UPDATED: 'booking:updated',
   BOOKING_DELETED: 'booking:deleted',
   BOOKINGS_UPDATED: 'bookings:updated', // Batch update for list views
+
+  // Notification events
+  NOTIFICATION_NEW: 'notification:new',
 } as const;
 
 /**
@@ -25,6 +28,7 @@ export const SocketEvents = {
  * - bookings:client:{clientId}   → client's bookings list
  * - bookings:lounge:{loungeId}   → lounge's bookings list
  * - bookings:admin               → admin bookings list (all)
+ * - notifications:{userId}        → user's notification feed
  */
 
 class SocketService {
@@ -98,78 +102,72 @@ class SocketService {
     return this.io;
   }
 
-  // ─── Queue Emissions ──────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────
 
   /**
-   * Emit queue update to subscribers of a specific agent's queue.
+   * Emit an event to one or more rooms with a timestamped payload.
+   * Skips silently if Socket.IO is not initialized.
    */
-  public emitQueueUpdated(agentId: string, data: any): void {
+  private emit(rooms: (string | undefined)[], event: string, payload: Record<string, any>): void {
     if (!this.io) return;
-    this.io.to(`queue:agent:${agentId}`).emit(SocketEvents.QUEUE_UPDATED, {
-      agentId,
-      data,
-      timestamp: new Date().toISOString(),
-    });
+    const data = { ...payload, timestamp: new Date().toISOString() };
+    for (const room of rooms) {
+      if (room) this.io.to(room).emit(event, data);
+    }
   }
 
   /**
-   * Emit lounge-wide queue update (when any agent queue in the lounge changes).
+   * Extract the raw ID from a possibly-populated Mongoose ref.
    */
+  private extractId(ref: any): string | undefined {
+    return (ref?._id || ref)?.toString();
+  }
+
+  // ─── Queue Emissions ──────────────────────────────────────────────
+
+  public emitQueueUpdated(agentId: string, data: any): void {
+    this.emit([`queue:agent:${agentId}`], SocketEvents.QUEUE_UPDATED, { agentId, data });
+  }
+
   public emitLoungeQueuesUpdated(loungeId: string, data: any): void {
-    if (!this.io) return;
-    this.io.to(`queue:lounge:${loungeId}`).emit(SocketEvents.LOUNGE_QUEUES_UPDATED, {
-      loungeId,
-      data,
-      timestamp: new Date().toISOString(),
-    });
+    this.emit([`queue:lounge:${loungeId}`], SocketEvents.LOUNGE_QUEUES_UPDATED, { loungeId, data });
   }
 
   // ─── Booking Emissions ────────────────────────────────────────────
 
-  /**
-   * Emit when a new booking is created.
-   * Notifies the client, lounge, and admin rooms.
-   */
   public emitBookingCreated(booking: any): void {
-    if (!this.io) return;
-    const payload = { data: booking, timestamp: new Date().toISOString() };
-
-    const clientId = booking.clientId?._id || booking.clientId;
-    const loungeId = booking.loungeId?._id || booking.loungeId;
-
-    if (clientId) this.io.to(`bookings:client:${clientId}`).emit(SocketEvents.BOOKING_CREATED, payload);
-    if (loungeId) this.io.to(`bookings:lounge:${loungeId}`).emit(SocketEvents.BOOKING_CREATED, payload);
-    this.io.to('bookings:admin').emit(SocketEvents.BOOKING_CREATED, payload);
+    const clientId = this.extractId(booking.clientId);
+    const loungeId = this.extractId(booking.loungeId);
+    this.emit(
+      [`bookings:client:${clientId}`, `bookings:lounge:${loungeId}`, 'bookings:admin'],
+      SocketEvents.BOOKING_CREATED,
+      { data: booking },
+    );
   }
 
-  /**
-   * Emit when a booking is updated.
-   * Notifies the specific booking room, client, lounge, and admin rooms.
-   */
   public emitBookingUpdated(booking: any): void {
-    if (!this.io) return;
-    const payload = { data: booking, timestamp: new Date().toISOString() };
     const bookingId = booking._id || booking.id;
-    const clientId = booking.clientId?._id || booking.clientId;
-    const loungeId = booking.loungeId?._id || booking.loungeId;
-
-    if (bookingId) this.io.to(`booking:${bookingId}`).emit(SocketEvents.BOOKING_UPDATED, payload);
-    if (clientId) this.io.to(`bookings:client:${clientId}`).emit(SocketEvents.BOOKING_UPDATED, payload);
-    if (loungeId) this.io.to(`bookings:lounge:${loungeId}`).emit(SocketEvents.BOOKING_UPDATED, payload);
-    this.io.to('bookings:admin').emit(SocketEvents.BOOKING_UPDATED, payload);
+    const clientId = this.extractId(booking.clientId);
+    const loungeId = this.extractId(booking.loungeId);
+    this.emit(
+      [`booking:${bookingId}`, `bookings:client:${clientId}`, `bookings:lounge:${loungeId}`, 'bookings:admin'],
+      SocketEvents.BOOKING_UPDATED,
+      { data: booking },
+    );
   }
 
-  /**
-   * Emit when a booking is deleted.
-   */
   public emitBookingDeleted(bookingId: string, clientId?: string, loungeId?: string): void {
-    if (!this.io) return;
-    const payload = { bookingId, timestamp: new Date().toISOString() };
+    this.emit(
+      [`booking:${bookingId}`, clientId && `bookings:client:${clientId}`, loungeId && `bookings:lounge:${loungeId}`, 'bookings:admin'],
+      SocketEvents.BOOKING_DELETED,
+      { bookingId },
+    );
+  }
 
-    this.io.to(`booking:${bookingId}`).emit(SocketEvents.BOOKING_DELETED, payload);
-    if (clientId) this.io.to(`bookings:client:${clientId}`).emit(SocketEvents.BOOKING_DELETED, payload);
-    if (loungeId) this.io.to(`bookings:lounge:${loungeId}`).emit(SocketEvents.BOOKING_DELETED, payload);
-    this.io.to('bookings:admin').emit(SocketEvents.BOOKING_DELETED, payload);
+  // ─── Notification Emissions ───────────────────────────────────────
+
+  public emitNotification(userId: string, notification: any): void {
+    this.emit([`notifications:${userId}`], SocketEvents.NOTIFICATION_NEW, { data: notification });
   }
 }
 

@@ -11,6 +11,7 @@ export interface QueuePerson {
   position: number; // Order in the queue (1-based)
   status: QueuePersonStatus;
   joinedAt: Date; // When they entered the queue
+  reminderSent: boolean; // Whether the ~15min reminder has been sent
 }
 
 export interface Queue {

@@ -12,6 +12,16 @@ class AgentService {
   public agents = agentModel;
   public users = userModel;
   public loungeServices = loungeServiceModel;
+
+  /**
+   * Verify that an agent belongs to the specified lounge.
+   * Throws NotFoundException if ownership check fails.
+   */
+  private verifyOwnership(agent: Agent, loungeId?: string): void {
+    if (loungeId && agent.loungeId?.toString() !== loungeId) {
+      throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
+    }
+  }
   private queueService = new QueueService();
 
   /**
@@ -138,10 +148,7 @@ class AgentService {
         throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // If loungeId is provided, check ownership
-      if (loungeId && agent.loungeId.toString() !== loungeId) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
+      this.verifyOwnership(agent, loungeId);
 
       return agent;
     } catch (error) {
@@ -169,10 +176,7 @@ class AgentService {
         throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // If loungeId is provided, check ownership
-      if (loungeId && existingAgent.loungeId.toString() !== loungeId) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
+      this.verifyOwnership(existingAgent, loungeId);
 
       // Check if agent name is being updated and if it already exists
       if (data.agentName && data.agentName !== existingAgent.agentName) {
@@ -205,10 +209,7 @@ class AgentService {
         throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // If loungeId is provided, check ownership
-      if (loungeId && agent.loungeId.toString() !== loungeId) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
+      this.verifyOwnership(agent, loungeId);
 
       await this.agents.findByIdAndDelete(agentId);
       logger.info(`AgentService.deleteAgent: agent deleted successfully: ${agentId}`);
@@ -256,11 +257,7 @@ class AgentService {
         throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
       }
 
-      // If loungeId is provided, check ownership
-      if (loungeId && agent.loungeId.toString() !== loungeId) {
-        logger.error(`AgentService.uploadProfileImage: agent does not belong to lounge: ${agentId}`);
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
+      this.verifyOwnership(agent, loungeId);
 
       // Delete existing image if it exists
       if (agent.profileImage?.publicId) {

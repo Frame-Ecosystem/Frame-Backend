@@ -23,6 +23,7 @@ const main = async () => {
   const { default: LoungeRoute } = await import('@routes/lounge.route');
   const { default: BookingRoute } = await import('@routes/booking.route');
   const { default: QueueRoute } = await import('@routes/queue.route');
+  const { default: NotificationRoute } = await import('@routes/notification.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
@@ -40,6 +41,7 @@ const main = async () => {
     new LoungeRoute(),
     new BookingRoute(),
     new QueueRoute(),
+    new NotificationRoute(),
   ]);
 
   app.listen();

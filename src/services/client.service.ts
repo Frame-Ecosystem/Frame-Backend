@@ -43,7 +43,7 @@ class ClientService {
    */
   public async getAllLounges(params: PaginationParams): Promise<PaginatedLoungesResponse> {
     try {
-      const { page = 1, limit = 10, search = '', gender, sortBy = 'createdAt', sortOrder = 'desc', clientId } = params; // eslint-disable-line @typescript-eslint/no-unused-vars
+      const { page = 1, limit = 10, search = '', gender, sortBy = 'createdAt', sortOrder = 'desc', clientId } = params;
 
       logger.info(`ClientService.getAllLounges: Starting with page=${page}, limit=${limit}, clientId=${clientId}`);
 

@@ -5,23 +5,59 @@ import { logger } from '@utils/logger';
 const queueService = new QueueService();
 
 /**
+ * Wrap a cron handler with standard error handling and optional result logging.
+ */
+const cronHandler = (
+  name: string,
+  fn: () => Promise<{ processed?: number; sent?: number; errors: string[] }>,
+  options: { logAlways?: boolean } = {},
+) => {
+  return async () => {
+    try {
+      const result = await fn();
+      const count = result.processed ?? result.sent ?? 0;
+      if (options.logAlways || count > 0) {
+        logger.info(`CronJob [${name}]: ${count} items processed, ${result.errors.length} errors`);
+      }
+      if (result.errors.length > 0) {
+        logger.warn(`CronJob [${name}] errors:`, result.errors);
+      }
+    } catch (error) {
+      logger.error(`CronJob [${name}] failed:`, error);
+    }
+  };
+};
+
+/**
  * Initialize all cron jobs.
  * Call this after the app has started and the database is connected.
  */
 export const initializeCronJobs = (): void => {
-  // Run daily at 00:01 — find confirmed bookings for today, set to inQueue, populate agent queues
-  cron.schedule('1 0 * * *', async () => {
-    logger.info('CronJob: Daily queue population started');
-    try {
-      const result = await queueService.populateDailyQueues();
-      logger.info(`CronJob: Daily queue population completed — ${result.processed} bookings processed, ${result.errors.length} errors`);
-      if (result.errors.length > 0) {
-        logger.warn('CronJob: Daily queue population errors:', result.errors);
-      }
-    } catch (error) {
-      logger.error('CronJob: Daily queue population failed:', error);
-    }
-  });
+  // Daily at 00:01 — populate agent queues from confirmed bookings
+  cron.schedule('1 0 * * *', cronHandler(
+    'DailyQueuePopulation',
+    () => queueService.populateDailyQueues(),
+    { logAlways: true },
+  ));
 
-  logger.info('CronJob: Daily queue population scheduled at 00:01');
+  // Daily at 00:05 — cleanup past queues (safety net)
+  cron.schedule('5 0 * * *', cronHandler(
+    'PastQueueCleanup',
+    () => queueService.cleanupPastQueues(),
+    { logAlways: true },
+  ));
+
+  // Every 10 minutes — send ~15-min queue reminders
+  cron.schedule('*/10 * * * *', cronHandler(
+    'QueueReminders',
+    () => queueService.sendQueueReminders(),
+  ));
+
+  // Every 30 minutes — cleanup queues for closed lounges
+  cron.schedule('*/30 * * * *', cronHandler(
+    'ClosedLoungeCleanup',
+    () => queueService.cleanupClosedLoungeQueues(),
+  ));
+
+  logger.info('CronJob: All cron jobs initialized (populate@00:01, cleanup@00:05, reminders@*/10, close@*/30)');
 };

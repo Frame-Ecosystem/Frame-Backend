@@ -7,6 +7,11 @@ export enum BookingStatus {
   ABSENT = 'absent',
 }
 
+export interface CancelledBy {
+  idUser: string;
+  cancelledByName: string;
+}
+
 export interface Booking {
   _id?: string;
   clientId: string; // Reference to User (client type)
@@ -14,7 +19,7 @@ export interface Booking {
   agentIds?: string[]; // List of agent IDs (Reference to User - agent type)
   loungeServiceIds?: string[]; // List of lounge service IDs being booked
   status: BookingStatus;
-  cancelledBy: string;
+  cancelledBy?: CancelledBy;
   bookingDate: Date;
   totalPrice?: number;
   totalDuration?: number; // Total duration in minutes for all services

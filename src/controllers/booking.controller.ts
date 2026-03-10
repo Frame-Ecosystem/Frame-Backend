@@ -116,26 +116,23 @@ class BookingController {
     }
   };
 
-  private validateUpdatePermissions(user: any, booking: any, bookingData: UpdateBookingDto): void {
+  private validateUpdatePermissions(user: any, booking: any, bookingData: any): void {
     const userType = user.type;
     const userId = user._id.toString();
     const clientId = booking.clientId._id.toString();
     const loungeId = booking.loungeId._id.toString();
 
-    // Automatically set cancelledBy when status is set to cancelled and not already provided
-    if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
+    // Automatically set cancelledBy from the authenticated user
+    if (bookingData.status === 'cancelled') {
+      let cancelledByName: string;
       if (userType === 'client') {
-        bookingData.cancelledBy = 'client';
+        cancelledByName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Client';
       } else if (userType === 'lounge') {
-        bookingData.cancelledBy = 'lounge';
+        cancelledByName = user.loungeTitle || [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Lounge';
       } else if (userType === 'admin') {
-        bookingData.cancelledBy = 'admin';
+        cancelledByName = 'Admin';
       }
-    }
-
-    // Validate that cancelledBy is provided when status is cancelled
-    if (bookingData.status === 'cancelled' && !bookingData.cancelledBy) {
-      throw new HttpException(400, 'cancelledBy is required when status is cancelled');
+      bookingData.cancelledBy = { idUser: userId, cancelledByName };
     }
 
     if (userType === 'client') {

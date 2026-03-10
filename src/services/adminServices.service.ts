@@ -14,14 +14,6 @@ class AdminServicesService {
    */
   public async getAllAdminServices(): Promise<any> {
     try {
-      // Debug: Check actual online users
-      const onlineUsersList = await this.users.find({ 'sessionTrack.isOnline': true }).select('email type sessionTrack').lean();
-
-      logger.info('AdminServicesService.getAllAdminServices: online users debug', {
-        count: onlineUsersList.length,
-        users: onlineUsersList,
-      });
-
       const adminStats = {
         totalUsers: await this.users.countDocuments(),
         onlineUsers: await this.users.countDocuments({ 'sessionTrack.isOnline': true }),
