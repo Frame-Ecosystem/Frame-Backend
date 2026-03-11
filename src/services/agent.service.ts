@@ -7,10 +7,12 @@ import { BadRequestException, NotFoundException, ConflictException } from '@/exc
 import { isEmpty } from '@/utils/util';
 import { logger } from '@utils/logger';
 import CloudinaryService from '@/services/cloudinary.service';
+import QueueService from '@/services/queue.service';
 class AgentService {
   public agents = agentModel;
   public users = userModel;
   public loungeServices = loungeServiceModel;
+  private queueService = new QueueService();
 
   /**
    * Create a new agent
@@ -89,6 +91,15 @@ class AgentService {
       // Fetch updated agent
       const finalAgent = await this.agents.findById(agent._id).populate('loungeId', 'loungeTitle email').populate('idLoungeService', 'serviceId');
       logger.info(`AgentService.createAgent: agent created ${imageUploaded ? 'with' : 'without'} image successfully: ${agent._id}`);
+
+      // Auto-create today's queue for the new agent
+      try {
+        await this.queueService.createQueue(agent._id.toString());
+        logger.info(`AgentService.createAgent: queue auto-created for agent ${agent._id}`);
+      } catch (queueError) {
+        logger.warn(`AgentService.createAgent: agent created but queue creation failed: ${queueError.message}`);
+      }
+
       return finalAgent;
     } catch (error) {
       logger.error('AgentService.createAgent: error creating agent', error);

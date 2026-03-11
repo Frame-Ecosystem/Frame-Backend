@@ -2,7 +2,7 @@ import { Router } from 'express';
 import AdminServicesController from '@controllers/adminServices.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import adminMiddleware from '@middlewares/admin.middleware';
+import { adminMiddleware } from '@middlewares/role.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 
 class AdminServicesRoute implements Routes {

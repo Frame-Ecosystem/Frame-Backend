@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import BookingController from '@controllers/booking.controller';
-import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
+import { CreateBookingDto, CreateQueueBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
@@ -20,7 +20,15 @@ class BookingRoute implements Routes {
 
     // Booking CRUD
     this.router.post('/', validationMiddleware(CreateBookingDto, 'body'), this.bookingController.createBooking);
+    this.router.post('/queue', validationMiddleware(CreateQueueBookingDto, 'body'), this.bookingController.createQueueBooking);
     this.router.get('/', this.bookingController.getAllBookings);
+
+    // Availability (must come before /:id to avoid route conflict)
+    this.router.get('/availability', this.bookingController.getAgentAvailability);
+
+    // Booking history (completed + cancelled) for the current user
+    this.router.get('/history', this.bookingController.getBookingHistory);
+
     this.router.get('/:id', this.bookingController.getBookingById);
     this.router.put('/:id', validationMiddleware(UpdateBookingDto, 'body'), this.bookingController.updateBooking);
     this.router.delete('/:id', this.bookingController.deleteBooking);

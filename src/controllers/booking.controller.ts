@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { HttpException } from '@exceptions/HttpException';
 import BookingService from '@services/booking.service';
-import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
+import { CreateBookingDto, CreateQueueBookingDto, UpdateBookingDto } from '@dtos/booking.dto';
 import { RequestWithUser } from '@interfaces/auth.interface';
 import { logger } from '@utils/logger';
 
@@ -19,6 +19,26 @@ class BookingController {
       });
     } catch (error) {
       logger.error(`Error in createBooking: ${error.message}`);
+      next(error);
+    }
+  };
+
+  public createQueueBooking = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userType = req.user.type;
+      if (!['client', 'lounge'].includes(userType)) {
+        throw new HttpException(403, 'Only clients and lounges can create queue bookings');
+      }
+
+      const bookingData: CreateQueueBookingDto = req.body;
+      const booking = await this.bookingService.createQueueBooking(bookingData);
+      res.status(201).json({
+        success: true,
+        data: booking,
+        message: 'Queue booking created successfully',
+      });
+    } catch (error) {
+      logger.error(`Error in createQueueBooking: ${error.message}`);
       next(error);
     }
   };
@@ -57,10 +77,10 @@ class BookingController {
       const userId = req.user._id.toString();
 
       // Check permissions
-      if (req.user.type === 'client' && booking.clientId._id.toString() !== userId) {
+      if (req.user.type === 'client' && (booking.clientId as any)._id.toString() !== userId) {
         throw new HttpException(403, 'You can only view your own bookings');
       }
-      if (req.user.type === 'lounge' && booking.loungeId._id.toString() !== userId) {
+      if (req.user.type === 'lounge' && (booking.loungeId as any)._id.toString() !== userId) {
         throw new HttpException(403, 'You can only view bookings for your lounge');
       }
 
@@ -156,6 +176,28 @@ class BookingController {
     }
   };
 
+  public getBookingHistory = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const userType = req.user.type;
+
+      if (!['client', 'lounge', 'admin'].includes(userType)) {
+        throw new HttpException(403, 'Unauthorized access');
+      }
+
+      const bookings = await this.bookingService.getBookingHistory(userId, userType);
+      res.status(200).json({
+        success: true,
+        data: bookings,
+        count: bookings.length,
+        message: 'Booking history retrieved successfully',
+      });
+    } catch (error) {
+      logger.error(`Error in getBookingHistory: ${error.message}`);
+      next(error);
+    }
+  };
+
   public getClientBookingStats = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { clientId } = req.params;
@@ -194,6 +236,29 @@ class BookingController {
       });
     } catch (error) {
       logger.error(`Error in getLoungeBookingStats: ${error.message}`);
+      next(error);
+    }
+  };
+
+  public getAgentAvailability = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { agentIds } = req.query;
+      if (!agentIds || typeof agentIds !== 'string') {
+        throw new HttpException(400, 'Agent IDs are required');
+      }
+      const ids = agentIds.split(',').map(id => id.trim());
+      if (ids.length === 0) {
+        throw new HttpException(400, 'At least one agent ID is required');
+      }
+
+      const unavailability = await this.bookingService.getAgentUnavailability(ids);
+      res.status(200).json({
+        success: true,
+        data: unavailability,
+        message: 'Agent unavailability retrieved successfully',
+      });
+    } catch (error) {
+      logger.error(`Error in getAgentAvailability: ${error.message}`);
       next(error);
     }
   };

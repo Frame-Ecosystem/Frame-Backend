@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, MinLength } from 'class-validator';
+import { IsString, IsOptional, IsNumber, MaxLength, MinLength, Min } from 'class-validator';
 
 export class CreateServiceDto {
   @IsString()
@@ -13,6 +13,15 @@ export class CreateServiceDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  baseDuration?: number;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }
 
 export class UpdateServiceDto {
@@ -30,4 +39,13 @@ export class UpdateServiceDto {
   @IsString()
   @MaxLength(500)
   description?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  baseDuration?: number;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
 }

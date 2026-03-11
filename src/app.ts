@@ -10,6 +10,8 @@ import { connect, set, disconnect } from 'mongoose';
 import YAML from 'yamljs';
 import swaggerUi from 'swagger-ui-express';
 import path from 'path';
+import os from 'os';
+import { createServer, Server as HTTPServer } from 'http';
 import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
@@ -17,17 +19,23 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
 import { REQUEST_BODY_LIMIT } from './config/constants';
+import SocketService from '@services/socket.service';
 import './config/passport'; // Initialize Passport
 
 class App {
   public app: express.Application;
   public env: string;
   public port: string | number;
+  public httpServer: HTTPServer;
 
   constructor(routes: Routes[]) {
     this.app = express();
+    this.httpServer = createServer(this.app);
     this.env = NODE_ENV || 'development';
     this.port = PORT || 3000;
+
+    // Initialize Socket.IO on the HTTP server
+    SocketService.getInstance().initialize(this.httpServer);
 
     // Note: connectToDatabase is async but called without await here
     // This is intentional - the app initializes routes/middleware while DB connects
@@ -38,13 +46,30 @@ class App {
     this.initializeErrorHandling();
   }
 
+  private getLocalIPAddress(): string {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      const ifaceArray = interfaces[name];
+      if (ifaceArray) {
+        for (const iface of ifaceArray) {
+          if (iface.family === 'IPv4' && !iface.internal) {
+            return iface.address;
+          }
+        }
+      }
+    }
+    return 'localhost';
+  }
+
   public listen() {
-    this.app.listen(Number(this.port), '0.0.0.0', () => {
+    this.httpServer.listen(Number(this.port), '0.0.0.0', () => {
+      const localIP = this.getLocalIPAddress();
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on 0.0.0.0:${this.port}`);
-      logger.info(`📱 WiFi Access: http://[YOUR_IP]:${this.port}`);
-      logger.info(`📚 Swagger API Docs: http://localhost:${this.port}/api-docs`);
+      logger.info(`🚀 App listening on ${localIP}:${this.port}`);
+      logger.info(`📱 WiFi Access: http://${localIP}:${this.port}`);
+      logger.info(`📚 Swagger API Docs: http://${localIP}:${this.port}/api-docs`);
+      logger.info(`🔌 WebSocket: ws://${localIP}:${this.port}`);
       logger.info(`=================================`);
     });
   }
@@ -126,9 +151,15 @@ class App {
 
         // Allow 127.0.0.1 for local access
         if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
+        if (origin.startsWith('http://10.103.242.203')) return callback(null, true);
+        if (origin.startsWith('http://0.0.0.0')) return callback(null, true);
 
         // Allow WiFi network IPs (192.168.x.x range)
         if (origin.match(/^http:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
+
+        // Allow 172.x.x.x range (common for mobile hotspots and some networks)
+        if (origin.match(/^http:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
+        if (origin.match(/^http:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
 
         // Allow specific configured origin
         if (ORIGIN && origin === ORIGIN) return callback(null, true);
@@ -166,19 +197,29 @@ class App {
     // Readiness check endpoint
     this.app.get('/ready', async (req, res) => {
       try {
-        // Check database connection
-        await connect(dbConnection.url);
-        res.status(200).json({
-          status: 'ready',
-          timestamp: new Date().toISOString(),
-          database: 'connected',
-        });
+        // Check database connection status without reconnecting
+        const db = require('mongoose').connection;
+        if (db.readyState === 1) {
+          // 1 = connected
+          res.status(200).json({
+            status: 'ready',
+            timestamp: new Date().toISOString(),
+            database: 'connected',
+          });
+        } else {
+          res.status(503).json({
+            status: 'not ready',
+            timestamp: new Date().toISOString(),
+            database: 'disconnected',
+            readyState: db.readyState,
+          });
+        }
       } catch (error) {
         res.status(503).json({
           status: 'not ready',
           timestamp: new Date().toISOString(),
-          database: 'disconnected',
-          error: this.env === 'development' ? error.message : 'Database connection failed',
+          database: 'error',
+          error: this.env === 'development' ? error.message : 'Database connection check failed',
         });
       }
     });

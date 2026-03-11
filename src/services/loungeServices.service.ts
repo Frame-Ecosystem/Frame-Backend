@@ -1,4 +1,4 @@
-import { LoungeService } from '@interfaces/loungeService.interface';
+import { LoungeService, LoungeServiceStatus } from '@interfaces/loungeService.interface';
 import { User } from '@interfaces/users.interface';
 import loungeServiceModel from '@models/loungeService.model';
 import serviceModel from '@models/service.model';

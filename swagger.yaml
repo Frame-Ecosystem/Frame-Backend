@@ -32,6 +32,7 @@ tags:
   - name: agents
   - name: lounge
   - name: bookings
+  - name: queues
 paths:
  # ============================================
   # AUTH ENDPOINTS
@@ -1015,6 +1016,57 @@ paths:
               message:
                 type: string
                 example: Profile image uploaded successfully
+        400:
+          description: No file uploaded or invalid file type
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        401:
+          description: Not authenticated
+        403:
+          description: CSRF token invalid
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        404:
+          description: User not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        500:
+          description: Server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+
+  /v1/me/cover-image:
+    put:
+      tags:
+        - current users
+      summary: Upload current user's cover image
+      description: |
+        Upload or update the currently authenticated user's cover image.
+        **User ID is automatically extracted from the authentication token.**
+        No ID parameter required.
+        Supported formats: JPEG, PNG, GIF, WebP. Max size: 5MB.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: coverImage
+          in: formData
+          required: true
+          type: file
+          description: Image file (JPEG, PNG, GIF, WebP - max 5MB)
+      responses:
+        200:
+          description: Image uploaded successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+                example: Cover image uploaded successfully
         400:
           description: No file uploaded or invalid file type
           schema:
@@ -4204,6 +4256,437 @@ paths:
         500:
           description: Server error
 
+  /v1/bookings/availability:
+    get:
+      tags:
+        - bookings
+      summary: Get agent availability (unavailable times)
+      description: |
+        Retrieve unavailable time slots for specified agents. Returns dates and times when agents are booked.
+        Use this to determine when agents are NOT available for booking appointments.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: agentIds
+          in: query
+          required: true
+          type: string
+          description: Comma-separated list of agent IDs
+          example: "507f1f77bcf86cd799439011,507f1f77bcf86cd799439012"
+      responses:
+        200:
+          description: Agent unavailability retrieved successfully
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: true
+              data:
+                type: object
+                properties:
+                  unavailableSlots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        date:
+                          type: string
+                          format: date
+                          example: "2026-02-21"
+                        unavailableTimes:
+                          type: array
+                          items:
+                            type: string
+                            example: "09:00"
+                          description: Array of time slots in HH:MM format when agents are unavailable
+                  loungeOpeningHours:
+                    type: object
+                    description: Lounge opening hours including closed days
+                    properties:
+                      monday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: "09:00"
+                          to:
+                            type: string
+                            example: "17:00"
+                      tuesday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: "09:00"
+                          to:
+                            type: string
+                            example: "17:00"
+                      wednesday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: "09:00"
+                          to:
+                            type: string
+                            example: "17:00"
+                      thursday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: "09:00"
+                          to:
+                            type: string
+                            example: "17:00"
+                      friday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: "09:00"
+                          to:
+                            type: string
+                            example: "17:00"
+                      saturday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: null
+                          to:
+                            type: string
+                            example: null
+                        description: null values indicate the lounge is closed
+                      sunday:
+                        type: object
+                        properties:
+                          from:
+                            type: string
+                            example: null
+                          to:
+                            type: string
+                            example: null
+                        description: null values indicate the lounge is closed
+              message:
+                type: string
+                example: "Agent unavailability retrieved successfully"
+        400:
+          description: Invalid request - Agent IDs required
+        401:
+          description: Unauthorized - Authentication required
+        500:
+          description: Server error
+
+# ============================================
+# QUEUE ENDPOINTS
+# ============================================
+
+  /v1/queues/agent/{agentId}:
+    get:
+      tags:
+        - queues
+      summary: Get an agent's queue
+      description: Retrieve the queue for a specific agent. Defaults to today's queue. Use ?date=YYYY-MM-DD to query a specific date.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          type: string
+          description: Agent ID
+          example: "507f1f77bcf86cd799439011"
+        - name: date
+          in: query
+          required: false
+          type: string
+          format: date
+          description: Date to query (defaults to today)
+          example: "2026-02-24"
+      responses:
+        200:
+          description: Queue retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Queue'
+              message:
+                type: string
+                example: "Queue retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin, lounge, or client access required
+        404:
+          description: Queue not found for this agent on this date
+        500:
+          description: Server error
+
+  /v1/queues/lounge/{loungeId}:
+    get:
+      tags:
+        - queues
+      summary: Get all queues for a lounge
+      description: Retrieve all agent queues for a specific lounge. Defaults to today. Use ?date=YYYY-MM-DD to query a specific date.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loungeId
+          in: path
+          required: true
+          type: string
+          description: Lounge ID
+          example: "507f1f77bcf86cd799439011"
+        - name: date
+          in: query
+          required: false
+          type: string
+          format: date
+          description: Date to query (defaults to today)
+          example: "2026-02-24"
+      responses:
+        200:
+          description: Lounge queues retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Queue'
+              count:
+                type: integer
+                example: 3
+              message:
+                type: string
+                example: "Lounge queues retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin, lounge, or client access required
+        500:
+          description: Server error
+
+  /v1/queues/lounge:
+    get:
+      tags:
+        - queues
+      summary: Get all queues for authenticated lounge
+      description: Retrieve all agent queues for the authenticated lounge user. Defaults to today.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: false
+          type: string
+          format: date
+          description: Date to query (defaults to today)
+          example: "2026-02-24"
+      responses:
+        200:
+          description: Lounge queues retrieved successfully
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Queue'
+              count:
+                type: integer
+                example: 3
+              message:
+                type: string
+                example: "Lounge queues retrieved successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin, lounge, or client access required
+        500:
+          description: Server error
+
+  /v1/queues/agent/{agentId}/persons:
+    post:
+      tags:
+        - queues
+      summary: Add a person to an agent's queue
+      description: Add a booking (person) to an agent's queue. The booking must have inQueue status and the agent must be assigned to it.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          type: string
+          description: Agent ID
+          example: "507f1f77bcf86cd799439011"
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AddToQueueDto'
+      responses:
+        201:
+          description: Person added to queue successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Queue'
+              message:
+                type: string
+                example: "Person added to queue successfully"
+        400:
+          description: Invalid request (booking not inQueue, agent not assigned, already in queue)
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin or lounge access required
+        404:
+          description: Booking not found
+        500:
+          description: Server error
+
+  /v1/queues/agent/{agentId}/persons/{bookingId}:
+    put:
+      tags:
+        - queues
+      summary: Update a person's status in the queue
+      description: |
+        Update the status of a person in an agent's queue. Valid transitions:
+        - waiting → inService (start serving)
+        - waiting → absent (person didn't show up)
+        - inService → completed (service done)
+        - absent → waiting (person arrived late)
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          type: string
+          description: Agent ID
+          example: "507f1f77bcf86cd799439011"
+        - name: bookingId
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439012"
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateQueuePersonDto'
+      responses:
+        200:
+          description: Person status updated successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Queue'
+              message:
+                type: string
+                example: "Person status updated successfully"
+        400:
+          description: Invalid status transition
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin or lounge access required
+        404:
+          description: Queue or person not found
+        500:
+          description: Server error
+    delete:
+      tags:
+        - queues
+      summary: Remove a person from an agent's queue
+      description: Remove a booking (person) from an agent's queue. Remaining positions are automatically re-ordered.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: agentId
+          in: path
+          required: true
+          type: string
+          description: Agent ID
+          example: "507f1f77bcf86cd799439011"
+        - name: bookingId
+          in: path
+          required: true
+          type: string
+          description: Booking ID
+          example: "507f1f77bcf86cd799439012"
+      responses:
+        200:
+          description: Person removed from queue successfully
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Queue'
+              message:
+                type: string
+                example: "Person removed from queue successfully"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin or lounge access required
+        404:
+          description: Queue or person not found
+        500:
+          description: Server error
+
+  /v1/queues/populate:
+    post:
+      tags:
+        - queues
+      summary: Trigger daily queue population (admin only)
+      description: |
+        Manually trigger the daily queue population process. This finds all confirmed bookings
+        for today, sets their status to inQueue, and adds them to each assigned agent's queue.
+        Normally runs automatically via cron at 00:01 daily.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Daily queues populated
+          schema:
+            type: object
+            properties:
+              data:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                    description: Number of bookings processed
+                    example: 12
+                  errors:
+                    type: array
+                    items:
+                      type: string
+                    description: List of error messages (if any)
+              message:
+                type: string
+                example: "Daily queues populated: 12 bookings processed"
+        401:
+          description: Unauthorized - Authentication required
+        403:
+          description: Forbidden - Admin access required
+        500:
+          description: Server error
+
 # ============================================
 # DEFINITIONS
 # ============================================
@@ -5065,3 +5548,99 @@ definitions:
         type: number
         description: Total revenue generated (for lounge stats)
         example: 2250.00
+
+  # ============================================
+  # QUEUE DEFINITIONS
+  # ============================================
+
+  QueuePersonStatus:
+    type: string
+    enum:
+      - waiting
+      - inService
+      - completed
+      - absent
+    description: |
+      Status of a person in the queue:
+      - waiting: Person is waiting to be served
+      - inService: Person is currently being served
+      - completed: Service is done
+      - absent: Person did not show up
+
+  QueuePerson:
+    type: object
+    properties:
+      bookingId:
+        type: string
+        description: Reference to the Booking
+        example: "507f1f77bcf86cd799439012"
+      clientId:
+        type: string
+        description: Reference to the User (client)
+        example: "507f1f77bcf86cd799439013"
+      position:
+        type: integer
+        description: Order in the queue (1-based)
+        example: 1
+        minimum: 1
+      status:
+        $ref: '#/definitions/QueuePersonStatus'
+      joinedAt:
+        type: string
+        format: date-time
+        description: When the person entered the queue
+        example: "2026-02-24T08:30:00.000Z"
+
+  Queue:
+    type: object
+    properties:
+      _id:
+        type: string
+        description: Queue ID
+        example: "507f1f77bcf86cd799439014"
+      agentId:
+        type: string
+        description: Reference to the Agent (one-to-one per day)
+        example: "507f1f77bcf86cd799439011"
+      date:
+        type: string
+        format: date
+        description: The day this queue is for
+        example: "2026-02-24"
+      persons:
+        type: array
+        items:
+          $ref: '#/definitions/QueuePerson'
+        description: List of persons in the queue, ordered by position
+      createdAt:
+        type: string
+        format: date-time
+        example: "2026-02-24T00:01:00.000Z"
+      updatedAt:
+        type: string
+        format: date-time
+        example: "2026-02-24T09:15:00.000Z"
+
+  AddToQueueDto:
+    type: object
+    required:
+      - bookingId
+    properties:
+      bookingId:
+        type: string
+        description: The booking ID to add to the queue (must be inQueue status)
+        example: "507f1f77bcf86cd799439012"
+      position:
+        type: integer
+        description: Position in queue (optional, appends to end if omitted)
+        example: 1
+        minimum: 1
+
+  UpdateQueuePersonDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        $ref: '#/definitions/QueuePersonStatus'
+        description: "New status. Valid transitions: waiting→inService, waiting→absent, inService→completed, absent→waiting"

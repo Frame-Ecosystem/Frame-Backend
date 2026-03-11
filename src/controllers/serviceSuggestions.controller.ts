@@ -41,16 +41,11 @@ class ServiceSuggestionsController {
       const limit = parseInt(req.query.limit as string) || 20;
       const status = req.query.status as ServiceSuggestionStatus;
 
-      // TEMPORARY: Bypass filtering to check if data exists
-      // If user is a lounge, only show their own suggestions; admins see all
-      const filterLoungeId = undefined; // Temporarily set to undefined to see all data
-      // let filterLoungeId = loungeId;
-      // if (req.user.type === 'lounge') {
-      //   filterLoungeId = req.user._id?.toString();
-      // } else if (req.user.type === 'admin') {
-      //   // Admins can see all suggestions - don't filter by loungeId
-      //   filterLoungeId = undefined;
-      // }
+      // Lounges only see their own suggestions; admins see all
+      let filterLoungeId: string | undefined;
+      if (req.user.type === 'lounge') {
+        filterLoungeId = req.user._id?.toString();
+      }
 
       const result = await this.serviceSuggestionsService.getServiceSuggestionsPaginated(page, limit, status, filterLoungeId);
 
@@ -79,7 +74,7 @@ class ServiceSuggestionsController {
       const suggestion = await this.serviceSuggestionsService.getServiceSuggestionById(suggestionId);
 
       // Check if user can access this suggestion
-      if (req.user.type === 'lounge' && suggestion.loungeId._id.toString() !== req.user._id?.toString()) {
+      if (req.user.type === 'lounge' && (suggestion.loungeId as any)._id.toString() !== req.user._id?.toString()) {
         return res.status(403).json({ message: 'Access denied' });
       }
 

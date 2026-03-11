@@ -4,7 +4,7 @@ import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@/dtos/servi
 import { Routes } from '@/interfaces/routes.interface';
 import validationMiddleware from '@/middlewares/validation.middleware';
 import authMiddleware from '@/middlewares/auth.middleware';
-import adminMiddleware from '@/middlewares/admin.middleware';
+import { adminMiddleware } from '@/middlewares/role.middleware';
 
 class ServiceCategoriesRoute implements Routes {
   public path = '/v1/admin/service-categories';

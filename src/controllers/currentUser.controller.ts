@@ -99,6 +99,19 @@ class CurrentUserController {
     }
   };
 
+  public uploadCoverImage = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No image file provided' });
+      }
+      const userId = req.user._id.toString();
+      const updatedUser: User = await this.currentUserService.uploadCoverImage(userId, req.file);
+      res.status(200).json({ data: stripSensitiveFields(updatedUser), message: 'Cover image uploaded successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public deleteMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();

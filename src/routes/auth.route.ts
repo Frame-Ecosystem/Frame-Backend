@@ -7,6 +7,7 @@ import validationMiddleware from '@middlewares/validation.middleware';
 import { loginRateLimiter, signupRateLimiter } from '@middlewares/rate-limit.middleware';
 import passport from 'passport';
 import { FRONTEND_BASE_URL } from '@config';
+import { logger } from '@utils/logger';
 
 class AuthRoute implements Routes {
   public path = '/v1/auth';
@@ -37,20 +38,20 @@ class AuthRoute implements Routes {
       const { type } = req.query;
       passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'consent', state: `signup:${type as string}` })(req, res, next);
     });
-    // Handle cases where users directly access callback without prior auth by including scope
-    this.router.get(
-      '/google/callback',
-      passport.authenticate('google', {
-        session: false,
-        scope: ['profile', 'email'],
-        failureRedirect: '/v1/auth/google/failure',
-      }),
-      this.authController.googleAuthCallback,
-    );
-    // Failure redirect endpoint
-    this.router.get('/google/failure', (req, res) => {
-      const failureRedirect = `${FRONTEND_BASE_URL}/auth/google/callback?status=error&error=oauth_failed`;
-      return res.redirect(failureRedirect);
+    // Google OAuth callback with custom handler to capture specific error messages
+    this.router.get('/google/callback', (req, res, next) => {
+      passport.authenticate('google', { session: false }, (err, user, info) => {
+        if (err) {
+          logger.error(`Google OAuth error: ${err.message}`);
+          return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=error&error=oauth_failed`);
+        }
+        if (!user) {
+          const errorCode = info?.message || 'oauth_failed';
+          return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=error&error=${encodeURIComponent(errorCode)}`);
+        }
+        req.user = user;
+        this.authController.googleAuthCallback(req, res, next);
+      })(req, res, next);
     });
   }
 }

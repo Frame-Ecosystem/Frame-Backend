@@ -22,6 +22,7 @@ const main = async () => {
   const { default: AgentRoute } = await import('@routes/agent.route');
   const { default: LoungeRoute } = await import('@routes/lounge.route');
   const { default: BookingRoute } = await import('@routes/booking.route');
+  const { default: QueueRoute } = await import('@routes/queue.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
@@ -38,9 +39,14 @@ const main = async () => {
     new AgentRoute(),
     new LoungeRoute(),
     new BookingRoute(),
+    new QueueRoute(),
   ]);
 
   app.listen();
+
+  // Initialize cron jobs (daily queue population)
+  const { initializeCronJobs } = await import('@utils/cron');
+  initializeCronJobs();
 
   // Graceful shutdown handlers
   const gracefulShutdown = async (signal: string) => {

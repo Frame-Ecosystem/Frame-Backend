@@ -2,8 +2,7 @@ import { Router } from 'express';
 import ClientController from '@controllers/client.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import clientOrAdminMiddleware from '@middlewares/clientOrAdmin.middleware';
-import adminOrLoungeOrClientMiddleware from '@middlewares/adminOrLoungeOrClient.middleware';
+import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
 
 class ClientRoute implements Routes {
   public path = '/v1/client';

@@ -1,19 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import ServicesService from '@services/services.service';
-
-interface CreateServiceDto {
-  name: string;
-  categoryId: string;
-  baseDuration?: number;
-  status?: string;
-}
-
-interface UpdateServiceDto {
-  name?: string;
-  categoryId?: string;
-  baseDuration?: number;
-  status?: string;
-}
+import { CreateServiceDto, UpdateServiceDto } from '@dtos/services.dto';
 
 class ServicesController {
   public servicesService = new ServicesService();

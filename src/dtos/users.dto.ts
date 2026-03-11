@@ -131,6 +131,9 @@ const VALIDATION_MESSAGES = {
   profileImage: {
     invalid: 'Profile image must be a valid URL',
   },
+  coverImage: {
+    invalid: 'Cover image must be a valid URL',
+  },
   login: {
     emailOrPhone: 'Email or phone number is required',
     password: 'Password is required',
@@ -334,6 +337,10 @@ export class UpdateUserDto {
   @IsOptional()
   @IsUrl({}, { message: VALIDATION_MESSAGES.profileImage.invalid })
   public profileImage?: string;
+
+  @IsOptional()
+  @IsUrl({}, { message: VALIDATION_MESSAGES.coverImage.invalid })
+  public coverImage?: string;
 
   @IsOptional()
   public isBlocked?: boolean;

@@ -20,6 +20,10 @@ export class CreateAgentDto {
   isBlocked?: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  acceptQueueBooking?: boolean;
+
+  @IsOptional()
   @IsString()
   profileImage?: string; // Base64 encoded image string
 }
@@ -36,4 +40,8 @@ export class UpdateAgentDto {
   @IsOptional()
   @IsBoolean()
   isBlocked?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  acceptQueueBooking?: boolean;
 }

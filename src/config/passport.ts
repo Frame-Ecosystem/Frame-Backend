@@ -26,7 +26,7 @@ passport.use(
           // Existing user with Google ID
           if (state.startsWith('signup:')) {
             // Trying to signup but user exists - block
-            return done(new Error('User already exists. Please use login instead.'), null);
+            return done(null, false, { message: 'account_exists' });
           }
           // For login or other, proceed
           user.oauth.google = {
@@ -55,7 +55,7 @@ passport.use(
           // Link Google account to existing user
           if (state.startsWith('signup:')) {
             // Trying to signup but user exists - block
-            return done(new Error('User already exists. Please use login instead.'), null);
+            return done(null, false, { message: 'account_exists' });
           }
           existingUser.oauth = existingUser.oauth || {};
           existingUser.oauth.google = {
@@ -79,7 +79,7 @@ passport.use(
         // No existing user
         if (state === 'login') {
           // Trying to login but user doesn't exist - block
-          return done(new Error('User does not exist. Please use signup instead.'), null);
+          return done(null, false, { message: 'account_not_found' });
         }
 
         // For signup
