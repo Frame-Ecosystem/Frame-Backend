@@ -1,8 +1,8 @@
-import AdminService from '../services/admin.service';
-import { CreateUserDto, UpdateUserDto } from '../dtos/users.dto';
-import userModel from '../models/users.model';
+import AdminService from '../services/user/admin.service';
+import { CreateUserDto, UpdateUserDto } from '../dtos/user/users.dto';
+import userModel from '../models/user/users.model';
 
-jest.mock('../models/users.model');
+jest.mock('../models/user/users.model');
 
 const adminService = new AdminService();
 
@@ -19,7 +19,7 @@ describe('AdminService', () => {
       };
       (userModel.find as jest.Mock).mockReturnValue(mockQueryChain);
       (userModel.countDocuments as jest.Mock).mockResolvedValue(1);
-      const result = await adminService.findUsersPaginated({}, 1, 20);
+      const result = await adminService.findUsersPaginated('', 1, 20);
       expect(result).toEqual({ users: [{ _id: '1', email: 'a@email.com' }], total: 1 });
     });
     it('should handle errors', async () => {
@@ -28,7 +28,7 @@ describe('AdminService', () => {
         limit: jest.fn().mockRejectedValue(new Error('fail')),
       };
       (userModel.find as jest.Mock).mockReturnValue(mockQueryChain);
-      await expect(adminService.findUsersPaginated({}, 1, 20)).rejects.toThrow('Operation failed. Please try again');
+      await expect(adminService.findUsersPaginated('', 1, 20)).rejects.toThrow('Operation failed. Please try again');
     });
   });
 

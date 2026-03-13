@@ -19,7 +19,7 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
 import { REQUEST_BODY_LIMIT } from './config/constants';
-import SocketService from '@services/socket.service';
+import SocketService from '@services/realtime/socket.service';
 import './config/passport'; // Initialize Passport
 
 class App {

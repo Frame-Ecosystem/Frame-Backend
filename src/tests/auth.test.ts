@@ -3,8 +3,9 @@ import { BCRYPT_ROUNDS } from '../config/constants';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import App from '@/app';
-import { CreateUserDto, LoginUserDto } from '@dtos/users.dto';
-import AuthRoute from '@routes/auth.route';
+import { CreateUserDto } from '@dtos/user/users.dto';
+import { LoginUserDto } from '@dtos/auth/auth.dto';
+import AuthRoute from '@routes/auth/auth.route';
 
 // Valid test data that passes DTO validation
 const validUserData: CreateUserDto = {

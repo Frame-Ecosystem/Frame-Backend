@@ -2,8 +2,8 @@ import { NextFunction, Response } from 'express';
 import { verify, JsonWebTokenError, TokenExpiredError, NotBeforeError } from 'jsonwebtoken';
 import { SECRET_KEY } from '@config';
 import { HttpException } from '@exceptions/HttpException';
-import { DataStoredInToken, RequestWithUser } from '@interfaces/auth.interface';
-import userModel from '@models/users.model';
+import { DataStoredInToken, RequestWithUser } from '@interfaces/auth/auth.interface';
+import userModel from '@models/user/users.model';
 import { logSecurityEvent } from '@utils/logger';
 
 // Generic error message for client (security: don't leak internal details)

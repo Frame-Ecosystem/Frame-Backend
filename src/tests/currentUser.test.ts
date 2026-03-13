@@ -1,9 +1,9 @@
-import { ChangePasswordDto } from '../dtos/users.dto';
+import { ChangePasswordDto } from '../dtos/user/users.dto';
 import bcrypt from 'bcrypt';
-import CurrentUserService from '../services/currentUser.service';
-import userModel from '../models/users.model';
+import CurrentUserService from '../services/user/currentUser.service';
+import userModel from '../models/user/users.model';
 
-jest.mock('../models/users.model');
+jest.mock('../models/user/users.model');
 jest.mock('../services/cloudinary.service', () => ({
   __esModule: true,
   default: {

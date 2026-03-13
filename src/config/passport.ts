@@ -1,10 +1,35 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { User } from '@interfaces/users.interface';
+import { User } from '@interfaces/user/users.interface';
 import { Document } from 'mongoose';
-import userModel from '@models/users.model';
+import userModel from '@models/user/users.model';
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '@config';
 import { logger } from '@utils/logger';
+
+/**
+ * Build Google OAuth profile data from a passport profile object.
+ */
+function buildGoogleOAuthData(profile: any) {
+  return {
+    id: profile.id,
+    email: profile.emails?.[0]?.value,
+    name: profile.displayName,
+    picture: profile.photos?.[0]?.value,
+    verified: profile.emails?.[0]?.verified || false,
+  };
+}
+
+/**
+ * Sanitize legacy refreshTokens that may not match the current schema.
+ * Clears the array if any entry is malformed.
+ */
+function sanitizeRefreshTokens(user: any): void {
+  if (!Array.isArray(user.refreshTokens)) return;
+  const valid = user.refreshTokens.every((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
+  if (!valid) {
+    user.refreshTokens = [];
+  }
+}
 
 // Configure Passport Google OAuth Strategy
 passport.use(
@@ -17,33 +42,17 @@ passport.use(
     },
     async (req, accessToken, refreshToken, profile, done) => {
       try {
-        const state = (req.query.state as string) || 'login'; // Default to login if no state
+        const state = (req.query.state as string) || 'login';
 
         // Check if user already exists with this Google ID
         const user = await userModel.findOne({ 'oauth.google.id': profile.id });
 
         if (user) {
-          // Existing user with Google ID
           if (state.startsWith('signup:')) {
-            // Trying to signup but user exists - block
             return done(null, false, { message: 'account_exists' });
           }
-          // For login or other, proceed
-          user.oauth.google = {
-            id: profile.id,
-            email: profile.emails?.[0]?.value,
-            name: profile.displayName,
-            picture: profile.photos?.[0]?.value,
-            verified: profile.emails?.[0]?.verified || false,
-          };
-
-          // Sanitize legacy refreshTokens that may not match current schema
-          if (Array.isArray((user as any).refreshTokens)) {
-            const valid = (user as any).refreshTokens.every((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
-            if (!valid) {
-              (user as any).refreshTokens = [];
-            }
-          }
+          user.oauth.google = buildGoogleOAuthData(profile);
+          sanitizeRefreshTokens(user);
           await user.save();
           return done(null, user);
         }
@@ -52,63 +61,31 @@ passport.use(
         const existingUser = await userModel.findOne({ email: profile.emails?.[0]?.value });
 
         if (existingUser) {
-          // Link Google account to existing user
           if (state.startsWith('signup:')) {
-            // Trying to signup but user exists - block
             return done(null, false, { message: 'account_exists' });
           }
           existingUser.oauth = existingUser.oauth || {};
-          existingUser.oauth.google = {
-            id: profile.id,
-            email: profile.emails?.[0]?.value,
-            name: profile.displayName,
-            picture: profile.photos?.[0]?.value,
-            verified: profile.emails?.[0]?.verified || false,
-          };
-          // Sanitize legacy refreshTokens
-          if (Array.isArray((existingUser as any).refreshTokens)) {
-            const valid = (existingUser as any).refreshTokens.every((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
-            if (!valid) {
-              (existingUser as any).refreshTokens = [];
-            }
-          }
+          existingUser.oauth.google = buildGoogleOAuthData(profile);
+          sanitizeRefreshTokens(existingUser);
           await existingUser.save();
           return done(null, existingUser);
         }
 
-        // No existing user
+        // No existing user — must be a signup flow
         if (state === 'login') {
-          // Trying to login but user doesn't exist - block
           return done(null, false, { message: 'account_not_found' });
         }
 
-        // For signup
-        let userType = 'user';
-        if (state.startsWith('signup:')) {
-          userType = state.split(':')[1] || 'user';
-        }
+        const userType = state.startsWith('signup:') ? state.split(':')[1] || 'user' : 'user';
 
-        // Create new user
-        const userData = {
+        const newUser = await userModel.create({
           email: profile.emails?.[0]?.value,
           type: userType,
-          oauth: {
-            google: {
-              id: profile.id,
-              email: profile.emails?.[0]?.value,
-              name: profile.displayName,
-              picture: profile.photos?.[0]?.value,
-              verified: profile.emails?.[0]?.verified || false,
-            },
-          },
-          emailVerification: [{ isVerified: true }], // Google OAuth emails are verified
-          sessionTrack: {
-            isOnline: false,
-            devices: [],
-          },
-        };
+          oauth: { google: buildGoogleOAuthData(profile) },
+          emailVerification: [{ isVerified: true }],
+          sessionTrack: { isOnline: false, devices: [] },
+        });
 
-        const newUser = await userModel.create(userData);
         return done(null, newUser);
       } catch (error) {
         logger.error('Google OAuth error:', error);

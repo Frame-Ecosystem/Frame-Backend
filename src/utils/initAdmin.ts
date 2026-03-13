@@ -1,4 +1,4 @@
-import userModel from '@models/users.model';
+import userModel from '@models/user/users.model';
 import { hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '../config/constants';
 import { logger } from '@utils/logger';
