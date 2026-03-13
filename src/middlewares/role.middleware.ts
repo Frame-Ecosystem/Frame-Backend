@@ -1,7 +1,7 @@
 import { NextFunction, Response } from 'express';
 import { HttpException } from '@exceptions/HttpException';
-import { RequestWithUser } from '@interfaces/auth.interface';
-import { isAdmin, isLounge, isClient } from '@models/users.model';
+import { RequestWithUser } from '@interfaces/auth/auth.interface';
+import { isAdmin, isLounge, isClient } from '@models/user/users.model';
 import { logSecurityEvent, SecurityEventType } from '@utils/logger';
 
 type RoleChecker = (user: any) => boolean;

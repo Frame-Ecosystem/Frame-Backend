@@ -1,13 +1,13 @@
-import QueueService from '../services/queue.service';
-import { QueuePersonStatus } from '../interfaces/queue.interface';
-import { BookingStatus } from '../interfaces/booking.interface';
-import queueModel from '../models/queue.model';
-import bookingModel from '../models/booking.model';
-import agentModel from '../models/agent.model';
+import QueueService from '../services/queue/queue.service';
+import { QueuePersonStatus } from '../interfaces/queue/queue.interface';
+import { BookingStatus } from '../interfaces/booking/booking.interface';
+import queueModel from '../models/queue/queue.model';
+import bookingModel from '../models/booking/booking.model';
+import agentModel from '../models/user/agent.model';
 
-jest.mock('../models/queue.model');
-jest.mock('../models/booking.model');
-jest.mock('../models/agent.model');
+jest.mock('../models/queue/queue.model');
+jest.mock('../models/booking/booking.model');
+jest.mock('../models/user/agent.model');
 
 const queueService = new QueueService();
 

@@ -1,8 +1,10 @@
 import cron from 'node-cron';
-import QueueService from '@services/queue.service';
+import QueueService from '@services/queue/queue.service';
+import BookingService from '@services/booking/booking.service';
 import { logger } from '@utils/logger';
 
 const queueService = new QueueService();
+const bookingService = new BookingService();
 
 /**
  * Wrap a cron handler with standard error handling and optional result logging.
@@ -59,5 +61,12 @@ export const initializeCronJobs = (): void => {
     () => queueService.cleanupClosedLoungeQueues(),
   ));
 
-  logger.info('CronJob: All cron jobs initialized (populate@00:01, cleanup@00:05, reminders@*/10, close@*/30)');
+  // Daily at 00:10 — complete stale inQueue bookings from past days
+  cron.schedule('10 0 * * *', cronHandler(
+    'StaleInQueueCleanup',
+    () => bookingService.cleanupStaleInQueueBookings(),
+    { logAlways: true },
+  ));
+
+  logger.info('CronJob: All cron jobs initialized (populate@00:01, cleanup@00:05, staleInQueue@00:10, reminders@*/10, close@*/30)');
 };

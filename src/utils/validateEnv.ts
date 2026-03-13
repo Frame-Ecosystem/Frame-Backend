@@ -22,6 +22,11 @@ const validateEnv = () => {
     CLOUDINARY_CLOUD_NAME: str({ default: '' }),
     CLOUDINARY_API_KEY: str({ default: '' }),
     CLOUDINARY_API_SECRET: str({ default: '' }),
+    // Firebase push notifications (optional — push disabled if not set)
+    FIREBASE_SERVICE_ACCOUNT_PATH: str({ default: '', desc: 'Path to Firebase service account JSON file' }),
+    FIREBASE_PROJECT_ID: str({ default: '', desc: 'Firebase project ID (alternative to service account file)' }),
+    FIREBASE_CLIENT_EMAIL: str({ default: '', desc: 'Firebase client email (alternative to service account file)' }),
+    FIREBASE_PRIVATE_KEY: str({ default: '', desc: 'Firebase private key (alternative to service account file)' }),
   });
 
   // Validate Cloudinary config if image upload is enabled
