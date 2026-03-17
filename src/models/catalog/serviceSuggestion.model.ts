@@ -1,11 +1,5 @@
 import { model, Schema, Document } from 'mongoose';
-
-export enum ServiceSuggestionStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  IMPLEMENTED = 'implemented',
-}
+import { ServiceSuggestionStatus } from '@interfaces/catalog/serviceSuggestion.interface';
 
 export interface ServiceSuggestion extends Document {
   _id: string;

@@ -6,7 +6,7 @@ import { stripSensitiveFields } from '@utils/util';
 import CurrentUserService from '@services/user/currentUser.service';
 
 class CurrentUserController {
-  public currentUserService = new CurrentUserService();
+  private currentUserService = new CurrentUserService();
 
   public sendVerificationCode = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {

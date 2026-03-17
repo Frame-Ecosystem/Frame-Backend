@@ -40,10 +40,10 @@ export async function ensureAdminExists(): Promise<void> {
       return;
     }
 
-    const adminEmail = ADMIN_EMAIL || process.env.ADMIN_EMAIL;
-    const adminPassword = ADMIN_PASSWORD || process.env.ADMIN_PASSWORD;
+    const adminEmail = ADMIN_EMAIL;
+    const adminPassword = ADMIN_PASSWORD;
 
-    logger.info(`ensureAdminExists: using ADMIN_EMAIL=${adminEmail}; ADMIN_PASSWORD set=${!!(ADMIN_PASSWORD || process.env.ADMIN_PASSWORD)}`);
+    logger.info(`ensureAdminExists: using ADMIN_EMAIL=${adminEmail}; ADMIN_PASSWORD set=${!!ADMIN_PASSWORD}`);
 
     const hashed = await hash(adminPassword, BCRYPT_ROUNDS);
 

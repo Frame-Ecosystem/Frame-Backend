@@ -1,0 +1,231 @@
+openapi: 3.0.3
+info:
+  title: Frame API
+  version: 2.0.0
+  description: Backend API for the Frame ecosystem.
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Shared ──
+    Location:
+      type: object
+      required: [latitude, longitude, address, placeId]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        address: { type: string, maxLength: 500 }
+        placeId: { type: string, pattern: '^[A-Za-z0-9_-]+$' }
+        placeName: { type: string, maxLength: 200 }
+
+    OpeningHours:
+      type: object
+      properties:
+        from: { type: string, pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' }
+        to: { type: string, pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' }
+
+    DayOpeningHours:
+      type: object
+      properties:
+        monday: { $ref: '#/components/schemas/OpeningHours' }
+        tuesday: { $ref: '#/components/schemas/OpeningHours' }
+        wednesday: { $ref: '#/components/schemas/OpeningHours' }
+        thursday: { $ref: '#/components/schemas/OpeningHours' }
+        friday: { $ref: '#/components/schemas/OpeningHours' }
+        saturday: { $ref: '#/components/schemas/OpeningHours' }
+        sunday: { $ref: '#/components/schemas/OpeningHours' }
+
+    Error:
+      type: object
+      properties:
+        status: { type: integer }
+        message: { type: string }
+        code: { type: string }
+
+    Pagination:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    PostMedia:
+      type: object
+      properties:
+        url: { type: string, format: uri }
+        publicId: { type: string }
+
+    AuthorSummary:
+      type: object
+      properties:
+        _id: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        loungeTitle: { type: string }
+        profileImage: { type: string }
+        type: { type: string, enum: [client, lounge] }
+
+    Post:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        text: { type: string }
+        media:
+          type: array
+          items: { $ref: '#/components/schemas/PostMedia' }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isHidden: { type: boolean }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Reel:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        videoUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        caption: { type: string }
+        duration: { type: number, minimum: 1, maximum: 60 }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isHidden: { type: boolean }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Comment:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        targetId: { type: string }
+        targetType: { type: string, enum: [post, reel] }
+        text: { type: string }
+        parentCommentId: { type: string, nullable: true }
+        likeCount: { type: integer }
+        isHidden: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Report:
+      type: object
+      properties:
+        _id: { type: string }
+        reporterId: { $ref: '#/components/schemas/AuthorSummary' }
+        targetId: { type: string }
+        targetType: { type: string, enum: [post, reel, comment] }
+        reason: { type: string }
+        status: { type: string, enum: [pending, reviewed, dismissed] }
+        adminNote: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Hashtag:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        postCount: { type: integer }
+
+    FeedItem:
+      type: object
+      description: A post or reel with a contentType discriminator
+      properties:
+        contentType: { type: string, enum: [post, reel] }
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        text: { type: string }
+        media:
+          type: array
+          items: { $ref: '#/components/schemas/PostMedia' }
+        videoUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        caption: { type: string }
+        duration: { type: number }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+tags:
+  - name: Auth
+  - name: Current User
+  - name: Admin
+  - name: Admin Services
+  - name: Lounge Visitor Profile
+  - name: Agents
+  - name: Lounge
+  - name: Lounge Services
+  - name: Catalog Services
+  - name: Service Categories
+  - name: Service Suggestions
+  - name: Bookings
+  - name: Queues
+  - name: Notifications
+  - name: Ratings
+  - name: Likes
+  - name: Follows
+  - name: Client Visitor Profile
+  - name: Posts
+  - name: Reels
+  - name: Comments
+  - name: Feed
+  - name: Reports
+
+paths: {}

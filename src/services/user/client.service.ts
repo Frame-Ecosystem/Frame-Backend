@@ -35,139 +35,131 @@ interface LoungeWithDistance extends User {
 }
 
 class ClientService {
-  public users = userModel;
-  public loungeServices = loungeServiceModel;
+  private users = userModel;
+  private loungeServices = loungeServiceModel;
+
+  /* ------------------------------------------------------------------ */
+  /*  Shared lounge-fetch pipeline (distance + sort + paginate)         */
+  /* ------------------------------------------------------------------ */
+
+  private async fetchLounges(
+    filter: Record<string, any>,
+    params: PaginationParams,
+    context: string,
+  ): Promise<PaginatedLoungesResponse> {
+    const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', userLatitude, userLongitude } = params;
+
+    // Validate pagination
+    if (page < 1 || limit < 1 || limit > 100) {
+      logger.warn(`${context}: invalid pagination parameters`, { page, limit });
+      throw new BadRequestException('Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100', 'INVALID_PAGINATION');
+    }
+
+    logger.info(`${context}: Querying lounges with filter:`, filter);
+    const allLounges = await this.users
+      .find(filter)
+      .select('-password -refreshTokens -emailVerification -oauth')
+      .lean()
+      .exec();
+
+    logger.info(`${context}: Found ${allLounges.length} lounges before sorting`);
+
+    // Calculate distances & sort
+    let sortedLounges: LoungeWithDistance[] = allLounges as LoungeWithDistance[];
+    if (userLatitude != null && userLongitude != null && !isNaN(userLatitude) && !isNaN(userLongitude)) {
+      logger.info(`${context}: Calculating distances from (${userLatitude}, ${userLongitude})`);
+      sortedLounges = allLounges
+        .map(lounge => {
+          const loungeLat = lounge.location?.latitude;
+          const loungeLng = lounge.location?.longitude;
+          const distance =
+            loungeLat != null && loungeLng != null
+              ? this.calculateDistance(userLatitude, userLongitude, loungeLat, loungeLng)
+              : Infinity;
+          return { ...lounge, distance };
+        })
+        .sort((a, b) => a.distance - b.distance);
+    } else {
+      logger.info(`${context}: No location available, using traditional sorting`);
+      const validSortFields = ['createdAt', 'loungeTitle', 'firstName', 'lastName'];
+      const field = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+      const order = sortOrder === 'asc' ? 1 : -1;
+      sortedLounges = (allLounges as LoungeWithDistance[]).sort((a, b) => {
+        const aVal = a[field] || a.createdAt;
+        const bVal = b[field] || b.createdAt;
+        return order * (new Date(aVal).getTime() - new Date(bVal).getTime());
+      });
+    }
+
+    // Paginate
+    const totalItems = sortedLounges.length;
+    const skip = (page - 1) * limit;
+    const lounges = sortedLounges.slice(skip, skip + limit);
+    const totalPages = Math.ceil(totalItems / limit);
+
+    logger.info(`${context}: Returning ${lounges.length} lounges (page ${page}/${totalPages})`);
+
+    return {
+      lounges: lounges.map(({ distance: _d, ...rest }) => rest) as User[],
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
+      },
+    };
+  }
+
+  /** Build the common search/gender part of a lounge filter. */
+  private buildLoungeFilter(search?: string, gender?: string): Record<string, any> {
+    const filter: any = {
+      type: 'lounge',
+      isBlocked: { $ne: true },
+    };
+    if (search) {
+      filter.$or = [
+        { loungeTitle: { $regex: search, $options: 'i' } },
+        { firstName: { $regex: search, $options: 'i' } },
+        { lastName: { $regex: search, $options: 'i' } },
+        { bio: { $regex: search, $options: 'i' } },
+      ];
+    }
+    if (gender && ['male', 'female', 'unisex', 'kids'].includes(gender)) {
+      filter.gender = gender;
+    }
+    return filter;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /*  Public API                                                        */
+  /* ------------------------------------------------------------------ */
 
   /**
    * Get all lounges with pagination (for clients to browse)
    */
   public async getAllLounges(params: PaginationParams): Promise<PaginatedLoungesResponse> {
     try {
-      const { page = 1, limit = 10, search = '', gender, sortBy = 'createdAt', sortOrder = 'desc', clientId } = params;
+      const { clientId, search, gender } = params;
+      const context = 'ClientService.getAllLounges';
+      logger.info(`${context}: Starting with page=${params.page}, limit=${params.limit}, clientId=${clientId}`);
 
-      logger.info(`ClientService.getAllLounges: Starting with page=${page}, limit=${limit}, clientId=${clientId}`);
-
-      // Validate pagination parameters
-      if (page < 1 || limit < 1 || limit > 100) {
-        logger.warn('ClientService.getAllLounges: invalid pagination parameters', { page, limit });
-        throw new BadRequestException('Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100', 'INVALID_PAGINATION');
-      }
-
-      // Get client location if clientId is provided
-      let userLatitude: number | undefined;
-      let userLongitude: number | undefined;
-
-      if (clientId) {
-        logger.info(`ClientService.getAllLounges: Fetching client location for clientId=${clientId}`);
+      // Resolve client location when coordinates are not already passed
+      const enrichedParams = { ...params };
+      if (clientId && enrichedParams.userLatitude == null) {
         const client = await this.users.findById(clientId).select('location').lean().exec();
         if (client?.location?.latitude && client?.location?.longitude) {
-          userLatitude = client.location.latitude;
-          userLongitude = client.location.longitude;
-          logger.info(`ClientService.getAllLounges: Client location found: (${userLatitude}, ${userLongitude})`);
+          enrichedParams.userLatitude = client.location.latitude;
+          enrichedParams.userLongitude = client.location.longitude;
+          logger.info(`${context}: Client location found: (${enrichedParams.userLatitude}, ${enrichedParams.userLongitude})`);
         } else {
-          logger.warn(`ClientService.getAllLounges: Client ${clientId} has no location data`);
+          logger.warn(`${context}: Client ${clientId} has no location data`);
         }
       }
 
-      // Build query filter
-      const filter: any = {
-        type: 'lounge',
-        isBlocked: { $ne: true }, // Exclude blocked lounges
-      };
-
-      // Add search filter (search in loungeTitle, firstName, lastName, bio)
-      if (search) {
-        filter.$or = [
-          { loungeTitle: { $regex: search, $options: 'i' } },
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
-          { bio: { $regex: search, $options: 'i' } },
-        ];
-      }
-
-      // Add gender filter
-      if (gender && ['male', 'female', 'unisex', 'kids'].includes(gender)) {
-        filter.gender = gender;
-      }
-
-      // Get all lounges first (without pagination) for distance calculation
-      logger.info(`ClientService.getAllLounges: Querying lounges with filter:`, filter);
-      const allLounges = await this.users
-        .find(filter)
-        .select('-password -refreshTokens -emailVerification -oauth') // Exclude sensitive fields
-        .lean()
-        .exec();
-
-      logger.info(`ClientService.getAllLounges: Found ${allLounges.length} lounges before sorting`);
-
-      // Calculate distances if user location is available
-      let sortedLounges: LoungeWithDistance[] = allLounges as LoungeWithDistance[];
-      if (userLatitude !== undefined && userLongitude !== undefined && !isNaN(userLatitude) && !isNaN(userLongitude)) {
-        logger.info(`ClientService.getAllLounges: Calculating distances from client location (${userLatitude}, ${userLongitude})`);
-        // Calculate distance for each lounge and sort by distance (nearest first)
-        sortedLounges = allLounges
-          .map(lounge => {
-            const loungeLat = lounge.location?.latitude;
-            const loungeLng = lounge.location?.longitude;
-
-            if (loungeLat !== undefined && loungeLng !== undefined) {
-              const distance = this.calculateDistance(userLatitude, userLongitude, loungeLat, loungeLng);
-              return { ...lounge, distance };
-            } else {
-              // If lounge has no location, put it at the end
-              return { ...lounge, distance: Infinity };
-            }
-          })
-          .sort((a, b) => a.distance - b.distance); // Sort ascending: nearest first
-        logger.info(`ClientService.getAllLounges: Sorted ${sortedLounges.length} lounges by distance (nearest first)`);
-        logger.info(`ClientService.getAllLounges: First lounge distance: ${sortedLounges[0]?.distance || 'N/A'} km`);
-      } else {
-        logger.info(`ClientService.getAllLounges: No client location available, using traditional sorting`);
-        // Use traditional sorting if no location provided
-        const sort: any = {};
-        const validSortFields = ['createdAt', 'loungeTitle', 'firstName', 'lastName'];
-        if (validSortFields.includes(sortBy)) {
-          sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-        } else {
-          sort.createdAt = -1; // Default sort
-        }
-
-        sortedLounges = (allLounges as LoungeWithDistance[]).sort((a, b) => {
-          const aValue = a[sortBy] || a.createdAt;
-          const bValue = b[sortBy] || b.createdAt;
-          const order = sort[sortBy] || -1;
-          return order * (new Date(aValue).getTime() - new Date(bValue).getTime());
-        });
-      }
-
-      // Apply pagination
-      const totalItems = sortedLounges.length;
-      const skip = (page - 1) * limit;
-      const lounges = sortedLounges.slice(skip, skip + limit);
-
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(totalItems / limit);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
-
-      logger.info(`ClientService.getAllLounges: Returning ${lounges.length} lounges (page ${page}/${totalPages})`);
-
-      return {
-        lounges: lounges.map(lounge => {
-          // Remove distance property before returning
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { distance: _distance, ...loungeWithoutDistance } = lounge;
-          return loungeWithoutDistance;
-        }) as User[],
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          itemsPerPage: limit,
-          hasNextPage,
-          hasPrevPage,
-        },
-      };
+      const filter = this.buildLoungeFilter(search, gender);
+      return await this.fetchLounges(filter, enrichedParams, context);
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientService.getAllLounges error: ${error.message}`, { params, stack: error.stack });
@@ -266,154 +258,33 @@ class ClientService {
    */
   public async getLoungesByService(serviceId: string, params: PaginationParams): Promise<PaginatedLoungesResponse> {
     try {
-      const { page = 1, limit = 10, search = '', gender, sortBy = 'createdAt', sortOrder = 'desc', userLatitude, userLongitude } = params;
+      const { search, gender } = params;
+      const context = 'ClientService.getLoungesByService';
+      logger.info(`${context}: Starting with serviceId=${serviceId}, page=${params.page}, limit=${params.limit}`);
 
-      logger.info(
-        `ClientService.getLoungesByService: Starting with serviceId=${serviceId}, page=${page}, limit=${limit}, userLat=${userLatitude}, userLng=${userLongitude}`,
-      );
-
-      // Validate pagination parameters
-      if (page < 1 || limit < 1 || limit > 100) {
-        logger.warn('ClientService.getLoungesByService: invalid pagination parameters', { page, limit });
-        throw new BadRequestException('Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100', 'INVALID_PAGINATION');
-      }
-
-      // Validate serviceId
       if (!serviceId) {
         throw new BadRequestException('Service ID is required', 'MISSING_SERVICE_ID');
       }
 
-      logger.info(`ClientService.getLoungesByService: Finding lounge services for serviceId=${serviceId}`);
-
-      // First, find all lounge services that match the serviceId
+      // Find lounge IDs offering this service
       const loungeServices = await this.loungeServices
-        .find({
-          serviceId,
-          isActive: true,
-          status: 'active',
-        })
+        .find({ serviceId, isActive: true, status: 'active' })
         .select('loungeId')
         .lean()
         .exec();
 
-      logger.info(`ClientService.getLoungesByService: Found ${loungeServices.length} lounge services`);
-
-      // Extract unique lounge IDs
       const loungeIds = [...new Set(loungeServices.map(ls => ls.loungeId.toString()))];
-
-      logger.info(`ClientService.getLoungesByService: Extracted ${loungeIds.length} unique lounge IDs: ${loungeIds.join(', ')}`);
+      logger.info(`${context}: Found ${loungeIds.length} unique lounges offering service ${serviceId}`);
 
       if (loungeIds.length === 0) {
-        logger.info(`ClientService.getLoungesByService: no lounges found offering service ${serviceId}`);
         return {
           lounges: [],
-          pagination: {
-            currentPage: page,
-            totalPages: 0,
-            totalItems: 0,
-            itemsPerPage: limit,
-            hasNextPage: false,
-            hasPrevPage: false,
-          },
+          pagination: { currentPage: params.page || 1, totalPages: 0, totalItems: 0, itemsPerPage: params.limit || 10, hasNextPage: false, hasPrevPage: false },
         };
       }
 
-      // Build query filter for lounges
-      const filter: any = {
-        _id: { $in: loungeIds },
-        type: 'lounge',
-        isBlocked: { $ne: true }, // Exclude blocked lounges
-      };
-
-      // Add search filter (search in loungeTitle, firstName, lastName, bio)
-      if (search) {
-        filter.$or = [
-          { loungeTitle: { $regex: search, $options: 'i' } },
-          { firstName: { $regex: search, $options: 'i' } },
-          { lastName: { $regex: search, $options: 'i' } },
-          { bio: { $regex: search, $options: 'i' } },
-        ];
-      }
-
-      // Add gender filter
-      if (gender && ['male', 'female', 'unisex', 'kids'].includes(gender)) {
-        filter.gender = gender;
-      }
-
-      // Get all matching lounges first (without pagination) for distance calculation
-      logger.info(`ClientService.getLoungesByService: Querying lounges with filter:`, filter);
-      const allLounges = await this.users
-        .find(filter)
-        .select('-password -refreshTokens -emailVerification -oauth') // Exclude sensitive fields, location will be included by default
-        .lean()
-        .exec();
-
-      logger.info(`ClientService.getLoungesByService: Found ${allLounges.length} lounges before filtering`);
-
-      // Calculate distances if user location is provided
-      let sortedLounges = allLounges;
-      if (userLatitude !== undefined && userLongitude !== undefined && !isNaN(userLatitude) && !isNaN(userLongitude)) {
-        logger.info(`ClientService.getLoungesByService: Calculating distances from (${userLatitude}, ${userLongitude})`);
-        // Calculate distance for each lounge and sort by distance
-        sortedLounges = allLounges
-          .map(lounge => {
-            const loungeLat = lounge.location?.latitude;
-            const loungeLng = lounge.location?.longitude;
-
-            if (loungeLat !== undefined && loungeLng !== undefined) {
-              const distance = this.calculateDistance(userLatitude, userLongitude, loungeLat, loungeLng);
-              return { ...lounge, distance };
-            } else {
-              // If lounge has no location, put it at the end
-              return { ...lounge, distance: Infinity };
-            }
-          })
-          .sort((a, b) => a.distance - b.distance);
-        logger.info(`ClientService.getLoungesByService: Sorted ${sortedLounges.length} lounges by distance`);
-      } else {
-        logger.info(`ClientService.getLoungesByService: No location provided, using traditional sorting`);
-        // Use traditional sorting if no location provided
-        const sort: any = {};
-        const validSortFields = ['createdAt', 'loungeTitle', 'firstName', 'lastName'];
-        if (validSortFields.includes(sortBy)) {
-          sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
-        } else {
-          sort.createdAt = -1; // Default sort
-        }
-
-        sortedLounges = allLounges.sort((a, b) => {
-          const aValue = a[sortBy] || a.createdAt;
-          const bValue = b[sortBy] || b.createdAt;
-          const order = sort[sortBy] || -1;
-          return order * (new Date(aValue).getTime() - new Date(bValue).getTime());
-        });
-      }
-
-      // Apply pagination
-      const totalItems = sortedLounges.length;
-      const skip = (page - 1) * limit;
-      const lounges = sortedLounges.slice(skip, skip + limit);
-
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(totalItems / limit);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
-
-      logger.info(
-        `ClientService.getLoungesByService: retrieved ${lounges.length} lounges offering service ${serviceId} (page ${page}/${totalPages})`,
-      );
-
-      return {
-        lounges: lounges as User[],
-        pagination: {
-          currentPage: page,
-          totalPages,
-          totalItems,
-          itemsPerPage: limit,
-          hasNextPage,
-          hasPrevPage,
-        },
-      };
+      const filter = { ...this.buildLoungeFilter(search, gender), _id: { $in: loungeIds } };
+      return await this.fetchLounges(filter, params, context);
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientService.getLoungesByService error: ${error.message}`, { serviceId, stack: error.stack });

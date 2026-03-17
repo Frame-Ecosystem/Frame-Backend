@@ -26,27 +26,31 @@ function getFromAddress(): string {
   return process.env.SMTP_FROM || 'noreply@yourdomain.com';
 }
 
-export async function sendVerificationEmail(to: string, code: string): Promise<void> {
-  await getTransporter().sendMail({
-    from: getFromAddress(),
-    to,
-    subject: 'Your Email Verification Code',
-    text: `Your verification code is: ${code}`,
-    html: `<p>Your verification code is: <b>${code}</b></p>`,
-  });
+/* ------------------------------------------------------------------ */
+/*  Template definitions                                               */
+/* ------------------------------------------------------------------ */
+
+interface EmailTemplate {
+  subject: string;
+  text: (token: string) => string;
+  html: (token: string) => string;
 }
 
-export async function sendMagicLinkEmail(to: string, magicLink: string): Promise<void> {
-  await getTransporter().sendMail({
-    from: getFromAddress(),
-    to,
+const TEMPLATES: Record<string, EmailTemplate> = {
+  verification: {
+    subject: 'Your Email Verification Code',
+    text: code => `Your verification code is: ${code}`,
+    html: code => `<p>Your verification code is: <b>${code}</b></p>`,
+  },
+  magicLink: {
     subject: 'Complete your registration',
-    text: `Click the link below to complete your registration:\n\n${magicLink}\n\nThis link will expire in 10 minutes.`,
-    html: `
+    text: link =>
+      `Click the link below to complete your registration:\n\n${link}\n\nThis link will expire in 10 minutes.`,
+    html: link => `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Welcome!</h2>
         <p>Click the button below to complete your registration:</p>
-        <a href="${magicLink}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
+        <a href="${link}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
           Complete Registration
         </a>
         <p style="color: #666; font-size: 14px;">
@@ -55,20 +59,16 @@ export async function sendMagicLinkEmail(to: string, magicLink: string): Promise
         </p>
       </div>
     `,
-  });
-}
-
-export async function sendPasswordResetEmail(to: string, resetLink: string): Promise<void> {
-  await getTransporter().sendMail({
-    from: getFromAddress(),
-    to,
+  },
+  passwordReset: {
     subject: 'Reset your password',
-    text: `Click the link below to reset your password:\n\n${resetLink}\n\nThis link will expire in 10 minutes.`,
-    html: `
+    text: link =>
+      `Click the link below to reset your password:\n\n${link}\n\nThis link will expire in 10 minutes.`,
+    html: link => `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Reset Your Password</h2>
         <p>Click the button below to reset your password:</p>
-        <a href="${resetLink}" style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
+        <a href="${link}" style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
           Reset Password
         </a>
         <p style="color: #666; font-size: 14px;">
@@ -77,8 +77,31 @@ export async function sendPasswordResetEmail(to: string, resetLink: string): Pro
         </p>
       </div>
     `,
+  },
+};
+
+/* ------------------------------------------------------------------ */
+/*  Core send helper                                                   */
+/* ------------------------------------------------------------------ */
+
+async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token: string): Promise<void> {
+  const tpl = TEMPLATES[templateName];
+  await getTransporter().sendMail({
+    from: getFromAddress(),
+    to,
+    subject: tpl.subject,
+    text: tpl.text(token),
+    html: tpl.html(token),
   });
 }
+
+/* ------------------------------------------------------------------ */
+/*  Public API (unchanged signatures)                                  */
+/* ------------------------------------------------------------------ */
+
+export const sendVerificationEmail = (to: string, code: string) => sendEmail(to, 'verification', code);
+export const sendMagicLinkEmail = (to: string, magicLink: string) => sendEmail(to, 'magicLink', magicLink);
+export const sendPasswordResetEmail = (to: string, resetLink: string) => sendEmail(to, 'passwordReset', resetLink);
 
 export function isDisposableEmail(email: string): boolean {
   const domain = email.split('@')[1]?.toLowerCase();

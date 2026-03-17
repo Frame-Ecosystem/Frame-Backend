@@ -306,35 +306,6 @@ export class UpdateUserDto {
   public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }>;
 }
 
-// UPDATE LOCATION DTO
-
-export class UpdateLocationDto {
-  @IsNumber({}, { message: VALIDATION_MESSAGES.location.latitude.invalid })
-  @Min(-90, { message: VALIDATION_MESSAGES.location.latitude.invalid })
-  @Max(90, { message: VALIDATION_MESSAGES.location.latitude.invalid })
-  public latitude: number;
-
-  @IsNumber({}, { message: VALIDATION_MESSAGES.location.longitude.invalid })
-  @Min(-180, { message: VALIDATION_MESSAGES.location.longitude.invalid })
-  @Max(180, { message: VALIDATION_MESSAGES.location.longitude.invalid })
-  public longitude: number;
-
-  @IsString({ message: VALIDATION_MESSAGES.location.address.required })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.location.address.required })
-  @MaxLength(500, { message: VALIDATION_MESSAGES.location.address.maxLength })
-  public address: string;
-
-  @IsString({ message: VALIDATION_MESSAGES.location.placeId.required })
-  @IsNotEmpty({ message: VALIDATION_MESSAGES.location.placeId.required })
-  @Matches(PLACE_ID_REGEX, { message: VALIDATION_MESSAGES.location.placeId.invalid })
-  public placeId: string;
-
-  @IsOptional()
-  @IsString({ message: 'Place name must be a string' })
-  @MaxLength(200, { message: 'Place name must not exceed 200 characters' })
-  public placeName?: string;
-}
-
 // CHANGE PASSWORD DTO
 
 export class ChangePasswordDto {

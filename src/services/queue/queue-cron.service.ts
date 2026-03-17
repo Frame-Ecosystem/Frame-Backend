@@ -6,7 +6,7 @@ import agentModel from '@models/user/agent.model';
 import userModel from '@models/user/users.model';
 import { logger } from '@utils/logger';
 import NotificationService from '@services/realtime/notification.service';
-import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, resolveLoungeInfo } from '@services/queue/queue-helpers';
+import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, finalizeBooking, resolveLoungeInfo } from '@services/queue/queue-helpers';
 
 /** Shared result shape for all cron operations. */
 export interface CronResult {
@@ -194,7 +194,37 @@ class QueueCronService {
       }
     }
 
+    // Safety net: cancel any bookings still stuck in inQueue after all persons were processed.
+    // This guards against orphaned bookings (e.g. agent marked person absent without removing them).
+    await this.finalizeOrphanedBookings(persons, loungeInfo, agentId);
+
     return result;
+  }
+
+  /** Cancel bookings that are still inQueue after their queue persons have been finalized. */
+  private async finalizeOrphanedBookings(persons: any[], loungeInfo: { loungeId: string; loungeTitle: string }, agentId?: string): Promise<void> {
+    const bookingIds = persons.map(p => p.bookingId).filter(Boolean);
+    if (bookingIds.length === 0) return;
+
+    const orphaned = await bookingModel
+      .find({ _id: { $in: bookingIds }, status: BookingStatus.IN_QUEUE })
+      .select('_id')
+      .lean()
+      .exec();
+
+    for (const booking of orphaned) {
+      try {
+        await finalizeBooking((booking as any)._id.toString(), BookingStatus.CANCELLED, {
+          cancelledBy: { idUser: loungeInfo.loungeId, cancelledByName: loungeInfo.loungeTitle },
+          notify: 'autoCancelled',
+          loungeTitle: loungeInfo.loungeTitle,
+          agentId,
+        });
+        logger.info(`QueueCron: finalized orphaned inQueue booking ${(booking as any)._id}`);
+      } catch (err) {
+        logger.warn(`QueueCron: failed to finalize orphaned booking ${(booking as any)._id}: ${err.message}`);
+      }
+    }
   }
 
   /** Estimate remaining time (minutes) for the current in-service person. */

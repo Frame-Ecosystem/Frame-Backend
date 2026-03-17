@@ -30,7 +30,7 @@ describe('Testing Auth', () => {
   describe('[POST] /signup', () => {
     it('response should have the Create userData', async () => {
       const authRoute = new AuthRoute();
-      const users = authRoute.authController.authService.users;
+      const users = (authRoute.authController as any).authService.users;
 
       users.findOne = jest.fn().mockReturnValue(null);
       const mockUser = {
@@ -54,7 +54,7 @@ describe('Testing Auth', () => {
   describe('[POST] /login', () => {
     it('response should have the Set-Cookie header with the accessToken', async () => {
       const authRoute = new AuthRoute();
-      const users = authRoute.authController.authService.users;
+      const users = (authRoute.authController as any).authService.users;
 
       users.findOne = jest.fn().mockReturnValue({
         _id: '60706478aad6c9ad19a31c84',

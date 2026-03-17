@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsDateString, IsOptional, IsNumber, IsArray, Min, IsMongoId, MaxLength, ValidateNested, ValidateIf, IsEmail } from 'class-validator';
+import { IsString, IsEnum, IsDateString, IsOptional, IsNumber, IsArray, Min, IsMongoId, MaxLength, ValidateNested, IsEmail } from 'class-validator';
 import { Type } from 'class-transformer';
 import { BookingStatus } from '@interfaces/booking/booking.interface';
 
@@ -69,6 +69,11 @@ export class CancelledByDto {
 
   @IsString()
   cancelledByName: string;
+
+  @IsOptional()
+  @IsString({ message: 'Cancellation note must be a string' })
+  @MaxLength(500, { message: 'Cancellation note cannot exceed 500 characters' })
+  note?: string;
 }
 
 export class UpdateBookingDto {
@@ -99,6 +104,11 @@ export class UpdateBookingDto {
   @ValidateNested()
   @Type(() => CancelledByDto)
   cancelledBy?: CancelledByDto;
+
+  @IsOptional()
+  @IsString({ message: 'Cancellation note must be a string' })
+  @MaxLength(500, { message: 'Cancellation note cannot exceed 500 characters' })
+  cancellationNote?: string;
 }
 
 /**

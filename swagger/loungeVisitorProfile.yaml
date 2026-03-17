@@ -1,0 +1,43 @@
+# Lounge Visitor Profile endpoints
+/v1/client/lounges:
+  get:
+    tags: [Lounge Visitor Profile]
+    summary: List all lounges
+    responses:
+      '200': { description: Lounge list }
+
+/v1/client/lounges/{loungeId}:
+  get:
+    tags: [Lounge Visitor Profile]
+    summary: Get lounge by ID
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounge details }
+
+/v1/client/lounges/{loungeId}/services:
+  get:
+    tags: [Lounge Visitor Profile]
+    summary: Get lounge services by lounge ID
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounge services }
+
+/v1/client/services/{serviceId}/lounges:
+  get:
+    tags: [Lounge Visitor Profile]
+    summary: Get lounges offering a specific service
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounges for service }

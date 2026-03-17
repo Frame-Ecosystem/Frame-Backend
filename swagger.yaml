@@ -88,7 +88,7 @@ paths:
                 type: string
                 format: uri
                 description: URL to profile image (optional)
-                example: "https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg"
+                example: "https://pub-xxxxx.r2.dev/user-profiles/abc123/profile-123.jpg"
             examples:
               emailSignup:
                 summary: Signup with email
@@ -1923,7 +1923,7 @@ paths:
                 type: string
                 format: uri
                 description: Image URL for the service (optional)
-                example: "https://res.cloudinary.com/xxx/image/upload/v123/service_abc.jpg"
+                example: "https://pub-xxxxx.r2.dev/lounge-services/abc123/service-123.jpg"
               isActive:
                 type: boolean
                 default: true
@@ -2081,7 +2081,7 @@ paths:
                 type: string
                 format: uri
                 description: Image URL for the service (optional)
-                example: "https://res.cloudinary.com/xxx/image/upload/v123/service_abc.jpg"
+                example: "https://pub-xxxxx.r2.dev/lounge-services/abc123/service-123.jpg"
               isActive:
                 type: boolean
                 description: Service active status
@@ -2622,7 +2622,7 @@ paths:
                           properties:
                             url:
                               type: string
-                              example: "https://cloudinary.com/image.jpg"
+                              example: "https://pub-xxxxx.r2.dev/agents/profile-123.jpg"
                             publicId:
                               type: string
                               example: "agents/agent_123"
@@ -3567,7 +3567,6 @@ paths:
                 type: string
                 description: Base64 encoded image string (data:image/png;base64,... format)
                 example: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAdg..."
-      responses:
       responses:
         201:
           description: Agent created successfully
@@ -4880,7 +4879,7 @@ definitions:
         $ref: '#/definitions/LocationDto'
       profileImage:
         type: string
-        example: https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg
+        example: https://pub-xxxxx.r2.dev/user-profiles/abc123/profile-123.jpg
       sessionTrack:
         type: object
         properties:
@@ -4957,7 +4956,7 @@ definitions:
         properties:
           url:
             type: string
-            example: https://res.cloudinary.com/xxx/image/upload/v123/profile_abc.jpg
+            example: https://pub-xxxxx.r2.dev/user-profiles/abc123/profile-123.jpg
           publicId:
             type: string
             example: profile_abc
@@ -5059,7 +5058,7 @@ definitions:
         properties:
           url:
             type: string
-            example: "https://res.cloudinary.com/xxx/image/upload/v123/service_abc.jpg"
+            example: "https://pub-xxxxx.r2.dev/lounge-services/abc123/service-123.jpg"
           publicId:
             type: string
             example: "service_abc"
@@ -5329,10 +5328,10 @@ definitions:
           url:
             type: string
             description: URL of the uploaded image
-            example: "https://cloudinary.com/image.jpg"
+            example: "https://pub-xxxxx.r2.dev/agents/profile-123.jpg"
           publicId:
             type: string
-            description: Cloudinary public ID for the image
+            description: R2 object key for the image
             example: "agents/agent_123"
       isBlocked:
         type: boolean

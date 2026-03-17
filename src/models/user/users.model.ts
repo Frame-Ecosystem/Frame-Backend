@@ -63,6 +63,32 @@ const userSchema: Schema = new Schema(
       type: String,
       required: false,
     },
+    averageRating: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
+    },
+    ratingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    likeCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    followersCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    followingCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     openingHours: {
       monday: {
         from: { type: String, required: false },

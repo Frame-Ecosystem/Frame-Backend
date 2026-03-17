@@ -21,58 +21,6 @@ export interface DayOpeningHours {
   sunday?: OpeningHours;
 }
 
-export enum ServiceStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-}
-
-export enum ServiceSuggestionStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  IMPLEMENTED = 'implemented',
-}
-
-export interface ServiceCategory {
-  _id: string;
-  name: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export interface Service {
-  _id: string;
-  name: string;
-  slug: string;
-  categoryId: string;
-  baseDuration?: number;
-  status: ServiceStatus;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export interface ServiceSuggestion {
-  _id: string;
-  name: string;
-  description?: string;
-  status: ServiceSuggestionStatus;
-  loungeId: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
-export interface LoungeService {
-  _id: string;
-  loungeId: string;
-  serviceId: string;
-  price: number;
-  duration: number;
-  description?: string;
-  isActive: boolean;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
-
 export interface RefreshTokenSession {
   jti: string;
   tokenHash: string;
@@ -126,6 +74,11 @@ export interface User {
   theme?: string;
   loungeTitle?: string; // Lounge-specific
   openingHours?: DayOpeningHours; // Lounge-specific
+  averageRating?: number; // Lounge-specific — denormalized from ratings
+  ratingCount?: number; // Lounge-specific — denormalized from ratings
+  likeCount?: number; // Lounge-specific — denormalized from likes
+  followersCount?: number; // Denormalized from follows
+  followingCount?: number; // Denormalized from follows
   location?: Location;
   profileImage?: { url?: string; publicId?: string };
   coverImage?: { url?: string; publicId?: string };

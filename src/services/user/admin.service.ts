@@ -8,6 +8,8 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { logger } from '@utils/logger';
 
 class AdminService {
+  private users = userModel;
+
   /**
    * Change isBlocked state for a user
    */
@@ -30,7 +32,6 @@ class AdminService {
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
-  public users = userModel;
 
   /**
    * Find users with pagination and optional search string.
@@ -47,7 +48,16 @@ class AdminService {
         ];
       }
       const skip = (page - 1) * limit;
-      const [users, total] = await Promise.all([this.users.find(filter).skip(skip).limit(limit), this.users.countDocuments(filter)]);
+      const [users, total] = await Promise.all([
+        this.users
+          .find(filter)
+          .select('-password -refreshTokens -emailVerification -oauth -fcmTokens -sessionTrack')
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .exec(),
+        this.users.countDocuments(filter).exec(),
+      ]);
       logger.info(`AdminService: retrieved users page=${page} limit=${limit} search=${search || '(none)'}`);
       return { users, total };
     } catch (error) {
@@ -274,7 +284,7 @@ class AdminService {
     }>
   > {
     try {
-      const users = await this.users.find({ 'sessionTrack.isOnline': true }).select('email sessionTrack');
+      const users = await this.users.find({ 'sessionTrack.isOnline': true }).select('email sessionTrack').lean().exec();
 
       const onlineUsers = users.map(user => ({
         _id: String(user._id),
@@ -302,7 +312,7 @@ class AdminService {
    */
   public async getAllLoungeNames(): Promise<{ _id: string; loungeTitle: string }[]> {
     try {
-      const lounges = await this.users.find({ type: 'lounge' }, '_id loungeTitle').sort({ loungeTitle: 1 });
+      const lounges = await this.users.find({ type: 'lounge' }, '_id loungeTitle').sort({ loungeTitle: 1 }).lean().exec();
       logger.info(`AdminService.getAllLoungeNames: found ${lounges.length} lounges`);
       return lounges.map(lounge => ({
         _id: lounge._id.toString(),

@@ -22,7 +22,7 @@ import AuthSessionService from '@services/auth/auth-session.service';
 import { FRONTEND_BASE_URL } from '@config';
 
 class AuthService {
-  public users = userModel;
+  private users = userModel;
   private tokenService = new AuthTokenService();
   private sessionService = new AuthSessionService();
 

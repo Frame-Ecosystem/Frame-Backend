@@ -41,6 +41,7 @@ const bookingSchema: Schema = new Schema(
     cancelledBy: {
       idUser: { type: Schema.Types.ObjectId, ref: 'User', required: false },
       cancelledByName: { type: String, required: false },
+      note: { type: String, required: false, trim: true, maxlength: 500 },
     },
     bookingDate: {
       type: Date,

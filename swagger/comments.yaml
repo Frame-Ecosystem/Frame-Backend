@@ -1,0 +1,218 @@
+# ── Comments ──
+
+/v1/comments/{targetType}/{targetId}:
+  post:
+    tags: [Comments]
+    summary: Add a comment (or reply) to a post or reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetType
+        in: path
+        required: true
+        schema: { type: string, enum: [post, reel] }
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [text]
+            properties:
+              text: { type: string, maxLength: 1000 }
+              parentCommentId:
+                type: string
+                description: ID of parent comment (for replies)
+    responses:
+      '201':
+        description: Comment added
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Comment' }
+                message: { type: string, example: Comment added successfully }
+      '400':
+        description: Validation error
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      '404':
+        $ref: '#/components/responses/404'
+  get:
+    tags: [Comments]
+    summary: List top-level comments for a post or reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetType
+        in: path
+        required: true
+        schema: { type: string, enum: [post, reel] }
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      '200':
+        description: Comments list (each includes replyCount)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: '#/components/schemas/Comment'
+                      - type: object
+                        properties:
+                          replyCount: { type: integer }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+
+/v1/comments/{commentId}/replies:
+  get:
+    tags: [Comments]
+    summary: List replies to a comment
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      '200':
+        description: Replies list
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Comment' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+
+/v1/comments/{commentId}:
+  delete:
+    tags: [Comments]
+    summary: Delete own comment (cascades to replies)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Comment deleted
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, example: Comment deleted successfully }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'
+
+/v1/comments/{commentId}/like:
+  post:
+    tags: [Comments]
+    summary: Like or unlike a comment
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Like toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    liked: { type: boolean }
+                message: { type: string }
+
+/v1/comments/{commentId}/hide:
+  put:
+    tags: [Comments]
+    summary: Hide a comment (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Comment hidden
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/comments/{commentId}/unhide:
+  put:
+    tags: [Comments]
+    summary: Unhide a comment (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Comment unhidden
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/comments/{commentId}/admin:
+  delete:
+    tags: [Comments]
+    summary: Admin force delete a comment
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: commentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Comment deleted by admin
+      '403':
+        $ref: '#/components/responses/403'

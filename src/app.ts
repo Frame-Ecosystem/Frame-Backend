@@ -7,11 +7,10 @@ import hpp from 'hpp';
 import morgan from 'morgan';
 import passport from 'passport';
 import { connect, set, disconnect } from 'mongoose';
-import YAML from 'yamljs';
 import swaggerUi from 'swagger-ui-express';
-import path from 'path';
 import os from 'os';
 import { createServer, Server as HTTPServer } from 'http';
+import { buildSwaggerDocument } from '@utils/swagger';
 import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
@@ -232,7 +231,7 @@ class App {
   private initializeSwagger() {
     // Only enable Swagger in development and staging environments
     if (this.env !== 'production') {
-      const swaggerDocument = YAML.load(path.join(__dirname, '../swagger.yaml'));
+      const swaggerDocument = buildSwaggerDocument();
       this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
     }
   }

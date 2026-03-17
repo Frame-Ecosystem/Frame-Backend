@@ -24,6 +24,14 @@ const main = async () => {
   const { default: BookingRoute } = await import('@routes/booking/booking.route');
   const { default: QueueRoute } = await import('@routes/queue/queue.route');
   const { default: NotificationRoute } = await import('@routes/realtime/notification.route');
+  const { default: RatingRoute } = await import('@routes/rating/rating.route');
+  const { default: LikeRoute } = await import('@routes/like/like.route');
+  const { default: FollowRoute } = await import('@routes/follow/follow.route');
+  const { default: PostRoute } = await import('@routes/content/post.route');
+  const { default: ReelRoute } = await import('@routes/content/reel.route');
+  const { default: CommentRoute } = await import('@routes/content/comment.route');
+  const { default: FeedRoute } = await import('@routes/content/feed.route');
+  const { default: ReportRoute } = await import('@routes/content/report.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
@@ -42,6 +50,14 @@ const main = async () => {
     new BookingRoute(),
     new QueueRoute(),
     new NotificationRoute(),
+    new RatingRoute(),
+    new LikeRoute(),
+    new FollowRoute(),
+    new PostRoute(),
+    new ReelRoute(),
+    new CommentRoute(),
+    new FeedRoute(),
+    new ReportRoute(),
   ]);
 
   app.listen();

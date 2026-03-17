@@ -1,0 +1,269 @@
+# ── Reels ──
+
+/v1/reels:
+  post:
+    tags: [Reels]
+    summary: Create a new reel
+    description: Upload a video (max 50 MB, 60 seconds) with optional thumbnail, caption, and hashtags.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [video, duration]
+            properties:
+              video:
+                type: string
+                format: binary
+                description: Video file (mp4, quicktime, webm). Max 50 MB.
+              thumbnail:
+                type: string
+                format: binary
+                description: Optional thumbnail image (jpeg, png, webp). Max 10 MB.
+              caption:
+                type: string
+                maxLength: 2200
+              duration:
+                type: number
+                minimum: 1
+                maximum: 60
+                description: Duration in seconds
+              hashtags:
+                type: array
+                items: { type: string }
+    responses:
+      '201':
+        description: Reel created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Reel' }
+                message: { type: string, example: Reel created successfully }
+      '400':
+        description: Missing video or invalid duration
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/reels/user/{userId}:
+  get:
+    tags: [Reels]
+    summary: Get reels by user
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: User reels
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Reel' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/reels/{reelId}:
+  get:
+    tags: [Reels]
+    summary: Get a single reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Reel details (includes isLiked, isSaved for authenticated user)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Reel' }
+                message: { type: string }
+      '404':
+        $ref: '#/components/responses/404'
+  put:
+    tags: [Reels]
+    summary: Update a reel (owner only — caption and hashtags)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              caption: { type: string, maxLength: 2200 }
+              hashtags:
+                type: array
+                items: { type: string }
+    responses:
+      '200':
+        description: Reel updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Reel' }
+                message: { type: string }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'
+  delete:
+    tags: [Reels]
+    summary: Delete own reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Reel deleted
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, example: Reel deleted successfully }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'
+
+/v1/reels/{reelId}/like:
+  post:
+    tags: [Reels]
+    summary: Like or unlike a reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Like toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    liked: { type: boolean }
+                message: { type: string }
+
+/v1/reels/{reelId}/save:
+  post:
+    tags: [Reels]
+    summary: Save or unsave a reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Save toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    saved: { type: boolean }
+                message: { type: string }
+
+/v1/reels/{reelId}/hide:
+  put:
+    tags: [Reels]
+    summary: Hide a reel (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Reel hidden
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/reels/{reelId}/unhide:
+  put:
+    tags: [Reels]
+    summary: Unhide a reel (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Reel unhidden
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/reels/{reelId}/admin:
+  delete:
+    tags: [Reels]
+    summary: Admin force delete a reel
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reelId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Reel deleted by admin
+      '403':
+        $ref: '#/components/responses/403'

@@ -1,0 +1,83 @@
+# Notification endpoints
+/v1/notifications:
+  get:
+    tags: [Notifications]
+    summary: Get notifications for current user
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 100 }
+    responses:
+      '200': { description: Notification list }
+  delete:
+    tags: [Notifications]
+    summary: Delete all notifications
+    responses:
+      '200': { description: All deleted }
+
+/v1/notifications/unread-count:
+  get:
+    tags: [Notifications]
+    summary: Get unread notification count
+    responses:
+      '200': { description: Unread count }
+
+/v1/notifications/read:
+  patch:
+    tags: [Notifications]
+    summary: Mark notifications as read
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              notificationIds:
+                type: array
+                items: { type: string }
+                description: Omit to mark all as read
+    responses:
+      '200': { description: Marked as read }
+
+/v1/notifications/device-token:
+  post:
+    tags: [Notifications]
+    summary: Register FCM device token
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token, deviceId, platform]
+            properties:
+              token: { type: string }
+              deviceId: { type: string }
+              platform: { type: string, enum: [ios, android, web] }
+    responses:
+      '200': { description: Token registered }
+  delete:
+    tags: [Notifications]
+    summary: Unregister FCM device token
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [deviceId]
+            properties:
+              deviceId: { type: string }
+    responses:
+      '200': { description: Token removed }
+
+/v1/notifications/{id}:
+  delete:
+    tags: [Notifications]
+    summary: Delete a single notification
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    responses:
+      '200': { description: Deleted }

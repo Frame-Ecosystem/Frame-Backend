@@ -1,0 +1,95 @@
+# Admin endpoints
+/v1/admin/users:
+  get:
+    tags: [Admin]
+    summary: List all users
+    responses:
+      '200': { description: Users list }
+  post:
+    tags: [Admin]
+    summary: Create a user (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [password]
+            properties:
+              email: { type: string, format: email }
+              password: { type: string, minLength: 8, maxLength: 128 }
+              phoneNumber: { type: string, pattern: '^\d{8}$' }
+              gender: { type: string, enum: [male, female, unisex, kids] }
+              firstName: { type: string, maxLength: 50 }
+              lastName: { type: string, maxLength: 50 }
+              LoungeTitle: { type: string, maxLength: 100 }
+              type: { type: string, enum: [user, client, lounge] }
+              location: { $ref: '#/components/schemas/Location' }
+              isBlocked: { type: boolean }
+    responses:
+      '201': { description: User created }
+
+/v1/admin/users/{id}:
+  get:
+    tags: [Admin]
+    summary: Get user by ID
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    responses:
+      '200': { description: User details }
+  put:
+    tags: [Admin]
+    summary: Update user
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              email: { type: string, format: email }
+              phoneNumber: { type: string, pattern: '^\d{8}$' }
+              gender: { type: string, enum: [male, female, unisex, kids] }
+              firstName: { type: string, maxLength: 50 }
+              lastName: { type: string, maxLength: 50 }
+              bio: { type: string, maxLength: 500 }
+              loungeTitle: { type: string, maxLength: 100 }
+              isBlocked: { type: boolean }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Admin]
+    summary: Delete user
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    responses:
+      '200': { description: Deleted }
+
+/v1/admin/users/{id}/block:
+  patch:
+    tags: [Admin]
+    summary: Block / unblock user
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [isBlocked]
+            properties:
+              isBlocked: { type: boolean }
+    responses:
+      '200': { description: Block state changed }
+
+/v1/admin/session-info:
+  get:
+    tags: [Admin]
+    summary: Get online users / session info
+    responses:
+      '200': { description: Online user list }
+
+/v1/admin/lounges/names:
+  get:
+    tags: [Admin]
+    summary: Get all lounge names (id + title)
+    responses:
+      '200': { description: Lounge name list }

@@ -1,0 +1,285 @@
+# ── Posts ──
+
+/v1/posts:
+  post:
+    tags: [Posts]
+    summary: Create a new post
+    description: Upload images (carousel) with optional text and hashtags. At least text or an image is required.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              media:
+                type: array
+                items: { type: string, format: binary }
+                description: Up to 10 images (jpeg, png, gif, webp). Max 10 MB each.
+              text:
+                type: string
+                maxLength: 2200
+                example: "Beautiful sunset at the lounge 🌅"
+              hashtags:
+                type: array
+                items: { type: string }
+                example: ["sunset", "lounge", "vibes"]
+    responses:
+      '201':
+        description: Post created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Post' }
+                message: { type: string, example: Post created successfully }
+      '400':
+        description: Validation error (empty post)
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/posts/user/{userId}:
+  get:
+    tags: [Posts]
+    summary: Get posts by user
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: User posts
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Post' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/posts/{postId}:
+  get:
+    tags: [Posts]
+    summary: Get a single post
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Post details (includes isLiked, isSaved for authenticated user)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Post' }
+                message: { type: string }
+      '404':
+        $ref: '#/components/responses/404'
+  put:
+    tags: [Posts]
+    summary: Update a post (owner only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              text: { type: string, maxLength: 2200 }
+              hashtags:
+                type: array
+                items: { type: string }
+    responses:
+      '200':
+        description: Post updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Post' }
+                message: { type: string }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'
+  delete:
+    tags: [Posts]
+    summary: Delete own post
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Post deleted
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, example: Post deleted successfully }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'
+
+/v1/posts/{postId}/like:
+  post:
+    tags: [Posts]
+    summary: Like or unlike a post
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Like toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    liked: { type: boolean }
+                message: { type: string }
+      '404':
+        $ref: '#/components/responses/404'
+
+/v1/posts/{postId}/save:
+  post:
+    tags: [Posts]
+    summary: Save or unsave a post
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Save toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    saved: { type: boolean }
+                message: { type: string }
+      '404':
+        $ref: '#/components/responses/404'
+
+/v1/posts/{postId}/hide:
+  put:
+    tags: [Posts]
+    summary: Hide a post (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Post hidden
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Post' }
+                message: { type: string, example: Post hidden }
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/posts/{postId}/unhide:
+  put:
+    tags: [Posts]
+    summary: Unhide a post (admin moderation)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Post unhidden
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Post' }
+                message: { type: string, example: Post unhidden }
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/posts/{postId}/admin:
+  delete:
+    tags: [Posts]
+    summary: Admin force delete a post
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: postId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Post deleted by admin
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, example: Post deleted by admin }
+      '403':
+        $ref: '#/components/responses/403'

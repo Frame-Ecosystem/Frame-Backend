@@ -7,7 +7,7 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/lounge/loungeServices.dto';
-import CloudinaryService from '@services/cloudinary.service';
+import R2Service from '@services/cloudflare-r2.service';
 import LoungeServicesAdminService from '@services/lounge/loungeServices-admin.service';
 import LoungeProfileService from '@services/lounge/lounge.service';
 
@@ -104,7 +104,7 @@ class LoungeServicesService {
 
           if (imageBuffer) {
             // Upload new image
-            const { url, publicId } = await CloudinaryService.uploadLoungeServiceImage(imageBuffer, fileName);
+            const { url, publicId } = await R2Service.uploadLoungeServiceImage(imageBuffer, fileName);
             imageData = {
               image: {
                 url,
@@ -284,7 +284,7 @@ class LoungeServicesService {
             const existingService = await this.loungeServices.findById(serviceId);
             if (existingService?.image?.publicId) {
               try {
-                await CloudinaryService.deleteLoungeServiceImage(existingService.image.publicId);
+                await R2Service.deleteLoungeServiceImage(existingService.image.publicId);
               } catch (deleteError) {
                 logger.warn(`LoungeServicesService.updateLoungeService: failed to delete old image: ${deleteError.message}`);
                 // Continue with upload even if delete fails
@@ -292,7 +292,7 @@ class LoungeServicesService {
             }
 
             // Upload new image
-            const { url, publicId } = await CloudinaryService.uploadLoungeServiceImage(imageBuffer, fileName);
+            const { url, publicId } = await R2Service.uploadLoungeServiceImage(imageBuffer, fileName);
             imageData = {
               image: {
                 url,

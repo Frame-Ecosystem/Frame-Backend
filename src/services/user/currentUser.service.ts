@@ -15,7 +15,7 @@ import { compare, hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '../../config/constants';
 import { isDisposableEmail, sendVerificationEmail } from '@utils/email';
 import AdminService from './admin.service';
-import CloudinaryService from '../cloudinary.service';
+import R2Service from '../cloudflare-r2.service';
 
 const EMAIL_VERIF_CODE_EXPIRY_MS = 3 * 60 * 1000;
 
@@ -225,8 +225,8 @@ class CurrentUserService {
       userId,
       file,
       'profileImage',
-      (buffer, id) => CloudinaryService.uploadProfileImage(buffer, id),
-      (publicId) => CloudinaryService.deleteProfileImage(publicId),
+      (buffer, id) => R2Service.uploadProfileImage(buffer, id),
+      (publicId) => R2Service.deleteProfileImage(publicId),
     );
   }
 
@@ -238,8 +238,8 @@ class CurrentUserService {
       userId,
       file,
       'coverImage',
-      (buffer, id) => CloudinaryService.uploadCoverImage(buffer, id),
-      (publicId) => CloudinaryService.deleteCoverImage(publicId),
+      (buffer, id) => R2Service.uploadCoverImage(buffer, id),
+      (publicId) => R2Service.deleteCoverImage(publicId),
     );
   }
 

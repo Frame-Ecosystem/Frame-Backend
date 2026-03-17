@@ -1,0 +1,256 @@
+# ── Client Visitor Profile ──────────────────────────────────────────────────────────────
+# Visitor-style profile endpoints — when a lounge, another client, or admin
+# navigates to a client's profile page.
+# Base path: /v1/client/profile
+
+/v1/client/profile/{clientId}:
+  get:
+    tags: [Client Visitor Profile]
+    summary: Get client public profile
+    description: |
+      Returns a client's public profile with activity stats.
+      **Response varies by viewer role:**
+      - **Admin** — full profile (email, phone, blocked status, timestamps)
+      - **Lounge** — public profile + createdAt
+      - **Client** — minimal public profile (name, avatar, bio, gender)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+        description: MongoDB ObjectId of the client
+    responses:
+      '200':
+        description: Client profile retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    profile:
+                      type: object
+                      properties:
+                        _id: { type: string }
+                        firstName: { type: string }
+                        lastName: { type: string }
+                        bio: { type: string }
+                        gender: { type: string, enum: [male, female, unisex, kids] }
+                        profileImage:
+                          type: object
+                          properties:
+                            url: { type: string }
+                            publicId: { type: string }
+                        coverImage:
+                          type: object
+                          properties:
+                            url: { type: string }
+                            publicId: { type: string }
+                        email: { type: string }
+                        phoneNumber: { type: string }
+                        isBlocked: { type: boolean, description: 'Admin only' }
+                        createdAt: { type: string, format: date-time, description: 'Admin & Lounge' }
+                    stats:
+                      type: object
+                      properties:
+                        totalBookings: { type: integer }
+                        completedBookings: { type: integer }
+                        cancelledBookings: { type: integer }
+                        likedLounges: { type: integer }
+                        ratingsGiven: { type: integer }
+                message: { type: string }
+      '400': { description: Invalid client ID format }
+      '401': { $ref: '#/components/responses/401' }
+      '403': { $ref: '#/components/responses/403' }
+      '404': { $ref: '#/components/responses/404' }
+
+/v1/client/profile/{clientId}/bookings:
+  get:
+    tags: [Client Visitor Profile]
+    summary: Get client booking history
+    description: |
+      Returns paginated booking history for a client, limited to **terminal statuses** (completed, cancelled, absent).
+      Scoped by viewer role:
+      - **Admin** — all bookings for this client
+      - **Lounge** — only bookings at their own lounge
+      - **Client** — only their own bookings (clientId must match logged-in user)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum: [completed, cancelled, absent]
+        description: Filter by booking status (only terminal statuses). If omitted, returns all three.
+    responses:
+      '200':
+        description: Booking history retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                bookings:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      _id: { type: string }
+                      loungeId:
+                        type: object
+                        properties:
+                          _id: { type: string }
+                          loungeTitle: { type: string }
+                          profileImage:
+                            type: object
+                            properties:
+                              url: { type: string }
+                      status: { type: string }
+                      bookingDate: { type: string, format: date-time }
+                      totalPrice: { type: number }
+                      totalDuration: { type: integer }
+                      notes: { type: string }
+                      createdAt: { type: string, format: date-time }
+                pagination:
+                  type: object
+                  properties:
+                    currentPage: { type: integer }
+                    totalPages: { type: integer }
+                    totalItems: { type: integer }
+                    itemsPerPage: { type: integer }
+                    hasNextPage: { type: boolean }
+                    hasPrevPage: { type: boolean }
+                message: { type: string }
+      '400': { description: Invalid parameters }
+      '401': { $ref: '#/components/responses/401' }
+      '403': { description: Forbidden — clients can only view their own bookings }
+      '404': { $ref: '#/components/responses/404' }
+
+/v1/client/profile/{clientId}/likes:
+  get:
+    tags: [Client Visitor Profile]
+    summary: Get lounges liked by a client
+    description: Returns a paginated list of lounges this client has liked. Visible to all authenticated users.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    responses:
+      '200':
+        description: Liked lounges retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    lounges:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          _id: { type: string }
+                          loungeTitle: { type: string }
+                          profileImage:
+                            type: object
+                            properties:
+                              url: { type: string }
+                          coverImage:
+                            type: object
+                            properties:
+                              url: { type: string }
+                          averageRating: { type: number }
+                          ratingCount: { type: integer }
+                          location: { $ref: '#/components/schemas/Location' }
+                    total: { type: integer }
+                    page: { type: integer }
+                    limit: { type: integer }
+                message: { type: string }
+      '400': { description: Invalid client ID }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { $ref: '#/components/responses/404' }
+
+/v1/client/profile/{clientId}/ratings:
+  get:
+    tags: [Client Visitor Profile]
+    summary: Get ratings given by a client
+    description: Returns a paginated list of ratings this client has submitted. Visible to all authenticated users.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    responses:
+      '200':
+        description: Client ratings retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    ratings:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          _id: { type: string }
+                          loungeId:
+                            type: object
+                            properties:
+                              _id: { type: string }
+                              loungeTitle: { type: string }
+                              profileImage:
+                                type: object
+                                properties:
+                                  url: { type: string }
+                          score: { type: integer, minimum: 1, maximum: 5 }
+                          comment: { type: string }
+                          createdAt: { type: string, format: date-time }
+                    total: { type: integer }
+                    page: { type: integer }
+                    limit: { type: integer }
+                message: { type: string }
+      '400': { description: Invalid client ID }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { $ref: '#/components/responses/404' }

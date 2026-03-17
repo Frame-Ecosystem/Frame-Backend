@@ -4,7 +4,7 @@ import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dto
 import { RequestWithUser } from '@interfaces/auth/auth.interface';
 
 class QueueController {
-  public queueService = new QueueService();
+  private queueService = new QueueService();
 
   /**
    * Get an agent's queue for today (or a specific date via query param)

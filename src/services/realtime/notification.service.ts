@@ -170,6 +170,7 @@ class NotificationService {
 
     const cancellerUserId = cancelledBy.idUser.toString();
     const cancellerName = cancelledBy.cancelledByName || 'Someone';
+    const cancellationNote = cancelledBy.note;
 
     logger.info(
       `NotificationService.notifyBookingCancelled: cancellerUserId=${cancellerUserId}, cancellerName=${cancellerName}, loungeId=${loungeId}, clientId=${clientId}`,
@@ -177,20 +178,28 @@ class NotificationService {
 
     // If the canceller is the client → notify the lounge
     if (cancellerUserId === clientId && loungeId) {
+      const body = cancellationNote ? `${cancellerName} cancelled their booking: "${cancellationNote}"` : `${cancellerName} cancelled their booking`;
+
       await this.notifyUser(loungeId, booking, {
         title: 'Booking Cancelled',
-        body: `${cancellerName} cancelled their booking`,
+        body,
         type: NotificationType.BOOKING_CANCELLED,
-        extraMetadata: { clientId },
+        extraMetadata: { clientId, ...(cancellationNote && { cancellationNote }) },
       });
     }
 
     // If the canceller is NOT the client → notify the client
     if (cancellerUserId !== clientId && clientId) {
+      const loungeTitle = this.extractLoungeTitle(booking.loungeId);
+      const body = cancellationNote
+        ? `Your booking at ${loungeTitle} was cancelled by ${cancellerName}: "${cancellationNote}"`
+        : `Your booking at ${loungeTitle} was cancelled by ${cancellerName}`;
+
       await this.notifyUser(clientId, booking, {
         title: 'Booking Cancelled',
-        body: `Your booking at ${this.extractLoungeTitle(booking.loungeId)} was cancelled by ${cancellerName}`,
+        body,
         type: NotificationType.BOOKING_CANCELLED,
+        ...(cancellationNote && { extraMetadata: { cancellationNote } }),
       });
     }
   }

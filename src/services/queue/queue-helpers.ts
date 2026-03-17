@@ -62,7 +62,7 @@ export function populateBookingForNotify(bookingId: string) {
 }
 
 interface FinalizeOptions {
-  cancelledBy?: { idUser: string; cancelledByName: string };
+  cancelledBy?: { idUser: string; cancelledByName: string; note?: string };
   notify?: 'completed' | 'absent' | 'autoCancelled';
   loungeTitle?: string;
   agentId?: string;
@@ -123,9 +123,15 @@ export async function finalizeQueuePerson(
       });
       return true;
 
-    case QueuePersonStatus.ABSENT:
-      await finalizeBooking(person.bookingId, BookingStatus.ABSENT, { notify: 'absent', agentId });
+    case QueuePersonStatus.ABSENT: {
+      // Only finalize if the booking is still inQueue.
+      // Avoids overwriting a CANCELLED booking set by the WAITING → ABSENT cleanup path.
+      const booking = await bookingModel.findById(person.bookingId).select('status').lean().exec();
+      if (booking && booking.status === BookingStatus.IN_QUEUE) {
+        await finalizeBooking(person.bookingId, BookingStatus.ABSENT, { notify: 'absent', agentId });
+      }
       return true;
+    }
 
     case QueuePersonStatus.IN_SERVICE:
       person.status = QueuePersonStatus.COMPLETED;

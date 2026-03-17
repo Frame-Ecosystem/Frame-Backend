@@ -6,7 +6,7 @@ import loungeServiceModel from '@models/lounge/loungeService.model';
 import { BadRequestException, NotFoundException, ConflictException } from '@/exceptions/HttpException';
 import { isEmpty } from '@/utils/util';
 import { logger } from '@utils/logger';
-import CloudinaryService from '@services/cloudinary.service';
+import R2Service from '@services/cloudflare-r2.service';
 import QueueService from '@services/queue/queue.service';
 class AgentService {
   public agents = agentModel;
@@ -80,7 +80,7 @@ class AgentService {
           }
 
           if (imageBuffer) {
-            const { url, publicId } = await CloudinaryService.uploadProfileImage(imageBuffer, fileName);
+            const { url, publicId } = await R2Service.uploadProfileImage(imageBuffer, fileName);
 
             // Update agent with image
             await this.agents.findByIdAndUpdate(agent._id, {
@@ -262,7 +262,7 @@ class AgentService {
       // Delete existing image if it exists
       if (agent.profileImage?.publicId) {
         try {
-          await CloudinaryService.deleteProfileImage(agent.profileImage.publicId);
+          await R2Service.deleteProfileImage(agent.profileImage.publicId);
         } catch (deleteError) {
           logger.warn(`AgentService.uploadProfileImage: failed to delete old image: ${deleteError.message}`);
           // Continue with upload even if delete fails
@@ -270,7 +270,7 @@ class AgentService {
       }
 
       // Upload new image
-      const { url, publicId } = await CloudinaryService.uploadProfileImage(file.buffer, agentId);
+      const { url, publicId } = await R2Service.uploadProfileImage(file.buffer, agentId);
 
       // Update agent with new image
       const updatedAgent = await this.agents

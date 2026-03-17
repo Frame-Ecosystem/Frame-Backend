@@ -4,7 +4,7 @@ import CurrentUserService from '../services/user/currentUser.service';
 import userModel from '../models/user/users.model';
 
 jest.mock('../models/user/users.model');
-jest.mock('../services/cloudinary.service', () => ({
+jest.mock('../services/cloudflare-r2.service', () => ({
   __esModule: true,
   default: {
     uploadProfileImage: jest.fn().mockResolvedValue({ url: 'http://example.com/image.jpg', publicId: 'test-id' }),

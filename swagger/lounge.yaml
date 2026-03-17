@@ -1,0 +1,33 @@
+# Lounge endpoints
+/v1/lounge/clients/{clientId}:
+  get:
+    tags: [Lounge]
+    summary: Get client by ID (lounge access)
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Client details }
+
+/v1/lounge/agents/{agentId}/queue-booking:
+  patch:
+    tags: [Lounge]
+    summary: Toggle agent queue booking acceptance
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [acceptQueueBooking]
+            properties:
+              acceptQueueBooking: { type: boolean }
+    responses:
+      '200': { description: Updated }

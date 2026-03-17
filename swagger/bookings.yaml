@@ -1,0 +1,149 @@
+# Booking endpoints
+/v1/bookings:
+  get:
+    tags: [Bookings]
+    summary: List bookings for current user
+    responses:
+      '200': { description: Booking list }
+  post:
+    tags: [Bookings]
+    summary: Create booking
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [clientId, loungeId, bookingDate]
+            properties:
+              clientId: { type: string }
+              loungeId: { type: string }
+              agentIds: { type: array, items: { type: string } }
+              loungeServiceIds: { type: array, items: { type: string } }
+              bookingDate: { type: string, format: date-time }
+              status: { type: string, enum: [pending, confirmed, inQueue, completed, cancelled, absent] }
+              totalPrice: { type: number, minimum: 0 }
+              totalDuration: { type: number, minimum: 0 }
+              notes: { type: string, maxLength: 500 }
+    responses:
+      '201': { description: Created }
+
+/v1/bookings/queue:
+  post:
+    tags: [Bookings]
+    summary: Create queue booking (client)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [clientId, loungeId, agentId]
+            properties:
+              clientId: { type: string }
+              loungeId: { type: string }
+              agentId: { type: string }
+              loungeServiceIds: { type: array, items: { type: string } }
+              notes: { type: string, maxLength: 500 }
+    responses:
+      '201': { description: Queue booking created }
+
+/v1/bookings/queue/lounge:
+  post:
+    tags: [Bookings]
+    summary: Create queue booking (lounge — visitor or client)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [loungeId, agentId]
+            properties:
+              loungeId: { type: string }
+              agentId: { type: string }
+              visitorName: { type: string, maxLength: 100 }
+              clientPhone: { type: string }
+              clientEmail: { type: string, format: email }
+              loungeServiceIds: { type: array, items: { type: string } }
+              notes: { type: string, maxLength: 500 }
+    responses:
+      '201': { description: Lounge queue booking created }
+
+/v1/bookings/availability:
+  get:
+    tags: [Bookings]
+    summary: Check agent availability
+    parameters:
+      - name: agentId
+        in: query
+        required: true
+        schema: { type: string }
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200': { description: Availability data }
+
+/v1/bookings/history:
+  get:
+    tags: [Bookings]
+    summary: Get booking history (completed + cancelled)
+    responses:
+      '200': { description: Booking history }
+
+/v1/bookings/{id}:
+  get:
+    tags: [Bookings]
+    summary: Get booking by ID
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    responses:
+      '200': { description: Booking details }
+  put:
+    tags: [Bookings]
+    summary: Update booking
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              status: { type: string, enum: [pending, confirmed, inQueue, completed, cancelled, absent] }
+              bookingDate: { type: string, format: date-time }
+              totalPrice: { type: number, minimum: 0 }
+              totalDuration: { type: number, minimum: 0 }
+              notes: { type: string, maxLength: 500 }
+              cancellationNote: { type: string, maxLength: 500, description: Reason for cancellation (when status=cancelled) }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Bookings]
+    summary: Delete booking (admin only)
+    parameters: [{ $ref: '#/components/parameters/idParam' }]
+    responses:
+      '200': { description: Deleted }
+
+/v1/bookings/stats/client/{clientId}:
+  get:
+    tags: [Bookings]
+    summary: Client booking statistics
+    parameters:
+      - name: clientId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Client stats }
+
+/v1/bookings/stats/lounge/{loungeId}:
+  get:
+    tags: [Bookings]
+    summary: Lounge booking statistics
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounge stats }
