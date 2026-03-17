@@ -17,27 +17,7 @@ class CommentRoute implements Routes {
   }
 
   private initializeRoutes() {
-    /**
-     * @route   POST /v1/comments/:targetType/:targetId
-     * @desc    Add a comment (or reply) to a post or reel
-     * @access  Private
-     * @param   targetType - 'post' | 'reel'
-     */
-    this.router.post(
-      '/:targetType/:targetId',
-      authMiddleware,
-      adminOrLoungeOrClientMiddleware,
-      commentRateLimiter,
-      validationMiddleware(CreateCommentDto, 'body'),
-      this.controller.addComment,
-    );
-
-    /**
-     * @route   GET /v1/comments/:targetType/:targetId
-     * @desc    List top-level comments for a post or reel
-     * @access  Private
-     */
-    this.router.get('/:targetType/:targetId', authMiddleware, generalRateLimiter, this.controller.getComments);
+    /* ───────── Specific routes MUST come before generic /:targetType/:targetId ───────── */
 
     /**
      * @route   GET /v1/comments/:commentId/replies
@@ -47,20 +27,11 @@ class CommentRoute implements Routes {
     this.router.get('/:commentId/replies', authMiddleware, generalRateLimiter, this.controller.getReplies);
 
     /**
-     * @route   DELETE /v1/comments/:commentId
-     * @desc    Delete own comment
-     * @access  Private (owner only)
-     */
-    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientMiddleware, this.controller.deleteComment);
-
-    /**
      * @route   POST /v1/comments/:commentId/like
      * @desc    Like or unlike a comment
      * @access  Private
      */
     this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientMiddleware, likeRateLimiter, this.controller.toggleLike);
-
-    /* ───────── Admin routes ───────── */
 
     /**
      * @route   PUT /v1/comments/:commentId/hide
@@ -82,6 +53,37 @@ class CommentRoute implements Routes {
      * @access  Admin only
      */
     this.router.delete('/:commentId/admin', authMiddleware, adminMiddleware, this.controller.adminDeleteComment);
+
+    /**
+     * @route   DELETE /v1/comments/:commentId
+     * @desc    Delete own comment
+     * @access  Private (owner only)
+     */
+    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientMiddleware, this.controller.deleteComment);
+
+    /* ───────── Generic two-param routes LAST ───────── */
+
+    /**
+     * @route   POST /v1/comments/:targetType/:targetId
+     * @desc    Add a comment (or reply) to a post or reel
+     * @access  Private
+     * @param   targetType - 'post' | 'reel'
+     */
+    this.router.post(
+      '/:targetType/:targetId',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      commentRateLimiter,
+      validationMiddleware(CreateCommentDto, 'body'),
+      this.controller.addComment,
+    );
+
+    /**
+     * @route   GET /v1/comments/:targetType/:targetId
+     * @desc    List top-level comments for a post or reel
+     * @access  Private
+     */
+    this.router.get('/:targetType/:targetId', authMiddleware, generalRateLimiter, this.controller.getComments);
   }
 }
 
