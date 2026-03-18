@@ -89,26 +89,6 @@ paths:
                 format: uri
                 description: URL to profile image (optional)
                 example: "https://pub-xxxxx.r2.dev/user-profiles/abc123/profile-123.jpg"
-            examples:
-              emailSignup:
-                summary: Signup with email
-                value:
-                  email: newuser@example.com
-                  password: SecurePass123!
-                  type: client
-              phoneSignup:
-                summary: Signup with phone
-                value:
-                  phoneNumber: "50922140"
-                  password: SecurePass123!
-                  type: client
-              bothSignup:
-                summary: Signup with both email and phone
-                value:
-                  email: newuser@example.com
-                  phoneNumber: "50922140"
-                  password: SecurePass123!
-                  type: client
       responses:
         201:
           description: User created successfully
@@ -147,17 +127,6 @@ paths:
                 type: string
                 description: User password
                 example: SecureP@ss123
-            examples:
-              emailLogin:
-                summary: Login with email
-                value:
-                  emailOrPhone: user@example.com
-                  password: SecureP@ss123
-              phoneLogin:
-                summary: Login with phone
-                value:
-                  emailOrPhone: "50922140"
-                  password: SecureP@ss123
       responses:
         200:
           description: Login successful
@@ -2263,114 +2232,6 @@ paths:
               message:
                 type: string
                 example: "Invalid opening hours data provided"
-              errorCode:
-                type: string
-                example: "VALIDATION_ERROR"
-        401:
-          description: Unauthorized
-        403:
-          description: User is not a lounge
-          schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: "This endpoint is only for lounge accounts"
-              errorCode:
-                type: string
-                example: "NOT_LOUNGE_ACCOUNT"
-        404:
-          description: Lounge not found
-          schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: "Lounge not found"
-              errorCode:
-                type: string
-                example: "LOUNGE_NOT_FOUND"
-        500:
-          description: Server error
-
-  /v1/lounge-services/lounge/{loungeId}/profile:
-    put:
-      tags:
-        - lounge services
-      summary: Update lounge profile (title and opening hours)
-      description: |
-        Update lounge-specific profile information including lounge title and opening hours.
-        This endpoint performs a full update of the specified fields.
-        The lounge must exist and be of type 'lounge'.
-      security:
-        - bearerAuth: []
-        - csrfToken: []
-      parameters:
-        - name: loungeId
-          in: path
-          required: true
-          type: string
-          description: Lounge ID (MongoDB ObjectId)
-        - name: body
-          in: body
-          required: true
-          schema:
-            type: object
-            properties:
-              loungeTitle:
-                type: string
-                maxLength: 100
-                description: Lounge business title/name
-                example: "Elite Hair Studio"
-              openingHours:
-                type: object
-                description: Complete opening hours for all days of the week
-                properties:
-                  monday:
-                    $ref: '#/definitions/OpeningHours'
-                  tuesday:
-                    $ref: '#/definitions/OpeningHours'
-                  wednesday:
-                    $ref: '#/definitions/OpeningHours'
-                  thursday:
-                    $ref: '#/definitions/OpeningHours'
-                  friday:
-                    $ref: '#/definitions/OpeningHours'
-                  saturday:
-                    $ref: '#/definitions/OpeningHours'
-                  sunday:
-                    $ref: '#/definitions/OpeningHours'
-            example:
-              loungeTitle: "Elite Hair Studio"
-              openingHours:
-                monday:
-                  from: "09:00"
-                  to: "18:00"
-                tuesday:
-                  from: "09:00"
-                  to: "18:00"
-                friday:
-                  from: "09:00"
-                  to: "20:00"
-      responses:
-        200:
-          description: Lounge profile updated successfully
-          schema:
-            type: object
-            properties:
-              data:
-                $ref: '#/definitions/UserResponse'
-              message:
-                type: string
-                example: Lounge profile updated successfully
-        400:
-          description: Invalid request data or validation error
-          schema:
-            type: object
-            properties:
-              message:
-                type: string
-                example: "Invalid lounge profile data provided"
               errorCode:
                 type: string
                 example: "VALIDATION_ERROR"

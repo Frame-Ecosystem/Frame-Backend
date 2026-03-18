@@ -5,8 +5,6 @@ import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import { uploadPostMedia } from '@middlewares/content-upload.middleware';
 import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rate-limit.middleware';
-import validationMiddleware from '@middlewares/validation.middleware';
-import { CreatePostDto, UpdatePostDto } from '@dtos/content/post.dto';
 
 class PostRoute implements Routes {
   public path = '/v1/posts';
