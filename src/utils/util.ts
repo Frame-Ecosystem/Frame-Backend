@@ -24,9 +24,7 @@ export const stripSensitiveFields = <T extends Record<string, any>>(obj: T): Par
   } else {
     plainObj = obj as unknown as Record<string, unknown>;
   }
-  const { password, refreshTokens, ...safeFields } = plainObj;
-  void password;
-  void refreshTokens;
+  const { password: _pw, refreshTokens: _rt, ...safeFields } = plainObj;
   return safeFields as Partial<T>;
 };
 

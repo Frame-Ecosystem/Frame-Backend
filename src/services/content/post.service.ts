@@ -3,7 +3,8 @@ import hashtagModel from '@models/content/hashtag.model';
 import contentLikeModel from '@models/content/contentLike.model';
 import contentSaveModel from '@models/content/contentSave.model';
 import commentModel from '@models/content/comment.model';
-import R2Service from '@services/cloudflare-r2.service';
+import R2Service from '@services/shared/cloudflareR2.service';
+import NotificationService from '@services/realtime/notification.service';
 import { HttpException, BadRequestException, NotFoundException, ForbiddenException, InternalServerException } from '@exceptions/HttpException';
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
@@ -15,6 +16,7 @@ class PostService {
   private contentLikes = contentLikeModel;
   private contentSaves = contentSaveModel;
   private comments = commentModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
 
@@ -164,6 +166,17 @@ class PostService {
     } else {
       await this.contentLikes.create({ userId, targetId: postId, targetType: 'post' });
       await this.posts.findByIdAndUpdate(postId, { $inc: { likeCount: 1 } }).exec();
+
+      // Notify post author
+      const authorId = post.authorId.toString();
+      if (authorId !== userId) {
+        const userModel = (await import('@models/user/user.model')).default;
+        const actor = await userModel.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+        const actorName = this.notificationService.extractName(actor);
+        const actorImage = actor?.profileImage?.url;
+        this.notificationService.notifyPostLiked(authorId, userId, actorName, postId, actorImage).catch(() => {});
+      }
+
       return { liked: true };
     }
   }
@@ -188,11 +201,15 @@ class PostService {
 
   /* ───────── Admin ───────── */
 
-  public async hidePost(postId: string) {
+  public async hidePost(postId: string, reason?: string) {
     assertObjectId(postId, 'Post');
     const post = await this.posts.findByIdAndUpdate(postId, { isHidden: true }, { new: true }).lean().exec();
     if (!post) throw new NotFoundException('Post not found', 'POST_NOT_FOUND');
     logger.info(`PostService.hidePost: post ${postId} hidden`);
+
+    // Notify author of content moderation
+    this.notificationService.notifyContentHidden(post.authorId.toString(), 'post', postId, reason).catch(() => {});
+
     return post;
   }
 

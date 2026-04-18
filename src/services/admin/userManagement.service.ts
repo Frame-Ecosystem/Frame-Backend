@@ -1,13 +1,13 @@
 import { hash } from 'bcrypt';
-import { BCRYPT_ROUNDS, RETRY_BACKOFF_BASE_MS, RETRY_MAX_ATTEMPTS } from '../../config/constants';
-import { CreateUserDto, UpdateUserDto } from '@dtos/user/users.dto';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { BCRYPT_ROUNDS, RETRY_BACKOFF_BASE_MS, RETRY_MAX_ATTEMPTS } from '@config/constants';
+import { CreateUserDto, UpdateUserDto } from '@dtos/user/user.dto';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
 import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 
-class AdminService {
+class UserManagementService {
   private users = userModel;
 
   /**
@@ -16,19 +16,19 @@ class AdminService {
   public async changeUserBlockedState(userId: string, isBlocked: boolean): Promise<User> {
     try {
       if (isEmpty(userId)) {
-        logger.warn('AdminService.changeUserBlockedState: empty userId provided');
+        logger.warn('UserManagementService.changeUserBlockedState: empty userId provided');
         throw new BadRequestException('Invalid request data');
       }
       const updatedUser = await this.users.findByIdAndUpdate(userId, { isBlocked }, { new: true });
       if (!updatedUser || typeof updatedUser !== 'object') {
-        logger.info(`AdminService.changeUserBlockedState: user not found: ${userId}`);
+        logger.info(`UserManagementService.changeUserBlockedState: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
-      logger.info(`AdminService.changeUserBlockedState: user ${userId} isBlocked set to ${isBlocked}`);
+      logger.info(`UserManagementService.changeUserBlockedState: user ${userId} isBlocked set to ${isBlocked}`);
       return updatedUser;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminService.changeUserBlockedState error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`UserManagementService.changeUserBlockedState error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -58,10 +58,10 @@ class AdminService {
           .exec(),
         this.users.countDocuments(filter).exec(),
       ]);
-      logger.info(`AdminService: retrieved users page=${page} limit=${limit} search=${search || '(none)'}`);
+      logger.info(`UserManagementService: retrieved users page=${page} limit=${limit} search=${search || '(none)'}`);
       return { users, total };
     } catch (error) {
-      logger.error(`AdminService.findUsersPaginated error: ${error.message}`, { stack: error.stack });
+      logger.error(`UserManagementService.findUsersPaginated error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -72,20 +72,20 @@ class AdminService {
   public async findUserById(userId: string): Promise<User> {
     try {
       if (isEmpty(userId)) {
-        logger.warn('AdminService.findUserById: empty userId provided');
+        logger.warn('UserManagementService.findUserById: empty userId provided');
         throw new BadRequestException('Invalid request data');
       }
 
       const findUser: User = await this.users.findOne({ _id: userId });
       if (!findUser) {
-        logger.error(`AdminService.findUserById: user not found: ${userId}`);
+        logger.error(`UserManagementService.findUserById: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
       return findUser;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminService.findUserById error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`UserManagementService.findUserById error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -98,7 +98,7 @@ class AdminService {
     // Use the ensureAdminExists utility for admin creation
     try {
       if (isEmpty(userData)) {
-        logger.error('AdminService.createUser: empty userData provided');
+        logger.error('UserManagementService.createUser: empty userData provided');
         throw new BadRequestException('Invalid request data');
       }
 
@@ -108,7 +108,7 @@ class AdminService {
       // Check for existing email
       const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
       if (findByEmail) {
-        logger.error(`AdminService.createUser: email already exists: ${normalizedEmail}`);
+        logger.error(`UserManagementService.createUser: email already exists: ${normalizedEmail}`);
         throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
       }
 
@@ -116,7 +116,7 @@ class AdminService {
       if (userData.phoneNumber) {
         const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone) {
-          logger.error(`AdminService.createUser: phone number already exists: ${userData.phoneNumber}`);
+          logger.error(`UserManagementService.createUser: phone number already exists: ${userData.phoneNumber}`);
           throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
         }
       }
@@ -125,7 +125,7 @@ class AdminService {
       let createUserData: User | null = null;
       let lastError: any = null;
 
-      // Fix #3: Retry logic with exponential backoff for race conditions
+      // Retry logic with exponential backoff for race conditions
       const maxRetries = RETRY_MAX_ATTEMPTS;
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
@@ -144,12 +144,12 @@ class AdminService {
           // If it's a duplicate key error and not the last attempt, retry
           if (createError.code === 11000 && attempt < maxRetries) {
             const waitTime = RETRY_BACKOFF_BASE_MS * Math.pow(2, attempt - 1); // Exponential backoff
-            logger.warn(`AdminService.createUser: duplicate key error on attempt ${attempt}/${maxRetries}, retrying in ${waitTime}ms...`);
+            logger.warn(`UserManagementService.createUser: duplicate key error on attempt ${attempt}/${maxRetries}, retrying in ${waitTime}ms...`);
             await new Promise(resolve => setTimeout(resolve, waitTime));
             // Re-check for existing records in case another request succeeded
             const findByEmail = await this.users.findOne({ email: normalizedEmail });
             if (findByEmail) {
-              logger.info(`AdminService.createUser: user already exists after retry: ${normalizedEmail}`);
+              logger.info(`UserManagementService.createUser: user already exists after retry: ${normalizedEmail}`);
               throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
             }
           } else {
@@ -165,13 +165,13 @@ class AdminService {
         throw lastError;
       }
 
-      logger.info(`AdminService.createUser: new user created: ${(createUserData as any)._id}`);
+      logger.info(`UserManagementService.createUser: new user created: ${(createUserData as any)._id}`);
       return createUserData;
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle race condition: if unique index catches a duplicate
       handleMongoDBDuplicateKeyError(error);
-      logger.error(`AdminService.createUser error: ${error.message}`, { email: userData?.email, stack: error.stack });
+      logger.error(`UserManagementService.createUser error: ${error.message}`, { email: userData?.email, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -182,7 +182,7 @@ class AdminService {
   public async updateUser(userId: string, userData: UpdateUserDto): Promise<User> {
     try {
       if (isEmpty(userId) || isEmpty(userData)) {
-        logger.warn('AdminService.updateUser: empty userId or userData provided');
+        logger.warn('UserManagementService.updateUser: empty userId or userData provided');
         throw new BadRequestException('Invalid request data');
       }
 
@@ -190,7 +190,7 @@ class AdminService {
         const normalizedEmail = userData.email.toLowerCase().trim();
         const findUser = await this.users.findOne({ email: normalizedEmail });
         if (findUser && findUser._id.toString() !== userId) {
-          logger.info(`AdminService.updateUser: email conflict for userId ${userId}, email: ${normalizedEmail}`);
+          logger.info(`UserManagementService.updateUser: email conflict for userId ${userId}, email: ${normalizedEmail}`);
           throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
         }
         // Store normalized email
@@ -200,30 +200,30 @@ class AdminService {
       if (userData.phoneNumber) {
         const findByPhone = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone && findByPhone._id.toString() !== userId) {
-          logger.info(`AdminService.updateUser: phone conflict for userId ${userId}, phone: ${userData.phoneNumber}`);
+          logger.info(`UserManagementService.updateUser: phone conflict for userId ${userId}, phone: ${userData.phoneNumber}`);
           throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
         }
       }
 
       const updateUserById = await this.users.findByIdAndUpdate(userId, userData, { new: true });
       if (!updateUserById) {
-        logger.info(`AdminService.updateUser: user not found: ${userId}`);
+        logger.info(`UserManagementService.updateUser: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
-      logger.info(`AdminService.updateUser: user updated: ${userId}`);
+      logger.info(`UserManagementService.updateUser: user updated: ${userId}`);
       return updateUserById;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      // Fix #3: Handle race condition with retry for duplicate key errors
+      // Handle race condition with retry for duplicate key errors
       if (error.code === 11000) {
-        logger.warn(`AdminService.updateUser: duplicate key error after pre-check for userId ${userId}, retrying once...`);
+        logger.warn(`UserManagementService.updateUser: duplicate key error after pre-check for userId ${userId}, retrying once...`);
         try {
           const retryUpdate: User = await this.users.findByIdAndUpdate(userId, userData, { new: true });
           if (!retryUpdate) {
             throw new NotFoundException('User not found');
           }
-          logger.info(`AdminService.updateUser: user updated on retry: ${userId}`);
+          logger.info(`UserManagementService.updateUser: user updated on retry: ${userId}`);
           return retryUpdate;
         } catch (retryError) {
           handleMongoDBDuplicateKeyError(retryError);
@@ -231,7 +231,7 @@ class AdminService {
       } else {
         handleMongoDBDuplicateKeyError(error);
       }
-      logger.error(`AdminService.updateUser error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`UserManagementService.updateUser error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -242,21 +242,21 @@ class AdminService {
   public async deleteUser(userId: string): Promise<User> {
     try {
       if (isEmpty(userId)) {
-        logger.warn('AdminService.deleteUser: empty userId provided');
+        logger.warn('UserManagementService.deleteUser: empty userId provided');
         throw new BadRequestException('Invalid request data');
       }
 
       const deleteUserById: User = await this.users.findByIdAndDelete(userId);
       if (!deleteUserById) {
-        logger.info(`AdminService.deleteUser: user not found: ${userId}`);
+        logger.info(`UserManagementService.deleteUser: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
-      logger.info(`AdminService.deleteUser: user deleted: ${userId}`);
+      logger.info(`UserManagementService.deleteUser: user deleted: ${userId}`);
       return deleteUserById;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminService.deleteUser error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`UserManagementService.deleteUser error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Operation failed. Please try again');
     }
   }
@@ -313,16 +313,16 @@ class AdminService {
   public async getAllLoungeNames(): Promise<{ _id: string; loungeTitle: string }[]> {
     try {
       const lounges = await this.users.find({ type: 'lounge' }, '_id loungeTitle').sort({ loungeTitle: 1 }).lean().exec();
-      logger.info(`AdminService.getAllLoungeNames: found ${lounges.length} lounges`);
+      logger.info(`UserManagementService.getAllLoungeNames: found ${lounges.length} lounges`);
       return lounges.map(lounge => ({
         _id: lounge._id.toString(),
         loungeTitle: lounge.loungeTitle,
       }));
     } catch (error) {
-      logger.error(`AdminService.getAllLoungeNames error: ${error.message}`, { stack: error.stack });
+      logger.error(`UserManagementService.getAllLoungeNames error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to retrieve lounge names');
     }
   }
 }
 
-export default AdminService;
+export default UserManagementService;

@@ -2,12 +2,14 @@ import { ServiceSuggestion, ServiceSuggestionStatus } from '@interfaces/catalog/
 import { LoungeServiceStatus } from '@interfaces/lounge/loungeService.interface';
 import { UpdateServiceSuggestionStatusDto, AdminApproveServiceSuggestionDto } from '@dtos/catalog/serviceSuggestions.dto';
 import serviceSuggestionModel from '@models/catalog/serviceSuggestion.model';
-import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException } from '@/exceptions/HttpException';
-import { isEmpty, handleMongooseError } from '@/utils/util';
+import NotificationService from '@services/realtime/notification.service';
+import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException } from '@exceptions/HttpException';
+import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 
-class ServiceSuggestionsAdminService {
+class CatalogSuggestionsService {
   private serviceSuggestions = serviceSuggestionModel;
+  private notificationService = NotificationService.getInstance();
 
   /**
    * Update service suggestion status (admin only).
@@ -63,10 +65,21 @@ class ServiceSuggestionsAdminService {
           status: data.status,
           ...(data.adminNote && { adminNote: data.adminNote }),
         });
-        logger.info(`ServiceSuggestionsAdminService.updateStatus: updated suggestion ${suggestionId} status to ${data.status}`);
+        logger.info(`CatalogSuggestionsService.updateStatus: updated suggestion ${suggestionId} status to ${data.status}`);
       }
 
       const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type').lean();
+
+      // Notify lounge about suggestion status change
+      const loungeId = (suggestion.loungeId as any)?._id?.toString() || suggestion.loungeId?.toString();
+      if (loungeId && data.status !== ServiceSuggestionStatus.PENDING) {
+        if (data.status === ServiceSuggestionStatus.IMPLEMENTED) {
+          this.notificationService.notifySuggestionApproved(loungeId, suggestion.name, suggestionId).catch(() => {});
+        } else if (data.status === ServiceSuggestionStatus.REJECTED) {
+          this.notificationService.notifySuggestionRejected(loungeId, suggestion.name, suggestionId, data.adminNote).catch(() => {});
+        }
+      }
+
       return {
         suggestion: updatedSuggestion as ServiceSuggestion,
         service: createdService,
@@ -74,9 +87,10 @@ class ServiceSuggestionsAdminService {
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      handleMongooseError(error, 'ServiceSuggestionsAdminService.updateStatus', {
+      handleMongooseError(error, 'CatalogSuggestionsService.updateStatus', {
         duplicateMessage: 'A conflict occurred while updating the suggestion. Please try again.',
-        fallbackMessage: 'An unexpected error occurred while updating the service suggestion. Please try again or contact support if the problem persists.',
+        fallbackMessage:
+          'An unexpected error occurred while updating the service suggestion. Please try again or contact support if the problem persists.',
         logMeta: { suggestionId, data },
       });
     }
@@ -122,10 +136,21 @@ class ServiceSuggestionsAdminService {
           status: data.status,
           adminNote: data.adminNote,
         });
-        logger.info(`ServiceSuggestionsAdminService.adminUpdateStatus: updated suggestion ${suggestionId} to status ${data.status}`);
+        logger.info(`CatalogSuggestionsService.adminUpdateStatus: updated suggestion ${suggestionId} to status ${data.status}`);
       }
 
       const updatedSuggestion = await this.serviceSuggestions.findById(suggestionId).populate('loungeId', 'email type').lean();
+
+      // Notify lounge about suggestion status change
+      const loungeId = (suggestion.loungeId as any)?._id?.toString() || suggestion.loungeId?.toString();
+      if (loungeId && data.status !== ServiceSuggestionStatus.PENDING) {
+        if (data.status === ServiceSuggestionStatus.IMPLEMENTED) {
+          this.notificationService.notifySuggestionApproved(loungeId, suggestion.name, suggestionId).catch(() => {});
+        } else if (data.status === ServiceSuggestionStatus.REJECTED) {
+          this.notificationService.notifySuggestionRejected(loungeId, suggestion.name, suggestionId, data.adminNote).catch(() => {});
+        }
+      }
+
       return {
         suggestion: updatedSuggestion as ServiceSuggestion,
         service: createdService,
@@ -136,7 +161,7 @@ class ServiceSuggestionsAdminService {
       if (error.name === 'CastError' && error.kind === 'ObjectId') {
         throw new BadRequestException('Invalid service suggestion ID format', 'INVALID_ID_FORMAT');
       }
-      logger.error(`ServiceSuggestionsAdminService.adminUpdateStatus error: ${error.message}`, { suggestionId, data, stack: error.stack });
+      logger.error(`CatalogSuggestionsService.adminUpdateStatus error: ${error.message}`, { suggestionId, data, stack: error.stack });
       throw new InternalServerException('Unable to update service suggestion status at this time. Please try again later.');
     }
   }
@@ -211,7 +236,7 @@ class ServiceSuggestionsAdminService {
       });
 
       logger.info(
-        `ServiceSuggestionsAdminService: implemented suggestion ${suggestion._id}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`,
+        `CatalogSuggestionsService: implemented suggestion ${suggestion._id}, created service ${createdService._id} and lounge service ${createdLoungeService._id}`,
       );
 
       return { service: createdService, loungeService: createdLoungeService };
@@ -233,7 +258,7 @@ class ServiceSuggestionsAdminService {
       }
       if (serviceError instanceof HttpException) throw serviceError;
 
-      logger.error(`ServiceSuggestionsAdminService.implementSuggestion: error: ${serviceError.message}`, { stack: serviceError.stack });
+      logger.error(`CatalogSuggestionsService.implementSuggestion: error: ${serviceError.message}`, { stack: serviceError.stack });
       throw new InternalServerException(
         'Failed to create the service. The suggestion status has been updated, but service implementation encountered an error.',
         'SERVICE_CREATION_FAILED',
@@ -242,4 +267,4 @@ class ServiceSuggestionsAdminService {
   }
 }
 
-export default ServiceSuggestionsAdminService;
+export default CatalogSuggestionsService;

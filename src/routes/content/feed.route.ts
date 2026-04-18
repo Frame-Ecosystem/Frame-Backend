@@ -3,7 +3,7 @@ import FeedController from '@controllers/content/feed.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
-import { generalRateLimiter } from '@middlewares/rate-limit.middleware';
+import { generalRateLimiter } from '@middlewares/rateLimit.middleware';
 
 class FeedRoute implements Routes {
   public path = '/v1/feed';

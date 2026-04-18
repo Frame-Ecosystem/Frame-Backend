@@ -3,7 +3,7 @@ version: '3.8'
 services:
   proxy:
     image: nginx:alpine
-    container_name: proxy
+    container_name: frame-beauty-proxy
     ports:
       - '80:80'
       - '443:443'  # Add HTTPS port
@@ -26,7 +26,7 @@ services:
       context: ./
       target: production-build-stage
       dockerfile: Dockerfile
-    container_name: server
+    container_name: frame-beauty-server
     ports:
       - '3000:3000'
     restart: 'unless-stopped'
@@ -51,12 +51,12 @@ services:
 
   mongo:
     image: mongo:6-jammy
-    container_name: mongo
+    container_name: frame-beauty-mongo
     restart: 'unless-stopped'
     environment:
       MONGO_INITDB_DATABASE: prod
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: changeme123
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?Set MONGO_ROOT_PASSWORD in .env}
     volumes:
       - mongodb_data:/data/db
       - ./mongo-init:/docker-entrypoint-initdb.d:ro

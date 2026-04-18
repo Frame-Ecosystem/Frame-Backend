@@ -3,8 +3,8 @@ import ReelController from '@controllers/content/reel.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
-import { uploadReelMedia } from '@middlewares/content-upload.middleware';
-import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rate-limit.middleware';
+import { uploadReelMedia } from '@middlewares/contentUpload.middleware';
+import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 
 class ReelRoute implements Routes {
   public path = '/v1/reels';

@@ -43,6 +43,12 @@ const validateEnv = () => {
     logger.info('✅ Cloudflare R2 configuration validated');
   }
 
+  // Ensure access token and refresh token secrets are different
+  if (env.SECRET_KEY === env.REFRESH_TOKEN_SECRET) {
+    logger.error('❌ SECRET_KEY and REFRESH_TOKEN_SECRET must be different!');
+    throw new Error('SECRET_KEY and REFRESH_TOKEN_SECRET must be distinct to prevent token confusion attacks');
+  }
+
   return env;
 };
 

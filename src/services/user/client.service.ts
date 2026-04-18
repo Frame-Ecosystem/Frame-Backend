@@ -1,6 +1,6 @@
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 import { LoungeService } from '@interfaces/lounge/loungeService.interface';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import loungeServiceModel from '@models/lounge/loungeService.model';
 import { HttpException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
@@ -42,11 +42,7 @@ class ClientService {
   /*  Shared lounge-fetch pipeline (distance + sort + paginate)         */
   /* ------------------------------------------------------------------ */
 
-  private async fetchLounges(
-    filter: Record<string, any>,
-    params: PaginationParams,
-    context: string,
-  ): Promise<PaginatedLoungesResponse> {
+  private async fetchLounges(filter: Record<string, any>, params: PaginationParams, context: string): Promise<PaginatedLoungesResponse> {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', userLatitude, userLongitude } = params;
 
     // Validate pagination
@@ -56,11 +52,7 @@ class ClientService {
     }
 
     logger.info(`${context}: Querying lounges with filter:`, filter);
-    const allLounges = await this.users
-      .find(filter)
-      .select('-password -refreshTokens -emailVerification -oauth')
-      .lean()
-      .exec();
+    const allLounges = await this.users.find(filter).select('-password -refreshTokens -emailVerification -oauth').lean().exec();
 
     logger.info(`${context}: Found ${allLounges.length} lounges before sorting`);
 
@@ -73,9 +65,7 @@ class ClientService {
           const loungeLat = lounge.location?.latitude;
           const loungeLng = lounge.location?.longitude;
           const distance =
-            loungeLat != null && loungeLng != null
-              ? this.calculateDistance(userLatitude, userLongitude, loungeLat, loungeLng)
-              : Infinity;
+            loungeLat != null && loungeLng != null ? this.calculateDistance(userLatitude, userLongitude, loungeLat, loungeLng) : Infinity;
           return { ...lounge, distance };
         })
         .sort((a, b) => a.distance - b.distance);
@@ -267,11 +257,7 @@ class ClientService {
       }
 
       // Find lounge IDs offering this service
-      const loungeServices = await this.loungeServices
-        .find({ serviceId, isActive: true, status: 'active' })
-        .select('loungeId')
-        .lean()
-        .exec();
+      const loungeServices = await this.loungeServices.find({ serviceId, isActive: true, status: 'active' }).select('loungeId').lean().exec();
 
       const loungeIds = [...new Set(loungeServices.map(ls => ls.loungeId.toString()))];
       logger.info(`${context}: Found ${loungeIds.length} unique lounges offering service ${serviceId}`);
@@ -279,7 +265,14 @@ class ClientService {
       if (loungeIds.length === 0) {
         return {
           lounges: [],
-          pagination: { currentPage: params.page || 1, totalPages: 0, totalItems: 0, itemsPerPage: params.limit || 10, hasNextPage: false, hasPrevPage: false },
+          pagination: {
+            currentPage: params.page || 1,
+            totalPages: 0,
+            totalItems: 0,
+            itemsPerPage: params.limit || 10,
+            hasNextPage: false,
+            hasPrevPage: false,
+          },
         };
       }
 

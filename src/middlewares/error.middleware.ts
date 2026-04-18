@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { HttpException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
+import { SERVICE_NAME } from '@config/constants';
 
 const errorMiddleware = (error: HttpException, req: Request, res: Response, next: NextFunction) => {
   try {
@@ -9,12 +10,15 @@ const errorMiddleware = (error: HttpException, req: Request, res: Response, next
     const code: string | undefined = error.code;
 
     logger.error(`[${req.method}] ${req.path} >> StatusCode:: ${status}, Message:: ${message}${code ? `, Code:: ${code}` : ''}`);
+
     res.status(status).json({
+      status,
       message,
-      ...(code && { code }), // Include error code if available
+      ...(code && { code }),
+      service: SERVICE_NAME,
     });
-  } catch (error) {
-    next(error);
+  } catch (err) {
+    next(err);
   }
 };
 

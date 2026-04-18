@@ -1,10 +1,10 @@
-import { User, RefreshTokenSession } from '@interfaces/user/users.interface';
+import { User, RefreshTokenSession } from '@interfaces/user/user.interface';
 import { TokenData } from '@interfaces/auth/auth.interface';
-import userModel from '@models/user/users.model';
-import { HttpException, BadRequestException, UnauthorizedException, InternalServerException } from '@exceptions/HttpException';
+import userModel from '@models/user/user.model';
+import { HttpException, BadRequestException, UnauthorizedException, ForbiddenException, InternalServerException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logSecurityEvent, logger } from '@utils/logger';
-import AuthTokenService from '@services/auth/auth-token.service';
+import AuthTokenService from '@services/auth/authToken.service';
 
 class AuthSessionService {
   private users = userModel;
@@ -158,13 +158,14 @@ class AuthSessionService {
     deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string },
   ): Promise<{ tokenData: TokenData; refreshToken: string }> {
     try {
+      if (user.isBlocked) {
+        throw new ForbiddenException('Account suspended. Please contact support.', 'ACCOUNT_BLOCKED');
+      }
+
       const tokenData = this.tokenService.createToken(user);
       const refreshToken = await this.tokenService.generateRefreshToken(user, deviceInfo);
 
-      await this.updateSessionTrack(
-        String(user._id),
-        Array.isArray(user.refreshTokens) ? user.refreshTokens : [],
-      );
+      await this.updateSessionTrack(String(user._id), Array.isArray(user.refreshTokens) ? user.refreshTokens : []);
 
       logSecurityEvent({
         event: 'OAUTH_LOGIN_SUCCESS',

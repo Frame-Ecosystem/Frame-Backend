@@ -3,10 +3,10 @@ import { BookingStatus } from '@interfaces/booking/booking.interface';
 import queueModel from '@models/queue/queue.model';
 import bookingModel from '@models/booking/booking.model';
 import agentModel from '@models/user/agent.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { logger } from '@utils/logger';
 import NotificationService from '@services/realtime/notification.service';
-import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, finalizeBooking, resolveLoungeInfo } from '@services/queue/queue-helpers';
+import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, finalizeBooking, resolveLoungeInfo } from '@services/queue/queue.helpers';
 
 /** Shared result shape for all cron operations. */
 export interface CronResult {

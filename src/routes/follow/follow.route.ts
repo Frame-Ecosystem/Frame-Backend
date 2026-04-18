@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
-import { followRateLimiter } from '@middlewares/rate-limit.middleware';
+import { followRateLimiter } from '@middlewares/rateLimit.middleware';
 import FollowController from '@controllers/follow/follow.controller';
 
 class FollowRoute implements Routes {

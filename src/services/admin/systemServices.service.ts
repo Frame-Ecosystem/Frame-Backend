@@ -1,12 +1,12 @@
 import { hash } from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../../config/constants';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { BCRYPT_ROUNDS } from '@config/constants';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import { isEmpty } from '@utils/util';
 import { HttpException, BadRequestException, NotFoundException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 
-class AdminServicesService {
+class SystemServicesService {
   public users = userModel;
 
   /**
@@ -22,10 +22,10 @@ class AdminServicesService {
         clientCount: await this.users.countDocuments({ type: 'client' }),
         loungeCount: await this.users.countDocuments({ type: 'lounge' }),
       };
-      logger.info('AdminServicesService.getAllAdminServices: retrieved admin statistics');
+      logger.info('SystemServicesService.getAllAdminServices: retrieved admin statistics');
       return adminStats;
     } catch (error) {
-      logger.error(`AdminServicesService.getAllAdminServices error: ${error.message}`, { stack: error.stack });
+      logger.error(`SystemServicesService.getAllAdminServices error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to retrieve admin services');
     }
   }
@@ -41,10 +41,10 @@ class AdminServicesService {
         database: 'connected',
         uptime: process.uptime(),
       };
-      logger.info('AdminServicesService.getSystemHealth: system health check');
+      logger.info('SystemServicesService.getSystemHealth: system health check');
       return health;
     } catch (error) {
-      logger.error(`AdminServicesService.getSystemHealth error: ${error.message}`, { stack: error.stack });
+      logger.error(`SystemServicesService.getSystemHealth error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to get system health');
     }
   }
@@ -58,10 +58,10 @@ class AdminServicesService {
 
       const activityLog = await this.users.find({}).select('email type sessionTrack createdAt updatedAt').limit(limit).sort({ updatedAt: -1 });
 
-      logger.info(`AdminServicesService.getUserActivityLog: retrieved ${activityLog.length} activity logs`);
+      logger.info(`SystemServicesService.getUserActivityLog: retrieved ${activityLog.length} activity logs`);
       return activityLog;
     } catch (error) {
-      logger.error(`AdminServicesService.getUserActivityLog error: ${error.message}`, { stack: error.stack });
+      logger.error(`SystemServicesService.getUserActivityLog error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to retrieve user activity log');
     }
   }
@@ -89,10 +89,10 @@ class AdminServicesService {
         },
         timestamp: new Date(),
       };
-      logger.info('AdminServicesService.getDashboardStats: retrieved dashboard statistics');
+      logger.info('SystemServicesService.getDashboardStats: retrieved dashboard statistics');
       return stats;
     } catch (error) {
-      logger.error(`AdminServicesService.getDashboardStats error: ${error.message}`, { stack: error.stack });
+      logger.error(`SystemServicesService.getDashboardStats error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to retrieve dashboard statistics');
     }
   }
@@ -103,7 +103,7 @@ class AdminServicesService {
   public async clearUserSessions(userId: string): Promise<User> {
     try {
       if (isEmpty(userId)) {
-        logger.warn('AdminServicesService.clearUserSessions: empty userId provided');
+        logger.warn('SystemServicesService.clearUserSessions: empty userId provided');
         throw new BadRequestException('Invalid request data');
       }
 
@@ -118,15 +118,15 @@ class AdminServicesService {
       );
 
       if (!updatedUser) {
-        logger.error(`AdminServicesService.clearUserSessions: user not found: ${userId}`);
+        logger.error(`SystemServicesService.clearUserSessions: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
-      logger.info(`AdminServicesService.clearUserSessions: cleared sessions for user ${userId}`);
+      logger.info(`SystemServicesService.clearUserSessions: cleared sessions for user ${userId}`);
       return updatedUser;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminServicesService.clearUserSessions error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`SystemServicesService.clearUserSessions error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Failed to clear user sessions');
     }
   }
@@ -137,7 +137,7 @@ class AdminServicesService {
   public async resetUserPassword(userId: string, newPassword: string): Promise<User> {
     try {
       if (isEmpty(userId) || isEmpty(newPassword)) {
-        logger.warn('AdminServicesService.resetUserPassword: empty parameters provided');
+        logger.warn('SystemServicesService.resetUserPassword: empty parameters provided');
         throw new BadRequestException('Invalid request data');
       }
 
@@ -146,15 +146,15 @@ class AdminServicesService {
       const updatedUser = await this.users.findByIdAndUpdate(userId, { password: hashedPassword }, { new: true });
 
       if (!updatedUser) {
-        logger.error(`AdminServicesService.resetUserPassword: user not found: ${userId}`);
+        logger.error(`SystemServicesService.resetUserPassword: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
-      logger.info(`AdminServicesService.resetUserPassword: password reset for user ${userId}`);
+      logger.info(`SystemServicesService.resetUserPassword: password reset for user ${userId}`);
       return updatedUser;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminServicesService.resetUserPassword error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`SystemServicesService.resetUserPassword error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Failed to reset user password');
     }
   }
@@ -165,13 +165,13 @@ class AdminServicesService {
   public async exportUserData(userId: string): Promise<any> {
     try {
       if (isEmpty(userId)) {
-        logger.warn('AdminServicesService.exportUserData: empty userId provided');
+        logger.warn('SystemServicesService.exportUserData: empty userId provided');
         throw new BadRequestException('Invalid request data');
       }
 
       const user = await this.users.findById(userId);
       if (!user) {
-        logger.error(`AdminServicesService.exportUserData: user not found: ${userId}`);
+        logger.error(`SystemServicesService.exportUserData: user not found: ${userId}`);
         throw new NotFoundException('User not found');
       }
 
@@ -180,11 +180,11 @@ class AdminServicesService {
         exportedAt: new Date(),
       };
 
-      logger.info(`AdminServicesService.exportUserData: exported data for user ${userId}`);
+      logger.info(`SystemServicesService.exportUserData: exported data for user ${userId}`);
       return exportData;
     } catch (error) {
       if (error instanceof HttpException) throw error;
-      logger.error(`AdminServicesService.exportUserData error: ${error.message}`, { userId, stack: error.stack });
+      logger.error(`SystemServicesService.exportUserData error: ${error.message}`, { userId, stack: error.stack });
       throw new InternalServerException('Failed to export user data');
     }
   }
@@ -200,13 +200,13 @@ class AdminServicesService {
         details,
         timestamp: new Date(),
       };
-      logger.info(`AdminServicesService.createAuditLog: ${action} by user ${userId}`);
+      logger.info(`SystemServicesService.createAuditLog: ${action} by user ${userId}`);
       return auditLog;
     } catch (error) {
-      logger.error(`AdminServicesService.createAuditLog error: ${error.message}`, { stack: error.stack });
+      logger.error(`SystemServicesService.createAuditLog error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Failed to create audit log');
     }
   }
 }
 
-export default AdminServicesService;
+export default SystemServicesService;

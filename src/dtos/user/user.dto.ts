@@ -34,17 +34,14 @@ export enum UserGender {
 }
 
 // VALIDATION REGEX PATTERNS
-
-
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-
+export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 const PHONE_REGEX = /^\d{8}$/;
-
-
 const PLACE_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 // ERROR MESSAGES
+
+export const PASSWORD_VALIDATION_MESSAGE =
+  'Password must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)';
 
 const VALIDATION_MESSAGES = {
   email: {

@@ -6,15 +6,24 @@ import {
   AdminApproveServiceSuggestionDto,
 } from '@dtos/catalog/serviceSuggestions.dto';
 import serviceSuggestionModel from '@models/catalog/serviceSuggestion.model';
-import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException, ForbiddenException } from '@/exceptions/HttpException';
-import { isEmpty, handleMongooseError } from '@/utils/util';
+import NotificationService from '@services/realtime/notification.service';
+import {
+  HttpException,
+  BadRequestException,
+  NotFoundException,
+  InternalServerException,
+  ConflictException,
+  ForbiddenException,
+} from '@exceptions/HttpException';
+import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 import { ServiceSuggestionStatus } from '@interfaces/catalog/serviceSuggestion.interface';
-import ServiceSuggestionsAdminService from '@services/catalog/serviceSuggestions-admin.service';
+import ServiceSuggestionsAdminService from '@services/admin/catalogSuggestions.service';
 
 class ServiceSuggestionsService {
   public serviceSuggestions = serviceSuggestionModel;
   private adminService = new ServiceSuggestionsAdminService();
+  private notificationService = NotificationService.getInstance();
 
   /**
    * Create a new service suggestion (lounge only)
@@ -52,6 +61,17 @@ class ServiceSuggestionsService {
       });
 
       logger.info(`ServiceSuggestionsService.createServiceSuggestion: created suggestion ${newSuggestion._id} - ${data.name} for lounge ${loungeId}`);
+
+      // Notify all admins about the new suggestion
+      const userModel = (await import('@models/user/user.model')).default;
+      const admins = await userModel.find({ type: 'admin' }).select('_id').lean().exec();
+      const adminIds = admins.map(a => a._id.toString());
+      if (adminIds.length > 0) {
+        const lounge = await userModel.findById(loungeId).select('loungeTitle firstName lastName').lean().exec();
+        const loungeName = lounge?.loungeTitle || [lounge?.firstName, lounge?.lastName].filter(Boolean).join(' ') || 'A lounge';
+        this.notificationService.notifySuggestionCreated(adminIds, loungeName, newSuggestion._id.toString(), data.name).catch(() => {});
+      }
+
       return newSuggestion.toObject() as ServiceSuggestion;
     } catch (error) {
       if (error instanceof HttpException) throw error;

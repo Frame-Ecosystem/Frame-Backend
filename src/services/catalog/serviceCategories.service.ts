@@ -1,9 +1,9 @@
 import { ServiceCategory } from '@interfaces/catalog/serviceCategory.interface';
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@dtos/catalog/serviceCategories.dto';
 import serviceCategoryModel from '@models/catalog/serviceCategory.model';
-import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@/exceptions/HttpException';
-import { isEmpty } from '@/utils/util';
-import { logger } from '@/utils/logger';
+import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
+import { isEmpty } from '@utils/util';
+import { logger } from '@utils/logger';
 
 class ServiceCategoriesService {
   /**

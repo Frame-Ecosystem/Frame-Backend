@@ -1,5 +1,5 @@
 import { LoungeService, LoungeServiceStatus } from '@interfaces/lounge/loungeService.interface';
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 import loungeServiceModel from '@models/lounge/loungeService.model';
 import serviceModel from '@models/catalog/service.model';
 import agentModel from '@models/user/agent.model';
@@ -7,8 +7,8 @@ import { HttpException, BadRequestException, NotFoundException, ConflictExceptio
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/lounge/loungeServices.dto';
-import R2Service from '@services/cloudflare-r2.service';
-import LoungeServicesAdminService from '@services/lounge/loungeServices-admin.service';
+import R2Service from '@services/shared/cloudflareR2.service';
+import LoungeServicesAdminService from '@services/admin/loungeServices.service';
 import LoungeProfileService from '@services/lounge/lounge.service';
 
 class LoungeServicesService {
@@ -30,30 +30,21 @@ class LoungeServicesService {
     const ops: Promise<any>[] = [];
 
     if (toAdd.length > 0) {
-      ops.push(
-        this.agents.updateMany(
-          { _id: { $in: toAdd } },
-          { $addToSet: { idLoungeService: loungeServiceId } },
-        ),
-      );
+      ops.push(this.agents.updateMany({ _id: { $in: toAdd } }, { $addToSet: { idLoungeService: loungeServiceId } }).exec());
     }
 
     if (toRemove.length > 0) {
-      ops.push(
-        this.agents.updateMany(
-          { _id: { $in: toRemove } },
-          { $pull: { idLoungeService: loungeServiceId } },
-        ),
-      );
+      ops.push(this.agents.updateMany({ _id: { $in: toRemove } }, { $pull: { idLoungeService: loungeServiceId } }).exec());
     }
 
     if (ops.length > 0) {
       await Promise.all(ops);
-      logger.info(`LoungeServicesService.syncAgentAssignments: service ${loungeServiceId} — added to ${toAdd.length}, removed from ${toRemove.length} agents`);
+      logger.info(
+        `LoungeServicesService.syncAgentAssignments: service ${loungeServiceId} — added to ${toAdd.length}, removed from ${toRemove.length} agents`,
+      );
     }
   }
 
-  
   public async createLoungeService(data: CreateLoungeServiceDto, file?: Express.Multer.File): Promise<LoungeService> {
     try {
       if (isEmpty(data) || !data.loungeId || !data.serviceId) {
@@ -124,7 +115,11 @@ class LoungeServicesService {
       }
 
       // Fetch final lounge service
-      const finalLoungeService = await this.loungeServices.findById(newLoungeService._id).populate('loungeId').populate('serviceId').populate('agentIds', 'agentName profileImage');
+      const finalLoungeService = await this.loungeServices
+        .findById(newLoungeService._id)
+        .populate('loungeId')
+        .populate('serviceId')
+        .populate('agentIds', 'agentName profileImage');
 
       // Sync agent assignments
       if (data.agentIds && data.agentIds.length > 0) {
@@ -143,7 +138,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async getAllLoungeServices(): Promise<LoungeService[]> {
     try {
       const services = await this.loungeServices.find().populate('loungeId').populate('serviceId').populate('agentIds', 'agentName profileImage');
@@ -155,7 +149,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async getLoungeServicesByLoungeId(loungeId: string): Promise<LoungeService[]> {
     try {
       if (isEmpty(loungeId)) {
@@ -176,7 +169,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async getLoungeServiceById(serviceId: string): Promise<LoungeService> {
     try {
       if (isEmpty(serviceId)) {
@@ -184,7 +176,11 @@ class LoungeServicesService {
         throw new BadRequestException('Lounge service ID is required to retrieve the service', 'MISSING_SERVICE_ID');
       }
 
-      const service = await this.loungeServices.findById(serviceId).populate('loungeId').populate('serviceId').populate('agentIds', 'agentName profileImage');
+      const service = await this.loungeServices
+        .findById(serviceId)
+        .populate('loungeId')
+        .populate('serviceId')
+        .populate('agentIds', 'agentName profileImage');
 
       if (!service) {
         logger.error(`LoungeServicesService.getLoungeServiceById: service not found: ${serviceId}`);
@@ -202,7 +198,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async getServiceNameById(serviceId: string): Promise<string> {
     try {
       if (isEmpty(serviceId)) {
@@ -229,7 +224,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async updateLoungeService(serviceId: string, data: UpdateLoungeServiceDto, user?: User, file?: Express.Multer.File): Promise<LoungeService> {
     try {
       if (isEmpty(serviceId) || isEmpty(data)) {
@@ -284,7 +278,7 @@ class LoungeServicesService {
             const existingService = await this.loungeServices.findById(serviceId);
             if (existingService?.image?.publicId) {
               try {
-                await R2Service.deleteLoungeServiceImage(existingService.image.publicId);
+                await R2Service.deleteImage(existingService.image.publicId);
               } catch (deleteError) {
                 logger.warn(`LoungeServicesService.updateLoungeService: failed to delete old image: ${deleteError.message}`);
                 // Continue with upload even if delete fails
@@ -334,7 +328,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async deleteLoungeService(serviceId: string): Promise<LoungeService> {
     try {
       if (isEmpty(serviceId)) {
@@ -367,7 +360,6 @@ class LoungeServicesService {
     }
   }
 
-  
   public async toggleLoungeServiceStatus(serviceId: string): Promise<LoungeService> {
     try {
       if (isEmpty(serviceId)) {
@@ -418,11 +410,11 @@ class LoungeServicesService {
 
   // --- Delegated to LoungeService ---
 
-  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@dtos/user/users.dto').DayOpeningHoursDto): Promise<User> {
+  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@dtos/user/user.dto').DayOpeningHoursDto): Promise<User> {
     return this.loungeService.patchLoungeOpeningHours(loungeId, openingHoursData);
   }
 
-  public async updateLoungeProfile(loungeId: string, loungeData: import('@dtos/user/users.dto').UpdateLoungeProfileDto): Promise<User> {
+  public async updateLoungeProfile(loungeId: string, loungeData: import('@dtos/user/user.dto').UpdateLoungeProfileDto): Promise<User> {
     return this.loungeService.updateLoungeProfile(loungeId, loungeData);
   }
 

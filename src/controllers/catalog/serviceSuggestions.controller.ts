@@ -18,9 +18,7 @@ class ServiceSuggestionsController {
         service: result.service ? stripSensitiveFields(result.service) : null,
         loungeService: result.loungeService ? stripSensitiveFields(result.loungeService) : null,
       },
-      message: result.service
-        ? 'Service suggestion approved and implemented successfully'
-        : 'Service suggestion status updated successfully',
+      message: result.service ? 'Service suggestion approved and implemented successfully' : 'Service suggestion status updated successfully',
     };
   }
 

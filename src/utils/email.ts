@@ -23,7 +23,7 @@ function getTransporter(): nodemailer.Transporter {
 }
 
 function getFromAddress(): string {
-  return process.env.SMTP_FROM || 'noreply@yourdomain.com';
+  return process.env.SMTP_FROM || 'noreply@framebeauty.com';
 }
 
 /* ------------------------------------------------------------------ */
@@ -38,19 +38,25 @@ interface EmailTemplate {
 
 const TEMPLATES: Record<string, EmailTemplate> = {
   verification: {
-    subject: 'Your Email Verification Code',
-    text: code => `Your verification code is: ${code}`,
-    html: code => `<p>Your verification code is: <b>${code}</b></p>`,
+    subject: 'Frame Beauty - Your Email Verification Code',
+    text: code => `Your Frame Beauty verification code is: ${code}`,
+    html: code => `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1a1a1a;">Frame Beauty</h2>
+        <p>Your verification code is: <b>${code}</b></p>
+        <p style="color: #666; font-size: 14px;">If you didn't request this code, please ignore this email.</p>
+      </div>
+    `,
   },
   magicLink: {
-    subject: 'Complete your registration',
+    subject: 'Frame Beauty - Complete your registration',
     text: link =>
-      `Click the link below to complete your registration:\n\n${link}\n\nThis link will expire in 10 minutes.`,
+      `Welcome to Frame Beauty!\n\nClick the link below to complete your registration:\n\n${link}\n\nThis link will expire in 10 minutes.`,
     html: link => `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Welcome!</h2>
+        <h2 style="color: #1a1a1a;">Welcome to Frame Beauty!</h2>
         <p>Click the button below to complete your registration:</p>
-        <a href="${link}" style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
+        <a href="${link}" style="background-color: #1a1a1a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
           Complete Registration
         </a>
         <p style="color: #666; font-size: 14px;">
@@ -61,12 +67,11 @@ const TEMPLATES: Record<string, EmailTemplate> = {
     `,
   },
   passwordReset: {
-    subject: 'Reset your password',
-    text: link =>
-      `Click the link below to reset your password:\n\n${link}\n\nThis link will expire in 10 minutes.`,
+    subject: 'Frame Beauty - Reset your password',
+    text: link => `Click the link below to reset your Frame Beauty password:\n\n${link}\n\nThis link will expire in 10 minutes.`,
     html: link => `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2>Reset Your Password</h2>
+        <h2 style="color: #1a1a1a;">Frame Beauty - Password Reset</h2>
         <p>Click the button below to reset your password:</p>
         <a href="${link}" style="background-color: #dc3545; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block; margin: 16px 0;">
           Reset Password

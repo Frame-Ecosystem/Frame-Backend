@@ -1,6 +1,6 @@
-import { UpdateUserDto, LocationDto, ChangePasswordDto, UpdateClientProfileDto } from '@dtos/user/users.dto';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { UpdateUserDto, LocationDto, ChangePasswordDto, UpdateClientProfileDto } from '@dtos/user/user.dto';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import { isEmpty } from '@utils/util';
 import {
   BadRequestException,
@@ -12,16 +12,16 @@ import {
 } from '@exceptions/HttpException';
 import { logger, logSecurityEvent } from '@utils/logger';
 import { compare, hash } from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../../config/constants';
+import { BCRYPT_ROUNDS } from '@config/constants';
 import { isDisposableEmail, sendVerificationEmail } from '@utils/email';
-import AdminService from './admin.service';
-import R2Service from '../cloudflare-r2.service';
+import UserManagementService from '@services/admin/userManagement.service';
+import R2Service from '@services/shared/cloudflareR2.service';
 
 const EMAIL_VERIF_CODE_EXPIRY_MS = 3 * 60 * 1000;
 
 class CurrentUserService {
   public users = userModel;
-  private adminService = new AdminService();
+  private adminService = new UserManagementService();
 
   // ─── Email Verification ──────────────────────────────────────────────
 
@@ -109,10 +109,13 @@ class CurrentUserService {
 
       const hashedPassword = await hash(passwordData.newPassword, BCRYPT_ROUNDS);
 
-      // Update password and revoke all sessions in one operation
+      // Update password, revoke all sessions, reset lockout, and set passwordChangedAt
       await this.users.findByIdAndUpdate(userId, {
         password: hashedPassword,
         refreshTokens: [],
+        failedLoginAttempts: 0,
+        lockUntil: null,
+        passwordChangedAt: new Date(),
         'sessionTrack.isOnline': false,
         'sessionTrack.devices': [],
       });
@@ -226,7 +229,7 @@ class CurrentUserService {
       file,
       'profileImage',
       (buffer, id) => R2Service.uploadProfileImage(buffer, id),
-      (publicId) => R2Service.deleteProfileImage(publicId),
+      publicId => R2Service.deleteImage(publicId),
     );
   }
 
@@ -239,7 +242,7 @@ class CurrentUserService {
       file,
       'coverImage',
       (buffer, id) => R2Service.uploadCoverImage(buffer, id),
-      (publicId) => R2Service.deleteCoverImage(publicId),
+      publicId => R2Service.deleteImage(publicId),
     );
   }
 

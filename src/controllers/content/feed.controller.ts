@@ -11,9 +11,12 @@ class FeedController {
       const userId = req.user._id.toString();
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const seed = req.query.seed ? parseInt(req.query.seed as string) : undefined;
 
-      const result = await this.feedService.getFollowingFeed(userId, page, limit);
-      res.status(200).json({ data: result.items, pagination: { total: result.total, page, limit }, message: 'Feed retrieved' });
+      const result = await this.feedService.getFollowingFeed(userId, page, limit, seed);
+      res.setHeader('Cache-Control', 'private, no-cache');
+      res.setHeader('Vary', 'Authorization');
+      res.status(200).json({ data: result.items, pagination: { total: result.total, page, limit, seed: result.seed }, message: 'Feed retrieved' });
     } catch (error) {
       next(error);
     }
@@ -25,9 +28,14 @@ class FeedController {
       const userId = req.user?._id?.toString();
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const seed = req.query.seed ? parseInt(req.query.seed as string) : undefined;
 
-      const result = await this.feedService.getExploreFeed(userId, page, limit);
-      res.status(200).json({ data: result.items, pagination: { total: result.total, page, limit }, message: 'Explore feed retrieved' });
+      const result = await this.feedService.getExploreFeed(userId, page, limit, seed);
+      res.setHeader('Cache-Control', 'public, no-cache');
+      res.setHeader('Vary', 'Authorization');
+      res
+        .status(200)
+        .json({ data: result.items, pagination: { total: result.total, page, limit, seed: result.seed }, message: 'Explore feed retrieved' });
     } catch (error) {
       next(error);
     }
@@ -39,9 +47,12 @@ class FeedController {
       const userId = req.user?._id?.toString();
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 10;
+      const seed = req.query.seed ? parseInt(req.query.seed as string) : undefined;
 
-      const result = await this.feedService.getHashtagFeed(req.params.tag, userId, page, limit);
-      res.status(200).json({ data: result.items, pagination: { total: result.total, page, limit }, message: 'Hashtag feed retrieved' });
+      const result = await this.feedService.getHashtagFeed(req.params.tag, userId, page, limit, seed);
+      res
+        .status(200)
+        .json({ data: result.items, pagination: { total: result.total, page, limit, seed: result.seed }, message: 'Hashtag feed retrieved' });
     } catch (error) {
       next(error);
     }

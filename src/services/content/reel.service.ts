@@ -3,7 +3,8 @@ import hashtagModel from '@models/content/hashtag.model';
 import contentLikeModel from '@models/content/contentLike.model';
 import contentSaveModel from '@models/content/contentSave.model';
 import commentModel from '@models/content/comment.model';
-import R2Service from '@services/cloudflare-r2.service';
+import R2Service from '@services/shared/cloudflareR2.service';
+import NotificationService from '@services/realtime/notification.service';
 import { HttpException, BadRequestException, NotFoundException, ForbiddenException, InternalServerException } from '@exceptions/HttpException';
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
@@ -15,6 +16,7 @@ class ReelService {
   private contentLikes = contentLikeModel;
   private contentSaves = contentSaveModel;
   private comments = commentModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
 
@@ -181,6 +183,17 @@ class ReelService {
     } else {
       await this.contentLikes.create({ userId, targetId: reelId, targetType: 'reel' });
       await this.reels.findByIdAndUpdate(reelId, { $inc: { likeCount: 1 } }).exec();
+
+      // Notify reel author
+      const authorId = reel.authorId.toString();
+      if (authorId !== userId) {
+        const userModel = (await import('@models/user/user.model')).default;
+        const actor = await userModel.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+        const actorName = this.notificationService.extractName(actor);
+        const actorImage = actor?.profileImage?.url;
+        this.notificationService.notifyReelLiked(authorId, userId, actorName, reelId, actorImage).catch(() => {});
+      }
+
       return { liked: true };
     }
   }
@@ -205,11 +218,15 @@ class ReelService {
 
   /* ───────── Admin ───────── */
 
-  public async hideReel(reelId: string) {
+  public async hideReel(reelId: string, reason?: string) {
     assertObjectId(reelId, 'Reel');
     const reel = await this.reels.findByIdAndUpdate(reelId, { isHidden: true }, { new: true }).lean().exec();
     if (!reel) throw new NotFoundException('Reel not found', 'REEL_NOT_FOUND');
     logger.info(`ReelService.hideReel: reel ${reelId} hidden`);
+
+    // Notify author of content moderation
+    this.notificationService.notifyContentHidden(reel.authorId.toString(), 'reel', reelId, reason).catch(() => {});
+
     return reel;
   }
 

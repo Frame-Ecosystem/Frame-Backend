@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { clientMiddleware } from '@middlewares/role.middleware';
-import { likeRateLimiter } from '@middlewares/rate-limit.middleware';
+import { likeRateLimiter } from '@middlewares/rateLimit.middleware';
 import LikeController from '@controllers/like/like.controller';
 
 class LikeRoute implements Routes {

@@ -2,11 +2,11 @@
 FROM node:20-alpine as common-build-stage
 
 # Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init curl
 
 # Create app directory and set correct permissions
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN addgroup -g 1001 -S framebeauty && \
+    adduser -S framebeauty -u 1001
 
 WORKDIR /app
 
@@ -20,8 +20,8 @@ RUN npm ci --only=production && npm cache clean --force
 COPY . .
 
 # Change ownership of the app directory
-RUN chown -R nextjs:nodejs /app
-USER nextjs
+RUN chown -R framebeauty:framebeauty /app
+USER framebeauty
 
 EXPOSE 3000
 
@@ -33,7 +33,7 @@ ENV NODE_ENV=development
 # Install dev dependencies for development
 USER root
 RUN npm ci
-USER nextjs
+USER framebeauty
 
 CMD ["dumb-init", "npm", "run", "dev"]
 
@@ -48,7 +48,7 @@ RUN npm run build
 # Remove dev dependencies to reduce image size
 USER root
 RUN npm prune --production
-USER nextjs
+USER framebeauty
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

@@ -2,6 +2,7 @@ import commentModel from '@models/content/comment.model';
 import contentLikeModel from '@models/content/contentLike.model';
 import postModel from '@models/content/post.model';
 import reelModel from '@models/content/reel.model';
+import NotificationService from '@services/realtime/notification.service';
 import { HttpException, BadRequestException, NotFoundException, ForbiddenException, InternalServerException } from '@exceptions/HttpException';
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
@@ -11,6 +12,7 @@ class CommentService {
   private contentLikes = contentLikeModel;
   private posts = postModel;
   private reels = reelModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
 
@@ -58,6 +60,10 @@ class CommentService {
         .exec();
 
       logger.info(`CommentService.addComment: comment ${comment._id} on ${targetType} ${targetId}`);
+
+      // Fire notifications asynchronously (never block the response)
+      this.fireCommentNotifications(authorId, targetType, targetId, target, comment, data.parentCommentId).catch(() => {});
+
       return populated;
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -166,16 +172,79 @@ class CommentService {
     } else {
       await this.contentLikes.create({ userId, targetId: commentId, targetType: 'comment' });
       await this.comments.findByIdAndUpdate(commentId, { $inc: { likeCount: 1 } }).exec();
+
+      // Notify comment author
+      const commentAuthorId = comment.authorId.toString();
+      if (commentAuthorId !== userId) {
+        const userModel = (await import('@models/user/user.model')).default;
+        const actor = await userModel.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+        const actorName = this.notificationService.extractName(actor);
+        const actorImage = actor?.profileImage?.url;
+        const targetType = comment.targetType as 'post' | 'reel';
+        const targetId = comment.targetId.toString();
+        this.notificationService.notifyCommentLiked(commentAuthorId, userId, actorName, commentId, targetType, targetId, actorImage).catch(() => {});
+      }
+
       return { liked: true };
+    }
+  }
+
+  /* ───────── Notification Helpers ───────── */
+
+  private async fireCommentNotifications(
+    authorId: string,
+    targetType: 'post' | 'reel',
+    targetId: string,
+    target: any,
+    comment: any,
+    parentCommentId?: string,
+  ): Promise<void> {
+    try {
+      const userModel = (await import('@models/user/user.model')).default;
+      const actor = await userModel.findById(authorId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+      const actorName = this.notificationService.extractName(actor);
+      const actorImage = actor?.profileImage?.url;
+      const commentId = comment._id.toString();
+      const text = comment.text || '';
+
+      // Notify the content author (post/reel owner)
+      const contentAuthorId = target.authorId?.toString();
+      if (contentAuthorId && contentAuthorId !== authorId) {
+        await this.notificationService.notifyContentCommented(
+          contentAuthorId,
+          authorId,
+          actorName,
+          targetType,
+          targetId,
+          commentId,
+          text,
+          actorImage,
+        );
+      }
+
+      // If replying, also notify the parent comment author
+      if (parentCommentId) {
+        const parent = await this.comments.findById(parentCommentId).select('authorId').lean().exec();
+        const parentAuthorId = parent?.authorId?.toString();
+        if (parentAuthorId && parentAuthorId !== authorId && parentAuthorId !== contentAuthorId) {
+          await this.notificationService.notifyCommentReplied(parentAuthorId, authorId, actorName, targetType, targetId, commentId, text, actorImage);
+        }
+      }
+    } catch (err) {
+      logger.error(`CommentService.fireCommentNotifications error: ${err.message}`);
     }
   }
 
   /* ───────── Admin ───────── */
 
-  public async hideComment(commentId: string) {
+  public async hideComment(commentId: string, reason?: string) {
     assertObjectId(commentId, 'Comment');
     const comment = await this.comments.findByIdAndUpdate(commentId, { isHidden: true }, { new: true }).lean().exec();
     if (!comment) throw new NotFoundException('Comment not found', 'COMMENT_NOT_FOUND');
+
+    // Notify author of content moderation
+    this.notificationService.notifyContentHidden(comment.authorId.toString(), 'comment', commentId, reason).catch(() => {});
+
     return comment;
   }
 

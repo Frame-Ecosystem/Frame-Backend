@@ -84,7 +84,12 @@ class ClientRoute implements Routes {
      * @query   limit - Items per page (default: 20, max: 50)
      * @query   status - Filter by booking status (pending, confirmed, inQueue, completed, cancelled, absent)
      */
-    this.router.get('/profile/:clientId/bookings', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientVisitorProfileController.getClientBookings);
+    this.router.get(
+      '/profile/:clientId/bookings',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientBookings,
+    );
 
     /**
      * @route   GET /v1/client/profile/:clientId/likes
@@ -93,7 +98,12 @@ class ClientRoute implements Routes {
      * @query   page - Page number (default: 1)
      * @query   limit - Items per page (default: 20, max: 50)
      */
-    this.router.get('/profile/:clientId/likes', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientVisitorProfileController.getClientLikedLounges);
+    this.router.get(
+      '/profile/:clientId/likes',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientLikedLounges,
+    );
 
     /**
      * @route   GET /v1/client/profile/:clientId/ratings
@@ -102,7 +112,12 @@ class ClientRoute implements Routes {
      * @query   page - Page number (default: 1)
      * @query   limit - Items per page (default: 20, max: 50)
      */
-    this.router.get('/profile/:clientId/ratings', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientVisitorProfileController.getClientRatings);
+    this.router.get(
+      '/profile/:clientId/ratings',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientRatings,
+    );
   }
 }
 

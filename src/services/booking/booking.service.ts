@@ -1,8 +1,8 @@
-﻿import { NotFoundException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
+import { NotFoundException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
 import { Booking, BookingStatus } from '@interfaces/booking/booking.interface';
 import bookingModel from '@models/booking/booking.model';
 import agentModel from '@models/user/agent.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateBookingDto, UpdateBookingDto } from '@dtos/booking/booking.dto';
@@ -10,8 +10,8 @@ import mongoose from 'mongoose';
 import QueueService from '@services/queue/queue.service';
 import SocketService from '@services/realtime/socket.service';
 import NotificationService from '@services/realtime/notification.service';
-import BookingAnalyticsService from '@services/booking/booking-analytics.service';
-import { validateLoungeServices, validateAgents, calculateServiceTotals } from '@services/booking/booking-helpers';
+import BookingAnalyticsService from '@services/booking/bookingAnalytics.service';
+import { validateLoungeServices, validateAgents, calculateServiceTotals } from '@services/booking/booking.helpers';
 
 const POPULATE_FIELDS = {
   CLIENT: 'firstName lastName email profileImage coverImage location',
@@ -228,17 +228,11 @@ class BookingService {
       const hasClient = !!bookingData.clientPhone || !!bookingData.clientEmail;
 
       if (!hasVisitor && !hasClient) {
-        throw new BadRequestException(
-          'Either visitorName or clientPhone/clientEmail is required',
-          'MISSING_CLIENT_OR_VISITOR',
-        );
+        throw new BadRequestException('Either visitorName or clientPhone/clientEmail is required', 'MISSING_CLIENT_OR_VISITOR');
       }
 
       if (hasVisitor && hasClient) {
-        throw new BadRequestException(
-          'Provide either visitorName or clientPhone/clientEmail, not both',
-          'AMBIGUOUS_CLIENT_VISITOR',
-        );
+        throw new BadRequestException('Provide either visitorName or clientPhone/clientEmail, not both', 'AMBIGUOUS_CLIENT_VISITOR');
       }
 
       // Validate lounge
@@ -267,10 +261,7 @@ class BookingService {
 
         const client = await this.users.findOne({ ...query, type: 'client' });
         if (!client) {
-          throw new BadRequestException(
-            'No client found with the provided phone or email',
-            'CLIENT_NOT_FOUND',
-          );
+          throw new BadRequestException('No client found with the provided phone or email', 'CLIENT_NOT_FOUND');
         }
         clientId = client._id.toString();
       } else {
@@ -334,9 +325,7 @@ class BookingService {
 
   public async getAllBookings(): Promise<Booking[]> {
     try {
-      return await this.populateBooking(
-        this.bookings.find(),
-      ).sort({ bookingDate: -1 });
+      return await this.populateBooking(this.bookings.find()).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching all bookings: ${error.message}`);
       throw new InternalServerException('Failed to fetch bookings');
@@ -348,9 +337,7 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(bookingId)) {
         throw new BadRequestException('Invalid booking ID format', 'INVALID_BOOKING_ID');
       }
-      const booking = await this.populateBooking(
-        this.bookings.findById(bookingId),
-      );
+      const booking = await this.populateBooking(this.bookings.findById(bookingId));
       if (!booking) {
         throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
       }
@@ -366,9 +353,7 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(clientId)) {
         throw new BadRequestException('Invalid client ID format', 'INVALID_CLIENT_ID');
       }
-      return await this.populateBooking(
-        this.bookings.find({ clientId }),
-      ).sort({ bookingDate: -1 });
+      return await this.populateBooking(this.bookings.find({ clientId })).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for client ${clientId}: ${error.message}`);
       throw error;
@@ -390,9 +375,7 @@ class BookingService {
       }
       // admin: no extra filter — gets all history bookings
 
-      return await this.populateBooking(
-        this.bookings.find(filter),
-      ).sort({ bookingDate: -1 });
+      return await this.populateBooking(this.bookings.find(filter)).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching booking history for user ${userId}: ${error.message}`);
       throw error;
@@ -404,9 +387,7 @@ class BookingService {
       if (!mongoose.Types.ObjectId.isValid(loungeId)) {
         throw new BadRequestException('Invalid lounge ID format', 'INVALID_LOUNGE_ID');
       }
-      return await this.populateBooking(
-        this.bookings.find({ loungeId }),
-      ).sort({ bookingDate: -1 });
+      return await this.populateBooking(this.bookings.find({ loungeId })).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for lounge ${loungeId}: ${error.message}`);
       throw error;

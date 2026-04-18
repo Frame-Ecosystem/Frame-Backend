@@ -36,37 +36,34 @@ const cronHandler = (
  */
 export const initializeCronJobs = (): void => {
   // Daily at 00:01 — populate agent queues from confirmed bookings
-  cron.schedule('1 0 * * *', cronHandler(
-    'DailyQueuePopulation',
-    () => queueService.populateDailyQueues(),
-    { logAlways: true },
-  ));
+  cron.schedule(
+    '1 0 * * *',
+    cronHandler('DailyQueuePopulation', () => queueService.populateDailyQueues(), { logAlways: true }),
+  );
 
   // Daily at 00:05 — cleanup past queues (safety net)
-  cron.schedule('5 0 * * *', cronHandler(
-    'PastQueueCleanup',
-    () => queueService.cleanupPastQueues(),
-    { logAlways: true },
-  ));
+  cron.schedule(
+    '5 0 * * *',
+    cronHandler('PastQueueCleanup', () => queueService.cleanupPastQueues(), { logAlways: true }),
+  );
 
   // Every 10 minutes — send ~15-min queue reminders
-  cron.schedule('*/10 * * * *', cronHandler(
-    'QueueReminders',
-    () => queueService.sendQueueReminders(),
-  ));
+  cron.schedule(
+    '*/10 * * * *',
+    cronHandler('QueueReminders', () => queueService.sendQueueReminders()),
+  );
 
   // Every 30 minutes — cleanup queues for closed lounges
-  cron.schedule('*/30 * * * *', cronHandler(
-    'ClosedLoungeCleanup',
-    () => queueService.cleanupClosedLoungeQueues(),
-  ));
+  cron.schedule(
+    '*/30 * * * *',
+    cronHandler('ClosedLoungeCleanup', () => queueService.cleanupClosedLoungeQueues()),
+  );
 
   // Daily at 00:10 — complete stale inQueue bookings from past days
-  cron.schedule('10 0 * * *', cronHandler(
-    'StaleInQueueCleanup',
-    () => bookingService.cleanupStaleInQueueBookings(),
-    { logAlways: true },
-  ));
+  cron.schedule(
+    '10 0 * * *',
+    cronHandler('StaleInQueueCleanup', () => bookingService.cleanupStaleInQueueBookings(), { logAlways: true }),
+  );
 
   logger.info('CronJob: All cron jobs initialized (populate@00:01, cleanup@00:05, staleInQueue@00:10, reminders@*/10, close@*/30)');
 };

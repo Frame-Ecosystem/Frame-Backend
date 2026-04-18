@@ -3,7 +3,7 @@ import { verify, JsonWebTokenError, TokenExpiredError, NotBeforeError } from 'js
 import { SECRET_KEY } from '@config';
 import { HttpException } from '@exceptions/HttpException';
 import { DataStoredInToken, RequestWithUser } from '@interfaces/auth/auth.interface';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { logSecurityEvent } from '@utils/logger';
 
 // Generic error message for client (security: don't leak internal details)
@@ -73,7 +73,7 @@ const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFun
     }
 
     const userId = verificationResponse._id;
-    const findUser = await userModel.findById(userId);
+    const findUser = await userModel.findById(userId).select('-refreshTokens');
 
     if (!findUser) {
       logSecurityEvent({
@@ -85,6 +85,35 @@ const authMiddleware = async (req: RequestWithUser, res: Response, next: NextFun
         path: req.path,
       });
       return next(new HttpException(401, AUTH_ERROR_MESSAGE));
+    }
+
+    // Reject tokens issued before the last password change
+    if (findUser.passwordChangedAt && verificationResponse.iat) {
+      const passwordChangedAtSeconds = Math.floor(new Date(findUser.passwordChangedAt).getTime() / 1000);
+      if (verificationResponse.iat < passwordChangedAtSeconds) {
+        logSecurityEvent({
+          event: 'INVALID_TOKEN',
+          reason: 'Token issued before password change',
+          userId,
+          tokenIat: verificationResponse.iat,
+          passwordChangedAt: findUser.passwordChangedAt.toISOString(),
+          ip: req.ip || req.socket?.remoteAddress,
+          path: req.path,
+        });
+        return next(new HttpException(401, AUTH_ERROR_MESSAGE));
+      }
+    }
+
+    // Reject blocked/suspended accounts
+    if (findUser.isBlocked) {
+      logSecurityEvent({
+        event: 'INVALID_TOKEN',
+        reason: 'Blocked account access attempt',
+        userId,
+        ip: req.ip || req.socket?.remoteAddress,
+        path: req.path,
+      });
+      return next(new HttpException(403, 'Account suspended. Please contact support.'));
     }
 
     req.user = findUser;

@@ -9,14 +9,14 @@ import { logger } from '@utils/logger';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dtos/queue/queue.dto';
 import SocketService from '@services/realtime/socket.service';
 import NotificationService from '@services/realtime/notification.service';
-import QueueCronService from '@services/queue/queue-cron.service';
+import QueueCronService from '@services/queue/queueCron.service';
 import {
   getStartOfToday,
   removeAndRebalance,
   validateStatusTransition,
   finalizeBooking,
   populateBookingForNotify,
-} from '@services/queue/queue-helpers';
+} from '@services/queue/queue.helpers';
 
 /** Populate fields for queue agent info */
 const QUEUE_POPULATE = {

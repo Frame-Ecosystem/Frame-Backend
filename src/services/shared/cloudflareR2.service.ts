@@ -124,21 +124,6 @@ class CloudflareR2Service {
     return this.upload(fileBuffer, `reels/${reelId}`, 'thumb');
   }
 
-  /** @deprecated Use deleteImage() directly. */
-  public async deleteProfileImage(publicId: string): Promise<void> {
-    return this.deleteImage(publicId);
-  }
-
-  /** @deprecated Use deleteImage() directly. */
-  public async deleteCoverImage(publicId: string): Promise<void> {
-    return this.deleteImage(publicId);
-  }
-
-  /** @deprecated Use deleteImage() directly. */
-  public async deleteLoungeServiceImage(publicId: string): Promise<void> {
-    return this.deleteImage(publicId);
-  }
-
   /* ───────── Utils ───────── */
 
   /** Best-effort content-type detection from magic bytes. */

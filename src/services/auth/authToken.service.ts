@@ -7,11 +7,18 @@ import {
   REFRESH_TOKEN_EXPIRES_STRING,
   MAX_SESSIONS_PER_USER,
   BCRYPT_ROUNDS,
-} from '../../config/constants';
+} from '@config/constants';
 import { DataStoredInToken, TokenData, RefreshTokenPayload } from '@interfaces/auth/auth.interface';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
-import { HttpException, UnauthorizedException, NotFoundException, InternalServerException, BadRequestException } from '@exceptions/HttpException';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
+import {
+  HttpException,
+  UnauthorizedException,
+  NotFoundException,
+  InternalServerException,
+  BadRequestException,
+  ForbiddenException,
+} from '@exceptions/HttpException';
 import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
 import { sendPasswordResetEmail } from '@utils/email';
@@ -179,6 +186,24 @@ class AuthTokenService {
         throw new UnauthorizedException('Authentication failed', 'INVALID_TOKEN');
       }
 
+      // Block suspended accounts from refreshing tokens
+      if (user.isBlocked) {
+        logSecurityEvent({
+          event: 'TOKEN_REFRESH_FAILED',
+          reason: 'Blocked account refresh attempt',
+          userId: String(user._id),
+          ip: deviceInfo?.ip,
+          userAgent: deviceInfo?.userAgent,
+        });
+        // Revoke all sessions for blocked users
+        await this.users.findByIdAndUpdate(user._id, {
+          refreshTokens: [],
+          'sessionTrack.isOnline': false,
+          'sessionTrack.devices': [],
+        });
+        throw new ForbiddenException('Account suspended. Please contact support.', 'ACCOUNT_BLOCKED');
+      }
+
       const session = user.refreshTokens.find(s => s.jti === decoded.jti);
 
       if (!session) {
@@ -271,6 +296,9 @@ class AuthTokenService {
         return;
       }
 
+      // Remove any existing password reset tokens for this email
+      await verificationTokenModel.deleteMany({ email: normalizedEmail, tokenType: 'password_reset' });
+
       const resetToken = uuidv4();
       await verificationTokenModel.create({
         token: resetToken,
@@ -317,16 +345,27 @@ class AuthTokenService {
       }
 
       const hashedPassword = await hash(newPassword, BCRYPT_ROUNDS);
-      await this.users.findByIdAndUpdate(user._id, { password: hashedPassword });
+
+      // Update password, invalidate all sessions, reset lockout, and set passwordChangedAt
+      await this.users.findByIdAndUpdate(user._id, {
+        password: hashedPassword,
+        refreshTokens: [],
+        failedLoginAttempts: 0,
+        lockUntil: null,
+        passwordChangedAt: new Date(),
+        'sessionTrack.isOnline': false,
+        'sessionTrack.devices': [],
+      });
       await verificationTokenModel.deleteOne({ token });
 
       logSecurityEvent({
         event: 'PASSWORD_RESET',
         userId: String(user._id),
         email: resetRecord.email,
+        sessionsRevoked: true,
       });
 
-      logger.info(`Password reset successful for user: ${user._id}`);
+      logger.info(`Password reset successful for user: ${user._id} — all sessions revoked`);
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`Reset password error: ${error.message}`, { stack: error.stack });

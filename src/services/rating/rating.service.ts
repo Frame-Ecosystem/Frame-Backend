@@ -1,7 +1,8 @@
 import { NotFoundException } from '@exceptions/HttpException';
 import { Rating } from '@interfaces/rating/rating.interface';
 import ratingModel from '@models/rating/rating.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
+import NotificationService from '@services/realtime/notification.service';
 import { UpsertRatingDto } from '@dtos/rating/rating.dto';
 import { assertObjectId, assertLounge } from '@utils/validators';
 import { logger } from '@utils/logger';
@@ -12,6 +13,7 @@ const POPULATE_CLIENT = { path: 'clientId', select: 'firstName lastName profileI
 class RatingService {
   private ratings = ratingModel;
   private users = userModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Commands ───────── */
 
@@ -29,6 +31,12 @@ class RatingService {
     );
 
     await this.refreshLoungeSummary(dto.loungeId);
+
+    // Notify lounge about the new/updated rating
+    const client = await this.users.findById(clientId).select('firstName lastName profileImage type').lean().exec();
+    const clientName = this.notificationService.extractName(client);
+    const clientImage = client?.profileImage?.url;
+    this.notificationService.notifyLoungeRated(dto.loungeId, clientId, clientName, dto.score, clientImage).catch(() => {});
 
     logger.info(`RatingService.upsertRating: client=${clientId} lounge=${dto.loungeId} score=${dto.score}`);
     return rating;

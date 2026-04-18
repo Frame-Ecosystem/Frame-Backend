@@ -2,7 +2,7 @@ import { BookingStatus } from '@interfaces/booking/booking.interface';
 import { QueuePersonStatus } from '@interfaces/queue/queue.interface';
 import bookingModel from '@models/booking/booking.model';
 import agentModel from '@models/user/agent.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { logger } from '@utils/logger';
 import SocketService from '@services/realtime/socket.service';
 import NotificationService from '@services/realtime/notification.service';
@@ -55,10 +55,7 @@ export function validateStatusTransition(current: QueuePersonStatus, next: Queue
 
 /** Fetch a booking with notification-ready populates. */
 export function populateBookingForNotify(bookingId: string) {
-  return bookingModel
-    .findById(bookingId)
-    .populate('clientId', BOOKING_NOTIFY_POPULATE.CLIENT)
-    .populate('loungeId', BOOKING_NOTIFY_POPULATE.LOUNGE);
+  return bookingModel.findById(bookingId).populate('clientId', BOOKING_NOTIFY_POPULATE.CLIENT).populate('loungeId', BOOKING_NOTIFY_POPULATE.LOUNGE);
 }
 
 interface FinalizeOptions {
@@ -107,11 +104,7 @@ export async function finalizeBooking(bookingId: string, status: BookingStatus, 
  * Finalize a single queue person during cleanup (past queues or closed lounges).
  * Returns true if the person was processed, false if already terminal.
  */
-export async function finalizeQueuePerson(
-  person: any,
-  loungeInfo: { loungeId: string; loungeTitle: string },
-  agentId?: string,
-): Promise<boolean> {
+export async function finalizeQueuePerson(person: any, loungeInfo: { loungeId: string; loungeTitle: string }, agentId?: string): Promise<boolean> {
   switch (person.status) {
     case QueuePersonStatus.WAITING:
       person.status = QueuePersonStatus.ABSENT;

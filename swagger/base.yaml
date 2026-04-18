@@ -1,12 +1,59 @@
 openapi: 3.0.3
 info:
-  title: Frame API
+  title: Frame Beauty API
   version: 2.0.0
-  description: Backend API for the Frame ecosystem.
+  description: |
+    Backend API for **Frame Beauty** — a child application of the **Frame** enterprise platform.
+    Provides salon discovery, booking, queue management, real-time notifications, and social features
+    for beauty professionals and clients.
+
+    ## Frame Ecosystem
+    - **Frame** — Enterprise parent platform
+    - **Frame Beauty** — Salon & beauty services marketplace
+
+    ## Features
+    - Authentication (JWT + Google OAuth)
+    - Salon/Lounge management & discovery
+    - Real-time booking & queue system
+    - Social feed (posts, reels, comments, likes, follows)
+    - Push notifications & in-app messaging
+    - Admin & agent management
+  contact:
+    name: Frame Team
+    url: https://framebeauty.com
+    email: support@framebeauty.com
+  license:
+    name: Proprietary
+    url: https://framebeauty.com/terms
+  x-logo:
+    url: https://framebeauty.com/logo.png
+    altText: Frame Beauty
 
 servers:
   - url: http://localhost:3000
     description: Local development
+  - url: https://api.framebeauty.com
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication, registration, and session management
+  - name: Users
+    description: User profile management (clients, agents, admins)
+  - name: Lounges
+    description: Salon/lounge discovery and management
+  - name: Bookings
+    description: Appointment booking and scheduling
+  - name: Queue
+    description: Real-time queue management
+  - name: Catalog
+    description: Service categories, services, and suggestions
+  - name: Social
+    description: Posts, reels, comments, likes, follows, and feed
+  - name: Notifications
+    description: Push notifications and in-app alerts
+  - name: Admin
+    description: Administrative operations and analytics
 
 security:
   - bearerAuth: []

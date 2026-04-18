@@ -3,8 +3,8 @@ import PostController from '@controllers/content/post.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
-import { uploadPostMedia } from '@middlewares/content-upload.middleware';
-import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rate-limit.middleware';
+import { uploadPostMedia } from '@middlewares/contentUpload.middleware';
+import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 
 class PostRoute implements Routes {
   public path = '/v1/posts';

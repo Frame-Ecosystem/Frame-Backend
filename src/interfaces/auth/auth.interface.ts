@@ -1,9 +1,11 @@
 import { Request } from 'express';
 import { Document } from 'mongoose';
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 
 export interface DataStoredInToken {
   _id: string;
+  iat?: number;
+  exp?: number;
 }
 
 export interface RefreshTokenPayload {

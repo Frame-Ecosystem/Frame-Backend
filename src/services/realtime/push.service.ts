@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import { logger } from '@utils/logger';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 
 // ─── Types ──────────────────────────────────────────────────────────
 

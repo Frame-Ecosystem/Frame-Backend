@@ -1,7 +1,8 @@
 // ============================================
 // AUTHENTICATION DTOs
 // ============================================
-import { IsEmail, IsString, IsNotEmpty, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '@dtos/user/user.dto';
 
 // SEND VERIFICATION EMAIL DTO
 
@@ -37,6 +38,8 @@ export class ResetPasswordDto {
   @IsString({ message: 'New password is required' })
   @IsNotEmpty({ message: 'New password is required' })
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @MaxLength(128, { message: 'Password cannot exceed 128 characters' })
+  @Matches(PASSWORD_REGEX, { message: PASSWORD_VALIDATION_MESSAGE })
   public newPassword: string;
 }
 

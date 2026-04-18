@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import AuthController from '@controllers/auth/auth.controller';
-import { CreateUserDto } from '@dtos/user/users.dto';
+import { CreateUserDto } from '@dtos/user/user.dto';
 import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto } from '@dtos/auth/auth.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
-import { loginRateLimiter, signupRateLimiter } from '@middlewares/rate-limit.middleware';
+import { loginRateLimiter, signupRateLimiter, forgotPasswordRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import passport from 'passport';
 import { FRONTEND_BASE_URL } from '@config';
 import { logger } from '@utils/logger';
@@ -22,13 +22,18 @@ class AuthRoute implements Routes {
   private initializeRoutes() {
     // Auth endpoints with rate limiting
     this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
-    this.router.get('/verify', this.authController.verifyMagicLink);
+    this.router.get('/verify', generalRateLimiter, this.authController.verifyMagicLink);
     this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
     this.router.post('/logout', authMiddleware, this.authController.logOut);
     this.router.post('/logout-all', authMiddleware, this.authController.logOutAllDevices);
     // Refresh token endpoint (no CSRF needed - refresh token cookie provides security)
     this.router.post('/refresh-token', this.authController.refreshToken);
-    this.router.post('/forgot-password', validationMiddleware(ForgotPasswordDto, 'body'), this.authController.forgotPassword);
+    this.router.post(
+      '/forgot-password',
+      forgotPasswordRateLimiter,
+      validationMiddleware(ForgotPasswordDto, 'body'),
+      this.authController.forgotPassword,
+    );
     this.router.post('/reset-password', validationMiddleware(ResetPasswordDto, 'body'), this.authController.resetPassword);
 
     // Google OAuth endpoints

@@ -1,11 +1,11 @@
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { hash } from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../config/constants';
+import { BCRYPT_ROUNDS } from '@config/constants';
 import { logger } from '@utils/logger';
 import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
 
 // Admin defaults
-const ADMIN_PHONE = process.env.ADMIN_PHONE || '50922140';
+const ADMIN_PHONE = process.env.ADMIN_PHONE || '';
 
 /**
  * Ensure the users collection and indexes exist in MongoDB.

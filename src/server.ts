@@ -11,13 +11,10 @@ const main = async () => {
   // Import routes AFTER validateEnv
   const { default: App } = await import('@/app');
   const { default: AuthRoute } = await import('@routes/auth/auth.route');
-  const { default: AdminRoute } = await import('@routes/user/admin.route');
-  const { default: AdminServicesRoute } = await import('@routes/user/adminServices.route');
+  const { default: AdminRoute } = await import('@routes/admin/admin.route');
   const { default: CurrentUserRoute } = await import('@routes/user/currentUser.route');
   const { default: ClientRoute } = await import('@routes/user/client.route');
   const { default: LoungeServicesRoute } = await import('@routes/lounge/loungeServices.route');
-  const { default: ServicesRoute } = await import('@routes/catalog/services.route');
-  const { default: ServiceCategoriesRoute } = await import('@routes/catalog/serviceCategories.route');
   const { default: ServiceSuggestionsRoute } = await import('@routes/catalog/serviceSuggestions.route');
   const { default: AgentRoute } = await import('@routes/user/agent.route');
   const { default: LoungeRoute } = await import('@routes/lounge/lounge.route');
@@ -38,12 +35,9 @@ const main = async () => {
     new IndexRoute(),
     new AuthRoute(),
     new AdminRoute(),
-    new AdminServicesRoute(),
     new CurrentUserRoute(),
     new ClientRoute(),
     new LoungeServicesRoute(),
-    new ServicesRoute(),
-    new ServiceCategoriesRoute(),
     new ServiceSuggestionsRoute(),
     new AgentRoute(),
     new LoungeRoute(),

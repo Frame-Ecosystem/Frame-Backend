@@ -2,7 +2,7 @@ import { BadRequestException, InternalServerException, NotFoundException } from 
 import { BookingStatus } from '@interfaces/booking/booking.interface';
 import bookingModel from '@models/booking/booking.model';
 import agentModel from '@models/user/agent.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { logger } from '@utils/logger';
 import mongoose from 'mongoose';
 import SocketService from '@services/realtime/socket.service';

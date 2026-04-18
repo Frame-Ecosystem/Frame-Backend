@@ -1,16 +1,16 @@
 import { NextFunction, Request, Response } from 'express';
 import { RequestWithUser } from '@interfaces/auth/auth.interface';
-import AdminServicesService from '@services/user/adminServices.service';
+import SystemServicesService from '@services/admin/systemServices.service';
 
-class AdminServicesController {
-  private adminServicesService = new AdminServicesService();
+class SystemServicesController {
+  private systemServicesService = new SystemServicesService();
 
   /**
    * Get all admin services statistics
    */
   public getAllAdminServices = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await this.adminServicesService.getAllAdminServices();
+      const stats = await this.systemServicesService.getAllAdminServices();
       res.status(200).json({
         data: stats,
         message: 'Admin services retrieved successfully',
@@ -25,7 +25,7 @@ class AdminServicesController {
    */
   public getSystemHealth = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const health = await this.adminServicesService.getSystemHealth();
+      const health = await this.systemServicesService.getSystemHealth();
       res.status(200).json({
         data: health,
         message: 'System health check completed',
@@ -41,7 +41,7 @@ class AdminServicesController {
   public getUserActivityLog = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const limit = parseInt(req.query.limit as string) || 100;
-      const activityLog = await this.adminServicesService.getUserActivityLog(limit);
+      const activityLog = await this.systemServicesService.getUserActivityLog(limit);
       res.status(200).json({
         data: activityLog,
         count: activityLog.length,
@@ -57,7 +57,7 @@ class AdminServicesController {
    */
   public getDashboardStats = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const stats = await this.adminServicesService.getDashboardStats();
+      const stats = await this.systemServicesService.getDashboardStats();
       res.status(200).json({
         data: stats,
         message: 'Dashboard statistics retrieved successfully',
@@ -73,7 +73,7 @@ class AdminServicesController {
   public clearUserSessions = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.params.userId;
-      const user = await this.adminServicesService.clearUserSessions(userId);
+      const user = await this.systemServicesService.clearUserSessions(userId);
       res.status(200).json({
         data: user,
         message: 'User sessions cleared successfully',
@@ -97,7 +97,7 @@ class AdminServicesController {
         });
       }
 
-      const user = await this.adminServicesService.resetUserPassword(userId, newPassword);
+      const user = await this.systemServicesService.resetUserPassword(userId, newPassword);
       res.status(200).json({
         data: user,
         message: 'User password reset successfully',
@@ -113,7 +113,7 @@ class AdminServicesController {
   public exportUserData = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.params.userId;
-      const exportData = await this.adminServicesService.exportUserData(userId);
+      const exportData = await this.systemServicesService.exportUserData(userId);
       res.status(200).json({
         data: exportData,
         message: 'User data exported successfully',
@@ -137,7 +137,7 @@ class AdminServicesController {
         });
       }
 
-      const auditLog = await this.adminServicesService.createAuditLog(action, userId, details);
+      const auditLog = await this.systemServicesService.createAuditLog(action, userId, details);
       res.status(201).json({
         data: auditLog,
         message: 'Audit log created successfully',
@@ -148,4 +148,4 @@ class AdminServicesController {
   };
 }
 
-export default AdminServicesController;
+export default SystemServicesController;

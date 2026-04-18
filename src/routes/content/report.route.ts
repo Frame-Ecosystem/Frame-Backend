@@ -3,7 +3,7 @@ import ReportController from '@controllers/content/report.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
-import { reportRateLimiter, generalRateLimiter } from '@middlewares/rate-limit.middleware';
+import { reportRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateReportDto, ReviewReportDto } from '@dtos/content/report.dto';
 

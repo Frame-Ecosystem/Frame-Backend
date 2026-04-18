@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import CommentController from '@controllers/content/comment.controller';
 import { Routes } from '@interfaces/routes.interface';
-import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
-import { commentRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rate-limit.middleware';
+import { commentRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateCommentDto } from '@dtos/content/comment.dto';
+import authMiddleware from '@middlewares/auth.middleware';
 
 class CommentRoute implements Routes {
   public path = '/v1/comments';

@@ -1,5 +1,5 @@
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import bookingModel from '@models/booking/booking.model';
 import likeModel from '@models/like/like.model';
 import ratingModel from '@models/rating/rating.model';

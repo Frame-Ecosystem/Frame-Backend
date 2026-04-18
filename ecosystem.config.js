@@ -7,7 +7,7 @@
  module.exports = {
   apps: [
     {
-      name: 'prod', // pm2 start App name
+      name: 'frame-beauty-prod', // pm2 start App name
       script: 'dist/server.js',
       exec_mode: 'cluster', // 'cluster' or 'fork'
       instance_var: 'INSTANCE_ID', // instance variable
@@ -32,7 +32,7 @@
       listen_timeout: 10000, // Wait 10 seconds for app to listen
     },
     {
-      name: 'dev', // pm2 start App name
+      name: 'frame-beauty-dev', // pm2 start App name
       script: 'ts-node', // ts-node
       args: '-r tsconfig-paths/register --transpile-only src/server.ts', // ts-node args
       exec_mode: 'cluster', // 'cluster' or 'fork'
@@ -53,12 +53,12 @@
   ],
   deploy: {
     production: {
-      user: 'user',
-      host: '0.0.0.0',
-      ref: 'origin/master',
-      repo: 'git@github.com:repo.git',
-      path: 'dist/server.js',
-      'post-deploy': 'npm install && npm run build && pm2 reload ecosystem.config.js --only prod',
+      user: process.env.DEPLOY_USER || 'deploy',
+      host: process.env.DEPLOY_HOST || '0.0.0.0',
+      ref: 'origin/main',
+      repo: 'git@github.com:frame-enterprise/frame-beauty-api.git',
+      path: '/var/www/frame-beauty-api',
+      'post-deploy': 'npm ci --production && npm run build && pm2 reload ecosystem.config.js --only frame-beauty-prod',
     },
   },
 };

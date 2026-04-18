@@ -1,5 +1,6 @@
 import followModel from '@models/follow/follow.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
+import NotificationService from '@services/realtime/notification.service';
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
@@ -23,6 +24,7 @@ interface PaginateFollowsOpts {
 class FollowService {
   private follows = followModel;
   private users = userModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Commands ───────── */
 
@@ -62,6 +64,12 @@ class FollowService {
 
     // Update denormalized counts
     await this.refreshCounts(followerId, targetId);
+
+    // Notify the target user about new follower
+    const follower = await this.users.findById(followerId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+    const followerName = this.notificationService.extractName(follower);
+    const followerImage = follower?.profileImage?.url;
+    this.notificationService.notifyNewFollower(targetId, followerId, followerName, followerImage).catch(() => {});
 
     logger.info(`FollowService.follow: ${followerType} ${followerId} → ${targetType} ${targetId}`);
     return { following: true };

@@ -1,5 +1,5 @@
 import { model, Schema, Document } from 'mongoose';
-import { User, Client as IClient, Lounge as ILounge, Admin as IAdmin } from '@interfaces/user/users.interface';
+import { User, Client as IClient, Lounge as ILounge, Admin as IAdmin } from '@interfaces/user/user.interface';
 
 // Base User Schema - shared by all user types
 const userSchema: Schema = new Schema(
@@ -56,7 +56,7 @@ const userSchema: Schema = new Schema(
     },
     theme: {
       type: String,
-      default: 'monochrome-light',
+      default: 'silver-light',
       required: false,
     },
     loungeTitle: {
@@ -208,6 +208,18 @@ const userSchema: Schema = new Schema(
         },
       ],
       default: [],
+    },
+    failedLoginAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockUntil: {
+      type: Date,
+      default: null,
+    },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
     },
     oauth: {
       google: {

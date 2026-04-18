@@ -6,18 +6,17 @@ import helmet from 'helmet';
 import hpp from 'hpp';
 import morgan from 'morgan';
 import passport from 'passport';
-import { connect, set, disconnect } from 'mongoose';
+import { connect, set, disconnect, connection } from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
-import os from 'os';
 import { createServer, Server as HTTPServer } from 'http';
 import { buildSwaggerDocument } from '@utils/swagger';
-import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS } from '@config';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
 import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
-import { REQUEST_BODY_LIMIT } from './config/constants';
+import { REQUEST_BODY_LIMIT, SERVICE_NAME, SERVICE_BRAND, SERVICE_VERSION } from '@config/constants';
 import SocketService from '@services/realtime/socket.service';
 import './config/passport'; // Initialize Passport
 
@@ -33,11 +32,17 @@ class App {
     this.env = NODE_ENV || 'development';
     this.port = PORT || 3000;
 
-    // Initialize Socket.IO on the HTTP server
-    SocketService.getInstance().initialize(this.httpServer);
+    // Trust first proxy (nginx/LB) for correct req.ip
+    this.app.set('trust proxy', 1);
 
-    // Note: connectToDatabase is async but called without await here
-    // This is intentional - the app initializes routes/middleware while DB connects
+    // Initialize Socket.IO on the HTTP server
+    try {
+      SocketService.getInstance().initialize(this.httpServer);
+    } catch (error) {
+      logger.error('Failed to initialize Socket.IO:', { error: error?.message || error });
+    }
+
+    // Connect to database before initializing routes
     this.connectToDatabase();
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
@@ -45,24 +50,9 @@ class App {
     this.initializeErrorHandling();
   }
 
-  private getLocalIPAddress(): string {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-      const ifaceArray = interfaces[name];
-      if (ifaceArray) {
-        for (const iface of ifaceArray) {
-          if (iface.family === 'IPv4' && !iface.internal) {
-            return iface.address;
-          }
-        }
-      }
-    }
-    return 'localhost';
-  }
-
   public listen() {
     this.httpServer.listen(Number(this.port), '0.0.0.0', () => {
-      const localIP = this.getLocalIPAddress();
+      const localIP = LOCAL_IP || 'localhost';
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
       logger.info(`🚀 App listening on ${localIP}:${this.port}`);
@@ -97,7 +87,7 @@ class App {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         logger.info(`🔄 Connecting to MongoDB at ${dbConnection.url}... (attempt ${attempt}/${retries})`);
-        await connect(dbConnection.url);
+        await connect(dbConnection.url, dbConnection.options);
         logger.info(`✅ Successfully connected to MongoDB`);
 
         // Log the actual database name for verification in Compass
@@ -150,7 +140,6 @@ class App {
 
         // Allow 127.0.0.1 for local access
         if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
-        if (origin.startsWith('http://10.103.242.203')) return callback(null, true);
         if (origin.startsWith('http://0.0.0.0')) return callback(null, true);
 
         // Allow WiFi network IPs (192.168.x.x range)
@@ -171,6 +160,15 @@ class App {
     this.app.use(cors(corsOptions));
     this.app.use(hpp());
     this.app.use(helmet());
+
+    // Frame Beauty branding headers
+    this.app.use((req, res, next) => {
+      res.setHeader('X-Powered-By', SERVICE_BRAND);
+      res.setHeader('X-API-Version', SERVICE_VERSION);
+      res.setHeader('X-Service', SERVICE_NAME);
+      next();
+    });
+
     this.app.use(compression());
     // Limit request body size to prevent DoS attacks
     this.app.use(express.json({ limit: REQUEST_BODY_LIMIT }));
@@ -185,37 +183,45 @@ class App {
     this.app.get('/health', (req, res) => {
       res.status(200).json({
         status: 'ok',
+        service: SERVICE_NAME,
+        brand: SERVICE_BRAND,
         timestamp: new Date().toISOString(),
         environment: this.env,
         uptime: process.uptime(),
         memory: process.memoryUsage(),
-        version: process.env.npm_package_version || '1.0.0',
+        version: SERVICE_VERSION,
       });
     });
 
     // Readiness check endpoint
     this.app.get('/ready', async (req, res) => {
       try {
-        // Check database connection status without reconnecting
-        const db = require('mongoose').connection;
-        if (db.readyState === 1) {
-          // 1 = connected
+        const readyState = connection.readyState;
+        const socketService = SocketService.getInstance();
+        const socketReady = socketService.isInitialized?.() ?? true;
+
+        if (readyState === 1) {
           res.status(200).json({
             status: 'ready',
+            service: SERVICE_NAME,
             timestamp: new Date().toISOString(),
             database: 'connected',
+            websocket: socketReady ? 'connected' : 'disconnected',
           });
         } else {
           res.status(503).json({
             status: 'not ready',
+            service: SERVICE_NAME,
             timestamp: new Date().toISOString(),
             database: 'disconnected',
-            readyState: db.readyState,
+            websocket: socketReady ? 'connected' : 'disconnected',
+            readyState,
           });
         }
       } catch (error) {
         res.status(503).json({
           status: 'not ready',
+          service: SERVICE_NAME,
           timestamp: new Date().toISOString(),
           database: 'error',
           error: this.env === 'development' ? error.message : 'Database connection check failed',

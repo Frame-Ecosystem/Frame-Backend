@@ -1,12 +1,14 @@
 import { Like } from '@interfaces/like/like.interface';
 import likeModel from '@models/like/like.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
+import NotificationService from '@services/realtime/notification.service';
 import { assertObjectId, assertLounge } from '@utils/validators';
 import { logger } from '@utils/logger';
 
 class LikeService {
   private likes = likeModel;
   private users = userModel;
+  private notificationService = NotificationService.getInstance();
 
   /* ───────── Commands ───────── */
 
@@ -25,6 +27,13 @@ class LikeService {
 
     await this.likes.create({ clientId, loungeId });
     await this.refreshLoungeCount(loungeId);
+
+    // Notify lounge about the new like
+    const client = await this.users.findById(clientId).select('firstName lastName profileImage type').lean().exec();
+    const clientName = this.notificationService.extractName(client);
+    const clientImage = client?.profileImage?.url;
+    this.notificationService.notifyLoungeLiked(loungeId, clientId, clientName, clientImage).catch(() => {});
+
     logger.info(`LikeService.toggleLike: like client=${clientId} lounge=${loungeId}`);
     return { liked: true };
   }
