@@ -53,7 +53,7 @@ class PostService {
 
       logger.info(`PostService.createPost: post ${post._id} created by ${authorType} ${authorId}`);
       return populated;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`PostService.createPost error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Unable to create post');

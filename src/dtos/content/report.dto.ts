@@ -4,12 +4,12 @@ import { ReportStatus } from '@interfaces/content/content.interface';
 export class CreateReportDto {
   @IsString()
   @MaxLength(500)
-  reason: string;
+  reason!: string;
 }
 
 export class ReviewReportDto {
   @IsEnum(ReportStatus)
-  status: ReportStatus;
+  status!: ReportStatus;
 
   @IsOptional()
   @IsString()

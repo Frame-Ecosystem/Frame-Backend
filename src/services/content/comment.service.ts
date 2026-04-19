@@ -65,7 +65,7 @@ class CommentService {
       this.fireCommentNotifications(authorId, targetType, targetId, target, comment, data.parentCommentId).catch(() => {});
 
       return populated;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`CommentService.addComment error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Unable to add comment');
@@ -230,7 +230,7 @@ class CommentService {
           await this.notificationService.notifyCommentReplied(parentAuthorId, authorId, actorName, targetType, targetId, commentId, text, actorImage);
         }
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.error(`CommentService.fireCommentNotifications error: ${err.message}`);
     }
   }

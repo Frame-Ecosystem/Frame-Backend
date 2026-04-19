@@ -16,7 +16,7 @@ class FollowController {
 
       const result = await this.followService.follow(followerId, followerType, targetId);
       res.status(201).json({ success: true, data: result, message: 'User followed successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in follow: ${error.message}`);
       next(error);
     }
@@ -30,7 +30,7 @@ class FollowController {
 
       const result = await this.followService.unfollow(followerId, targetId);
       res.status(200).json({ success: true, data: result, message: 'User unfollowed successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in unfollow: ${error.message}`);
       next(error);
     }
@@ -44,7 +44,7 @@ class FollowController {
 
       const following = await this.followService.isFollowing(followerId, targetId);
       res.status(200).json({ success: true, data: { following } });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in isFollowing: ${error.message}`);
       next(error);
     }
@@ -59,7 +59,7 @@ class FollowController {
 
       const data = await this.followService.getFollowing(userId, page, limit, filterType);
       res.status(200).json({ success: true, data, message: 'Following list retrieved successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getFollowing: ${error.message}`);
       next(error);
     }
@@ -74,7 +74,7 @@ class FollowController {
 
       const data = await this.followService.getFollowers(userId, page, limit, filterType);
       res.status(200).json({ success: true, data, message: 'Followers list retrieved successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getFollowers: ${error.message}`);
       next(error);
     }
@@ -87,7 +87,7 @@ class FollowController {
 
       const data = await this.followService.getCounts(userId);
       res.status(200).json({ success: true, data });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getCounts: ${error.message}`);
       next(error);
     }

@@ -9,7 +9,7 @@ export class CreateReelDto {
   @IsNumber()
   @Min(1)
   @Max(60)
-  duration: number;
+  duration!: number;
 
   @IsOptional()
   @IsArray()

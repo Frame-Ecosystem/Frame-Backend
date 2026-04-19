@@ -16,7 +16,7 @@ class RatingController {
 
       const rating = await this.ratingService.upsertRating(clientId, dto);
       res.status(200).json({ success: true, data: rating, message: 'Rating saved successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in upsertRating: ${error.message}`);
       next(error);
     }
@@ -30,7 +30,7 @@ class RatingController {
 
       await this.ratingService.deleteRating(clientId, loungeId);
       res.status(200).json({ success: true, message: 'Rating deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in deleteRating: ${error.message}`);
       next(error);
     }
@@ -52,7 +52,7 @@ class RatingController {
         totalPages: Math.ceil(total / limit),
         message: 'Lounge ratings retrieved successfully',
       });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getLoungeRatings: ${error.message}`);
       next(error);
     }
@@ -66,7 +66,7 @@ class RatingController {
 
       const rating = await this.ratingService.getMyRating(clientId, loungeId);
       res.status(200).json({ success: true, data: rating, message: rating ? 'Rating found' : 'No rating yet' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getMyRating: ${error.message}`);
       next(error);
     }

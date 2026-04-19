@@ -70,7 +70,7 @@ class ClientVisitorProfileService {
         profile,
         stats: { totalBookings, completedBookings, cancelledBookings, likedLounges, ratingsGiven },
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientVisitorProfileService.getClientProfile error: ${error.message}`, { clientId, stack: error.stack });
       throw new InternalServerException('Unable to retrieve client profile. Please try again later.');
@@ -137,7 +137,7 @@ class ClientVisitorProfileService {
           hasPrevPage: page > 1,
         },
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientVisitorProfileService.getClientBookings error: ${error.message}`, { clientId, stack: error.stack });
       throw new InternalServerException('Unable to retrieve booking history. Please try again later.');
@@ -169,7 +169,7 @@ class ClientVisitorProfileService {
         page,
         limit,
       };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientVisitorProfileService.getClientLikedLounges error: ${error.message}`, { clientId, stack: error.stack });
       throw new InternalServerException('Unable to retrieve liked lounges. Please try again later.');
@@ -196,7 +196,7 @@ class ClientVisitorProfileService {
       ]);
 
       return { ratings, total, page, limit };
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ClientVisitorProfileService.getClientRatings error: ${error.message}`, { clientId, stack: error.stack });
       throw new InternalServerException('Unable to retrieve client ratings. Please try again later.');

@@ -45,7 +45,7 @@ class ReportService {
 
       logger.info(`ReportService.createReport: ${targetType} ${targetId} reported by ${reporterId}`);
       return report;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ReportService.createReport error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Unable to create report');

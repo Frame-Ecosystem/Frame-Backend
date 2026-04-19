@@ -65,7 +65,7 @@ class ReelService {
 
       logger.info(`ReelService.createReel: reel ${reel._id} created by ${authorType} ${authorId}`);
       return populated;
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ReelService.createReel error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Unable to create reel');

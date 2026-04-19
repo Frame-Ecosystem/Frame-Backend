@@ -15,7 +15,7 @@ class LikeController {
 
       const result = await this.likeService.toggleLike(clientId, loungeId);
       res.status(200).json({ success: true, data: result, message: result.liked ? 'Lounge liked' : 'Lounge unliked' });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in toggleLike: ${error.message}`);
       next(error);
     }
@@ -29,7 +29,7 @@ class LikeController {
 
       const { likes, total } = await this.likeService.getMyLikes(clientId, page, limit);
       res.status(200).json({ success: true, data: likes, total, page, limit });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getMyLikes: ${error.message}`);
       next(error);
     }
@@ -43,7 +43,7 @@ class LikeController {
 
       const liked = await this.likeService.hasLiked(clientId, loungeId);
       res.status(200).json({ success: true, data: { liked } });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in hasLiked: ${error.message}`);
       next(error);
     }
@@ -57,7 +57,7 @@ class LikeController {
 
       const { likes, total } = await this.likeService.getLoungeLikers(loungeId, page, limit);
       res.status(200).json({ success: true, data: likes, total, page, limit });
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Error in getLoungeLikers: ${error.message}`);
       next(error);
     }

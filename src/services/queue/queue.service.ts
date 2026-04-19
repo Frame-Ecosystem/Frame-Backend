@@ -77,7 +77,7 @@ class QueueService {
       if (agent?.loungeId) {
         this.socketService.emitLoungeQueuesUpdated(agent.loungeId.toString(), queue);
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`Failed to emit queue WebSocket update: ${err.message}`);
     }
   }
@@ -327,7 +327,7 @@ class QueueService {
           }
         }),
       );
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`QueueService.notifyPositionChanges: ${err.message}`);
     }
   }
@@ -361,7 +361,7 @@ class QueueService {
           );
           break;
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`QueueService.handlePersonStatusSideEffects: failed for booking ${bookingId}: ${err.message}`);
     }
   }

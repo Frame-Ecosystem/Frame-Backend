@@ -1,6 +1,7 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    "ignoreDeprecations": "6.0",
     "target": "es2020",
     "lib": ["es2020", "esnext.asynciterable"],
     "typeRoots": ["node_modules/@types"],
@@ -15,6 +16,7 @@
     "sourceMap": true,
     "declaration": true,
     "outDir": "dist",
+    "rootDir": "src",
     "allowJs": true,
     "noEmit": false,
     "esModuleInterop": true,

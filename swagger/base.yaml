@@ -38,22 +38,56 @@ servers:
 tags:
   - name: Auth
     description: Authentication, registration, and session management
+  - name: Current User
+    description: Current authenticated user operations
+  - name: Admin
+    description: Administrative operations and analytics
+  - name: Admin Services
+    description: Admin service management
   - name: Users
     description: User profile management (clients, agents, admins)
+  - name: Lounge Visitor Profile
+    description: Lounge visitor profile viewing
+  - name: Client Visitor Profile
+    description: Client visitor profile viewing
+  - name: Agents
+    description: Agent management
   - name: Lounges
     description: Salon/lounge discovery and management
+  - name: Lounge Services
+    description: Services offered by lounges
+  - name: Catalog
+    description: Service categories, services, and suggestions
+  - name: Catalog Services
+    description: Catalog service listings
+  - name: Service Categories
+    description: Service category management
+  - name: Service Suggestions
+    description: Service suggestion management
   - name: Bookings
     description: Appointment booking and scheduling
   - name: Queue
     description: Real-time queue management
-  - name: Catalog
-    description: Service categories, services, and suggestions
-  - name: Social
-    description: Posts, reels, comments, likes, follows, and feed
   - name: Notifications
     description: Push notifications and in-app alerts
-  - name: Admin
-    description: Administrative operations and analytics
+  - name: Ratings
+    description: Lounge and service ratings
+  - name: Likes
+    description: Like interactions
+  - name: Follows
+    description: Follow relationships
+  - name: Social
+    description: Posts, reels, comments, likes, follows, and feed
+  - name: Posts
+    description: User and lounge posts
+  - name: Reels
+    description: Short video reels
+  - name: Comments
+    description: Comments on posts and reels
+  - name: Feed
+    description: Personalized content feed
+  - name: Reports
+    description: Content reporting and moderation
 
 security:
   - bearerAuth: []
@@ -249,30 +283,5 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
-
-tags:
-  - name: Auth
-  - name: Current User
-  - name: Admin
-  - name: Admin Services
-  - name: Lounge Visitor Profile
-  - name: Agents
-  - name: Lounge
-  - name: Lounge Services
-  - name: Catalog Services
-  - name: Service Categories
-  - name: Service Suggestions
-  - name: Bookings
-  - name: Queues
-  - name: Notifications
-  - name: Ratings
-  - name: Likes
-  - name: Follows
-  - name: Client Visitor Profile
-  - name: Posts
-  - name: Reels
-  - name: Comments
-  - name: Feed
-  - name: Reports
 
 paths: {}
