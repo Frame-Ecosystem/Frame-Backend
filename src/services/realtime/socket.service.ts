@@ -45,6 +45,10 @@ class SocketService {
     return SocketService.instance;
   }
 
+  public isInitialized(): boolean {
+    return this.io !== null;
+  }
+
   /**
    * Initialize Socket.IO with the HTTP server.
    */
@@ -138,11 +142,9 @@ class SocketService {
   public emitBookingCreated(booking: any): void {
     const clientId = this.extractId(booking.clientId);
     const loungeId = this.extractId(booking.loungeId);
-    const rooms = [
-      clientId && `bookings:client:${clientId}`,
-      loungeId && `bookings:lounge:${loungeId}`,
-      'bookings:admin',
-    ].filter(Boolean) as string[];
+    const rooms = [clientId && `bookings:client:${clientId}`, loungeId && `bookings:lounge:${loungeId}`, 'bookings:admin'].filter(
+      Boolean,
+    ) as string[];
     this.emit(rooms, SocketEvents.BOOKING_CREATED, { data: booking });
   }
 

@@ -1,12 +1,14 @@
 import { NextFunction, Response } from 'express';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto } from '@dtos/user/users.dto';
+import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto } from '@dtos/user/user.dto';
 import { RequestWithUser } from '@interfaces/auth/auth.interface';
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 import { stripSensitiveFields } from '@utils/util';
 import CurrentUserService from '@services/user/currentUser.service';
+import ReelService from '@services/content/reel.service';
 
 class CurrentUserController {
-  public currentUserService = new CurrentUserService();
+  private currentUserService = new CurrentUserService();
+  private reelService = new ReelService();
 
   public sendVerificationCode = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
@@ -58,6 +60,20 @@ class CurrentUserController {
       res.status(200).json({
         data: stripSensitiveFields(updatedUser),
         message: 'Theme updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public updateLanguage = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const { language } = req.body;
+      const updatedUser = await this.currentUserService.updateLanguage(userId, language);
+      res.status(200).json({
+        data: stripSensitiveFields(updatedUser),
+        message: 'Language updated successfully',
       });
     } catch (error) {
       next(error);
@@ -120,6 +136,17 @@ class CurrentUserController {
       res.clearCookie('refreshToken', { path: '/' });
       res.clearCookie('csrf-token', { path: '/' });
       res.status(200).json({ data: stripSensitiveFields(deletedUser), message: 'Account deleted successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public deleteMyReel = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const { reelId } = req.params;
+      await this.reelService.deleteReel(reelId, userId);
+      res.status(200).json({ message: 'Reel deleted successfully' });
     } catch (error) {
       next(error);
     }

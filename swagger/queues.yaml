@@ -1,0 +1,135 @@
+# Queue endpoints
+/v1/queues/agent/{agentId}:
+  get:
+    tags: [Queues]
+    summary: Get queue for an agent
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+        description: Defaults to today
+    responses:
+      '200': { description: Queue data }
+
+/v1/queues/agent/{agentId}/persons:
+  post:
+    tags: [Queues]
+    summary: Add person to queue
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [bookingId]
+            properties:
+              bookingId: { type: string }
+              position: { type: integer, minimum: 1 }
+    responses:
+      '200': { description: Person added }
+
+/v1/queues/agent/{agentId}/persons/{bookingId}:
+  put:
+    tags: [Queues]
+    summary: Update person status in queue
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: bookingId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [waiting, inService, completed, absent] }
+    responses:
+      '200': { description: Status updated }
+  delete:
+    tags: [Queues]
+    summary: Remove person from queue
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: bookingId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Removed }
+
+/v1/queues/agent/{agentId}/persons/{bookingId}/reorder:
+  put:
+    tags: [Queues]
+    summary: Reorder person in queue
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: bookingId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [newPosition]
+            properties:
+              newPosition: { type: integer, minimum: 1 }
+    responses:
+      '200': { description: Reordered }
+
+/v1/queues/lounge/{loungeId}:
+  get:
+    tags: [Queues]
+    summary: Get all queues for a lounge
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200': { description: Lounge queues }
+
+/v1/queues/lounge:
+  get:
+    tags: [Queues]
+    summary: Get queues for authenticated lounge
+    parameters:
+      - name: date
+        in: query
+        schema: { type: string, format: date }
+    responses:
+      '200': { description: Lounge queues }
+
+/v1/queues/populate:
+  post:
+    tags: [Queues]
+    summary: Populate daily queues (admin)
+    responses:
+      '200': { description: Queues populated }

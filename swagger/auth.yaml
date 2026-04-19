@@ -1,0 +1,143 @@
+# Auth endpoints
+/v1/auth/signup:
+  post:
+    tags: [Auth]
+    summary: Register a new user
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [password]
+            properties:
+              email: { type: string, format: email }
+              phoneNumber: { type: string, pattern: '^\d{8}$' }
+              password: { type: string, minLength: 8, maxLength: 128 }
+              gender: { type: string, enum: [male, female, unisex, kids] }
+              type: { type: string, enum: [user, client, lounge] }
+              firstName: { type: string, maxLength: 50 }
+              lastName: { type: string, maxLength: 50 }
+              LoungeTitle: { type: string, maxLength: 100 }
+              location: { $ref: '#/components/schemas/Location' }
+              profileImage: { type: string, format: uri }
+    responses:
+      '201': { description: User created }
+      '400': { description: Validation error }
+      '409': { description: Email already exists }
+
+/v1/auth/verify:
+  get:
+    tags: [Auth]
+    summary: Verify magic link token
+    security: []
+    parameters:
+      - name: token
+        in: query
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Verification successful }
+      '400': { description: Invalid or expired token }
+
+/v1/auth/login:
+  post:
+    tags: [Auth]
+    summary: Log in
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [emailOrPhone, password]
+            properties:
+              emailOrPhone: { type: string }
+              password: { type: string }
+    responses:
+      '200': { description: Login successful }
+      '401': { description: Invalid credentials }
+
+/v1/auth/logout:
+  post:
+    tags: [Auth]
+    summary: Log out current device
+    responses:
+      '200': { description: Logged out }
+
+/v1/auth/logout-all:
+  post:
+    tags: [Auth]
+    summary: Log out all devices
+    responses:
+      '200': { description: All sessions revoked }
+
+/v1/auth/refresh-token:
+  post:
+    tags: [Auth]
+    summary: Refresh access token
+    security: []
+    responses:
+      '200': { description: New tokens issued }
+      '401': { description: Invalid refresh token }
+
+/v1/auth/forgot-password:
+  post:
+    tags: [Auth]
+    summary: Request password reset email
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }
+    responses:
+      '200': { description: Reset email sent }
+
+/v1/auth/reset-password:
+  post:
+    tags: [Auth]
+    summary: Reset password with token
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [token, newPassword]
+            properties:
+              token: { type: string }
+              newPassword: { type: string, minLength: 8 }
+    responses:
+      '200': { description: Password reset successful }
+
+/v1/auth/google/login:
+  get:
+    tags: [Auth]
+    summary: Initiate Google OAuth login
+    security: []
+    responses:
+      '302': { description: Redirect to Google }
+
+/v1/auth/google/signup:
+  get:
+    tags: [Auth]
+    summary: Initiate Google OAuth signup
+    security: []
+    responses:
+      '302': { description: Redirect to Google }
+
+/v1/auth/google/callback:
+  get:
+    tags: [Auth]
+    summary: Google OAuth callback
+    security: []
+    responses:
+      '302': { description: Redirect to frontend with tokens }

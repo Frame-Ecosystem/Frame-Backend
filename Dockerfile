@@ -1,57 +1,60 @@
-# Common build stage
-FROM node:20-alpine as common-build-stage
+# ── Build stage ────────────────────────────────────────────
+FROM node:20-alpine AS build
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
-# Create app directory and set correct permissions
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
+RUN apk add --no-cache dumb-init curl
 
 WORKDIR /app
 
-# Copy package files
+# Install ALL deps (dev included) so SWC can compile
 COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Copy source code
-COPY . .
-
-# Change ownership of the app directory
-RUN chown -R nextjs:nodejs /app
-USER nextjs
-
-EXPOSE 3000
-
-# Development build stage
-FROM common-build-stage as development-build-stage
-
-ENV NODE_ENV=development
-
-# Install dev dependencies for development
-USER root
 RUN npm ci
-USER nextjs
 
-CMD ["dumb-init", "npm", "run", "dev"]
-
-# Production build stage
-FROM common-build-stage as production-build-stage
-
-ENV NODE_ENV=production
-
-# Build the application
+# Copy source & config, then build
+COPY .swcrc tsconfig.json ./
+COPY src ./src
 RUN npm run build
 
-# Remove dev dependencies to reduce image size
-USER root
-RUN npm prune --production
-USER nextjs
+# ── Production stage ──────────────────────────────────────
+FROM node:20-alpine AS production
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+RUN apk add --no-cache dumb-init curl
 
-CMD ["dumb-init", "npm", "run", "start"]
+RUN addgroup -g 1001 -S framebeauty && \
+    adduser -S framebeauty -u 1001
+
+WORKDIR /app
+
+# Production deps only
+COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy compiled output from build stage
+COPY --from=build /app/dist ./dist
+
+RUN chown -R framebeauty:framebeauty /app
+USER framebeauty
+
+ENV NODE_ENV=production
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+CMD ["dumb-init", "node", "dist/server.js"]
+
+# ── Development stage ─────────────────────────────────────
+FROM node:20-alpine AS development
+
+RUN apk add --no-cache dumb-init curl
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci
+
+COPY . .
+
+ENV NODE_ENV=development
+EXPOSE 3000
+
+CMD ["dumb-init", "npm", "run", "dev"]

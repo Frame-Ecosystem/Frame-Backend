@@ -1,6 +1,6 @@
 import { hash, compare } from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../../config/constants';
-import { CreateUserDto } from '@dtos/user/users.dto';
+import { BCRYPT_ROUNDS, MAX_FAILED_LOGIN_ATTEMPTS, ACCOUNT_LOCKOUT_DURATION_MS } from '@config/constants';
+import { CreateUserDto } from '@dtos/user/user.dto';
 import { LoginUserDto } from '@dtos/auth/auth.dto';
 import {
   HttpException,
@@ -8,23 +8,27 @@ import {
   UnauthorizedException,
   ConflictException,
   InternalServerException,
+  ForbiddenException,
 } from '@exceptions/HttpException';
 import { TokenData } from '@interfaces/auth/auth.interface';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import verificationTokenModel from '@models/auth/verificationToken.model';
 import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
 import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
-import { sendMagicLinkEmail } from '@utils/email';
-import AuthTokenService from '@services/auth/auth-token.service';
-import AuthSessionService from '@services/auth/auth-session.service';
+import { sendMagicLinkEmail, isDisposableEmail } from '@utils/email';
+import AuthTokenService from '@services/auth/authToken.service';
+import AuthSessionService from '@services/auth/authSession.service';
 import { FRONTEND_BASE_URL } from '@config';
 
 class AuthService {
-  public users = userModel;
+  private users = userModel;
   private tokenService = new AuthTokenService();
   private sessionService = new AuthSessionService();
+
+  /** Dummy hash used for constant-time comparison when user not found (timing attack prevention) */
+  private static readonly DUMMY_HASH = '$2b$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWX12345';
 
   public async signup(userData: CreateUserDto, deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string }): Promise<{ message: string }> {
     try {
@@ -41,6 +45,12 @@ class AuthService {
 
       // Normalize email to lowercase for consistent storage and lookup
       const normalizedEmail = userData.email.toLowerCase().trim();
+
+      // Reject disposable/temporary email providers
+      if (isDisposableEmail(normalizedEmail)) {
+        logger.warn(`Signup attempt with disposable email: ${normalizedEmail}`);
+        throw new BadRequestException('Disposable email addresses are not allowed', 'DISPOSABLE_EMAIL');
+      }
 
       // Check for existing email
       const findByEmail: User = await this.users.findOne({ email: normalizedEmail });
@@ -73,6 +83,9 @@ class AuthService {
         phoneNumber: userData.phoneNumber,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       };
+
+      // Remove any existing verification tokens for this email
+      await verificationTokenModel.deleteMany({ email: normalizedEmail, tokenType: { $ne: 'password_reset' } });
 
       await verificationTokenModel.create(tokenData);
 
@@ -225,11 +238,12 @@ class AuthService {
         const normalizedEmail = identifier.toLowerCase();
         findUser = await this.users.findOne({ email: normalizedEmail });
       } else {
-        // Assume it's a phone number
         findUser = await this.users.findOne({ phoneNumber: identifier });
       }
 
       if (!findUser) {
+        // Perform dummy bcrypt compare to prevent timing-based user enumeration
+        await compare(userData.password, AuthService.DUMMY_HASH);
         logSecurityEvent({
           event: 'LOGIN_FAILED',
           reason: 'User not found',
@@ -238,42 +252,85 @@ class AuthService {
           attemptedIdentifier: identifier,
           identifierType: isEmail ? 'email' : 'phone',
         });
-        const fieldName = isEmail ? 'email' : 'phone number';
-        throw new UnauthorizedException(`Invalid ${fieldName}`, 'INVALID_IDENTIFIER');
+        throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
       }
 
-      const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
-      if (!isPasswordMatching) {
+      // Check if account is blocked
+      if (findUser.isBlocked) {
         logSecurityEvent({
           event: 'LOGIN_FAILED',
-          reason: 'Invalid password',
+          reason: 'Blocked account login attempt',
           userId: String(findUser._id),
           ip: deviceInfo?.ip,
           userAgent: deviceInfo?.userAgent,
         });
-        throw new UnauthorizedException('Invalid password', 'INVALID_PASSWORD');
+        throw new ForbiddenException('Account suspended. Please contact support.', 'ACCOUNT_BLOCKED');
+      }
+
+      // Check if account is locked due to too many failed attempts
+      if (findUser.lockUntil && new Date(findUser.lockUntil) > new Date()) {
+        const remainingMs = new Date(findUser.lockUntil).getTime() - Date.now();
+        const remainingMinutes = Math.ceil(remainingMs / 60000);
+        logSecurityEvent({
+          event: 'LOGIN_FAILED',
+          reason: 'Account locked',
+          userId: String(findUser._id),
+          ip: deviceInfo?.ip,
+          userAgent: deviceInfo?.userAgent,
+          lockUntil: findUser.lockUntil.toISOString(),
+        });
+        throw new UnauthorizedException(
+          `Account temporarily locked. Try again in ${remainingMinutes} minute${remainingMinutes > 1 ? 's' : ''}.`,
+          'ACCOUNT_LOCKED',
+        );
+      }
+
+      const isPasswordMatching: boolean = await compare(userData.password, findUser.password);
+      if (!isPasswordMatching) {
+        // Increment failed login attempts
+        const failedAttempts = (findUser.failedLoginAttempts || 0) + 1;
+        const updateData: Record<string, unknown> = { failedLoginAttempts: failedAttempts };
+
+        if (failedAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
+          updateData.lockUntil = new Date(Date.now() + ACCOUNT_LOCKOUT_DURATION_MS);
+          logSecurityEvent({
+            event: 'LOGIN_FAILED',
+            reason: `Account locked after ${failedAttempts} failed attempts`,
+            userId: String(findUser._id),
+            ip: deviceInfo?.ip,
+            userAgent: deviceInfo?.userAgent,
+          });
+        } else {
+          logSecurityEvent({
+            event: 'LOGIN_FAILED',
+            reason: 'Invalid password',
+            userId: String(findUser._id),
+            ip: deviceInfo?.ip,
+            userAgent: deviceInfo?.userAgent,
+            failedAttempts,
+          });
+        }
+
+        await this.users.findByIdAndUpdate(findUser._id, updateData);
+        throw new UnauthorizedException('Invalid credentials', 'INVALID_CREDENTIALS');
+      }
+
+      // Successful login — reset lockout counters
+      if (findUser.failedLoginAttempts > 0 || findUser.lockUntil) {
+        await this.users.findByIdAndUpdate(findUser._id, {
+          failedLoginAttempts: 0,
+          lockUntil: null,
+        });
       }
 
       const tokenData = this.tokenService.createToken(findUser);
       const refreshToken = await this.tokenService.generateRefreshToken(findUser, deviceInfo);
 
       // Update sessionTrack — devices derived from active refresh tokens (single source of truth)
-      await this.sessionService.updateSessionTrack(
-        String(findUser._id),
-        Array.isArray(findUser.refreshTokens) ? findUser.refreshTokens : [],
-      );
+      await this.sessionService.updateSessionTrack(String(findUser._id), Array.isArray(findUser.refreshTokens) ? findUser.refreshTokens : []);
 
       // Get updated user and session count
       const updatedUser = await this.users.findById(findUser._id);
-
-      // Debug: Verify the isOnline status was set
-      logger.info('AuthService.login: sessionTrack status after update', {
-        userId: String(findUser._id),
-        email: findUser.email,
-        isOnline: updatedUser?.sessionTrack?.isOnline,
-        lastSeen: updatedUser?.sessionTrack?.lastSeen,
-        devices: updatedUser?.sessionTrack?.devices,
-      });
 
       const sessionCount = (Array.isArray(updatedUser?.refreshTokens) ? updatedUser.refreshTokens : []).filter(
         s => s && s.expiresAt && new Date(s.expiresAt) > new Date(),

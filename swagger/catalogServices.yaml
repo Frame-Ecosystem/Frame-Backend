@@ -1,0 +1,118 @@
+# Catalog Services endpoints
+/v1/admin/services:
+  get:
+    tags: [Catalog Services]
+    summary: List services (paginated)
+    security: []
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1 }
+    responses:
+      '200': { description: Service list }
+  post:
+    tags: [Catalog Services]
+    summary: Create catalog service (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, categoryId]
+            properties:
+              name: { type: string, minLength: 2, maxLength: 100 }
+              categoryId: { type: string }
+              description: { type: string, maxLength: 500 }
+              baseDuration: { type: number, minimum: 1 }
+              status: { type: string }
+    responses:
+      '201': { description: Created }
+
+/v1/admin/services/search:
+  get:
+    tags: [Catalog Services]
+    summary: Search services
+    parameters:
+      - name: q
+        in: query
+        schema: { type: string }
+    responses:
+      '200': { description: Search results }
+
+/v1/admin/services/bulk:
+  post:
+    tags: [Catalog Services]
+    summary: Bulk create services (admin)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              required: [name, categoryId]
+              properties:
+                name: { type: string }
+                categoryId: { type: string }
+    responses:
+      '201': { description: Bulk created }
+
+/v1/admin/services/category/{categoryId}:
+  get:
+    tags: [Catalog Services]
+    summary: Get services by category
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Services in category }
+
+/v1/admin/services/{serviceId}:
+  get:
+    tags: [Catalog Services]
+    summary: Get service by ID
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Service details }
+  put:
+    tags: [Catalog Services]
+    summary: Update service (admin)
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name: { type: string, minLength: 2, maxLength: 100 }
+              categoryId: { type: string }
+              description: { type: string, maxLength: 500 }
+              baseDuration: { type: number, minimum: 1 }
+              status: { type: string }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Catalog Services]
+    summary: Delete service (admin)
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Deleted }

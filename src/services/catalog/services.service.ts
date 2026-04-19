@@ -1,8 +1,8 @@
 import { Service } from '@interfaces/catalog/service.interface';
 import { CreateServiceDto, UpdateServiceDto } from '@dtos/catalog/services.dto';
 import serviceModel from '@models/catalog/service.model';
-import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@/exceptions/HttpException';
-import { isEmpty, handleMongooseError } from '@/utils/util';
+import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
+import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 
 class ServicesService {

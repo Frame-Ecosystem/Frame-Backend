@@ -9,14 +9,14 @@ import { logger } from '@utils/logger';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@dtos/queue/queue.dto';
 import SocketService from '@services/realtime/socket.service';
 import NotificationService from '@services/realtime/notification.service';
-import QueueCronService from '@services/queue/queue-cron.service';
+import QueueCronService from '@services/queue/queueCron.service';
 import {
   getStartOfToday,
   removeAndRebalance,
   validateStatusTransition,
   finalizeBooking,
   populateBookingForNotify,
-} from '@services/queue/queue-helpers';
+} from '@services/queue/queue.helpers';
 
 /** Populate fields for queue agent info */
 const QUEUE_POPULATE = {
@@ -77,7 +77,7 @@ class QueueService {
       if (agent?.loungeId) {
         this.socketService.emitLoungeQueuesUpdated(agent.loungeId.toString(), queue);
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`Failed to emit queue WebSocket update: ${err.message}`);
     }
   }
@@ -327,13 +327,18 @@ class QueueService {
           }
         }),
       );
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`QueueService.notifyPositionChanges: ${err.message}`);
     }
   }
 
   /**
    * Handle booking status update + notifications triggered by a queue status change.
+   *
+   * - COMPLETED  → finalise booking as completed
+   * - ABSENT     → notification only (booking stays inQueue; actual absent is set via remove with markAbsent)
+   * - IN_SERVICE → notification only (booking stays inQueue)
+   * - WAITING    → restore booking to inQueue + notification
    */
   private async handlePersonStatusSideEffects(bookingId: string, status: QueuePersonStatus, agentId: string): Promise<void> {
     try {
@@ -342,12 +347,13 @@ class QueueService {
           await finalizeBooking(bookingId, BookingStatus.COMPLETED, { notify: 'completed', agentId });
           break;
         case QueuePersonStatus.ABSENT:
-          await finalizeBooking(bookingId, BookingStatus.ABSENT, { notify: 'absent', agentId });
+          // Booking stays inQueue — actual absent status is set via removePersonFromQueue(markAbsent).
+          // Still notify the client so they know they were marked absent in the queue.
+          await this.notifyWithoutStatusChange(bookingId, agentId, booking => this.notificationService.notifyBookingAbsent(booking));
           break;
         case QueuePersonStatus.IN_SERVICE:
-          await this.updateBookingAndNotify(bookingId, BookingStatus.CONFIRMED, agentId, booking =>
-            this.notificationService.notifyQueueInService(booking),
-          );
+          // Only notify — booking status remains inQueue
+          await this.notifyWithoutStatusChange(bookingId, agentId, booking => this.notificationService.notifyQueueInService(booking));
           break;
         case QueuePersonStatus.WAITING:
           await this.updateBookingAndNotify(bookingId, BookingStatus.IN_QUEUE, agentId, booking =>
@@ -355,7 +361,7 @@ class QueueService {
           );
           break;
       }
-    } catch (err) {
+    } catch (err: any) {
       logger.warn(`QueueService.handlePersonStatusSideEffects: failed for booking ${bookingId}: ${err.message}`);
     }
   }
@@ -372,6 +378,15 @@ class QueueService {
     if (booking) {
       (booking as any).agentId = agentId;
       this.socketService.emitBookingUpdated(booking);
+      notify(booking);
+    }
+  }
+
+  /** Emit socket update and send notification WITHOUT changing booking status. */
+  private async notifyWithoutStatusChange(bookingId: string, agentId: string, notify: (booking: any) => void): Promise<void> {
+    const booking = await populateBookingForNotify(bookingId);
+    if (booking) {
+      (booking as any).agentId = agentId;
       notify(booking);
     }
   }

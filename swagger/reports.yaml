@@ -1,0 +1,112 @@
+# ── Reports ──
+
+/v1/reports/{targetType}/{targetId}:
+  post:
+    tags: [Reports]
+    summary: Report content (post, reel, or comment)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetType
+        in: path
+        required: true
+        schema: { type: string, enum: [post, reel, comment] }
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [reason]
+            properties:
+              reason: { type: string, maxLength: 500 }
+    responses:
+      '201':
+        description: Report submitted
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Report' }
+                message: { type: string, example: Report submitted }
+      '409':
+        description: Already reported
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Error' }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/reports:
+  get:
+    tags: [Reports]
+    summary: List all reports (admin only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: status
+        in: query
+        schema: { type: string, enum: [pending, reviewed, dismissed] }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      '200':
+        description: Reports list
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Report' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+      '403':
+        $ref: '#/components/responses/403'
+
+/v1/reports/{reportId}:
+  put:
+    tags: [Reports]
+    summary: Review a report (admin only)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: reportId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [status]
+            properties:
+              status: { type: string, enum: [reviewed, dismissed] }
+              adminNote: { type: string, maxLength: 500 }
+    responses:
+      '200':
+        description: Report reviewed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data: { $ref: '#/components/schemas/Report' }
+                message: { type: string, example: Report reviewed }
+      '403':
+        $ref: '#/components/responses/403'
+      '404':
+        $ref: '#/components/responses/404'

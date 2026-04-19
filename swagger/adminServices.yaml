@@ -1,0 +1,71 @@
+# Admin Services endpoints
+/v1/admin-services/stats:
+  get:
+    tags: [Admin Services]
+    summary: Get all admin service stats
+    responses:
+      '200': { description: Service stats }
+
+/v1/admin-services/health:
+  get:
+    tags: [Admin Services]
+    summary: System health check
+    responses:
+      '200': { description: Health info }
+
+/v1/admin-services/activity-log:
+  get:
+    tags: [Admin Services]
+    summary: User activity log
+    responses:
+      '200': { description: Activity entries }
+
+/v1/admin-services/dashboard:
+  get:
+    tags: [Admin Services]
+    summary: Dashboard statistics
+    responses:
+      '200': { description: Dashboard data }
+
+/v1/admin-services/users/{userId}/clear-sessions:
+  post:
+    tags: [Admin Services]
+    summary: Clear all sessions for a user
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Sessions cleared }
+
+/v1/admin-services/users/{userId}/reset-password:
+  post:
+    tags: [Admin Services]
+    summary: Force-reset user password
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Password reset }
+
+/v1/admin-services/users/{userId}/export:
+  get:
+    tags: [Admin Services]
+    summary: Export user data
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: User data export }
+
+/v1/admin-services/audit-log:
+  post:
+    tags: [Admin Services]
+    summary: Create audit log entry
+    responses:
+      '201': { description: Audit log created }

@@ -5,8 +5,8 @@ import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateLoungeServiceDto, UpdateLoungeServiceDto } from '@dtos/lounge/loungeServices.dto';
-import { DayOpeningHoursDto, UpdateLoungeProfileDto } from '@dtos/user/users.dto';
-import { optionalUpload } from '@middlewares/image-upload.middleware';
+import { DayOpeningHoursDto, UpdateLoungeProfileDto } from '@dtos/user/user.dto';
+import { optionalUpload } from '@middlewares/imageUpload.middleware';
 
 class LoungeServicesRoute implements Routes {
   public path = '/v1/lounge-services';

@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import { logger } from '@utils/logger';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 
 // ─── Types ──────────────────────────────────────────────────────────
 
@@ -67,7 +67,7 @@ class PushNotificationService {
       admin.initializeApp({ credential });
       this.initialized = true;
       logger.info('✅ Firebase Admin initialized');
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`Firebase Admin initialization failed: ${error.message}`);
       this.initialized = false;
     }
@@ -165,15 +165,16 @@ class PushNotificationService {
       const invalidTokens = response.responses.reduce<string[]>((acc, resp, idx) => {
         if (!resp.success) {
           const code = resp.error?.code;
-          logger.warn(`FCM failed for token ${tokens[idx].substring(0, 12)}…: ${code} — ${resp.error?.message}`);
-          if (INVALID_TOKEN_CODES.has(code)) acc.push(tokens[idx]);
+          const token = tokens[idx] as string | undefined;
+          logger.warn(`FCM failed for token ${token?.substring(0, 12)}…: ${code} — ${resp.error?.message}`);
+          if (token && code && INVALID_TOKEN_CODES.has(code)) acc.push(token);
         }
         return acc;
       }, []);
 
       logger.info(`FCM multicast: ${response.successCount} sent, ${response.failureCount} failed (${invalidTokens.length} stale)`);
       return { successCount: response.successCount, failureCount: response.failureCount, invalidTokens };
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`FCM multicast error: ${error.message}`);
       return { successCount: 0, failureCount: tokens.length, invalidTokens: [] };
     }

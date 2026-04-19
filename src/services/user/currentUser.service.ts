@@ -1,6 +1,6 @@
-import { UpdateUserDto, LocationDto, ChangePasswordDto, UpdateClientProfileDto } from '@dtos/user/users.dto';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { UpdateUserDto, LocationDto, ChangePasswordDto, UpdateClientProfileDto } from '@dtos/user/user.dto';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import { isEmpty } from '@utils/util';
 import {
   BadRequestException,
@@ -12,16 +12,16 @@ import {
 } from '@exceptions/HttpException';
 import { logger, logSecurityEvent } from '@utils/logger';
 import { compare, hash } from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../../config/constants';
+import { BCRYPT_ROUNDS } from '@config/constants';
 import { isDisposableEmail, sendVerificationEmail } from '@utils/email';
-import AdminService from './admin.service';
-import CloudinaryService from '../cloudinary.service';
+import UserManagementService from '@services/admin/userManagement.service';
+import R2Service from '@services/shared/cloudflareR2.service';
 
 const EMAIL_VERIF_CODE_EXPIRY_MS = 3 * 60 * 1000;
 
 class CurrentUserService {
   public users = userModel;
-  private adminService = new AdminService();
+  private adminService = new UserManagementService();
 
   // ─── Email Verification ──────────────────────────────────────────────
 
@@ -109,10 +109,13 @@ class CurrentUserService {
 
       const hashedPassword = await hash(passwordData.newPassword, BCRYPT_ROUNDS);
 
-      // Update password and revoke all sessions in one operation
+      // Update password, revoke all sessions, reset lockout, and set passwordChangedAt
       await this.users.findByIdAndUpdate(userId, {
         password: hashedPassword,
         refreshTokens: [],
+        failedLoginAttempts: 0,
+        lockUntil: null,
+        passwordChangedAt: new Date(),
         'sessionTrack.isOnline': false,
         'sessionTrack.devices': [],
       });
@@ -215,6 +218,24 @@ class CurrentUserService {
     }
   }
 
+  /**
+   * Update user language preference
+   */
+  public async updateLanguage(userId: string, language: string): Promise<User> {
+    try {
+      if (isEmpty(userId)) throw new BadRequestException('User ID is required');
+      if (isEmpty(language)) throw new BadRequestException('Language is required');
+
+      const updatedUser = await this.users.findByIdAndUpdate(userId, { language }, { new: true });
+      if (!updatedUser) throw new NotFoundException('User not found');
+
+      logger.info(`Language updated for user: ${userId}, language=${language}`);
+      return updatedUser;
+    } catch (error) {
+      this.handleError(error, 'updateLanguage', userId, 'Failed to update language. Please try again');
+    }
+  }
+
   // ─── Image Upload ────────────────────────────────────────────────────
 
   /**
@@ -225,8 +246,8 @@ class CurrentUserService {
       userId,
       file,
       'profileImage',
-      (buffer, id) => CloudinaryService.uploadProfileImage(buffer, id),
-      (publicId) => CloudinaryService.deleteProfileImage(publicId),
+      (buffer, id) => R2Service.uploadProfileImage(buffer, id),
+      publicId => R2Service.deleteImage(publicId),
     );
   }
 
@@ -238,8 +259,8 @@ class CurrentUserService {
       userId,
       file,
       'coverImage',
-      (buffer, id) => CloudinaryService.uploadCoverImage(buffer, id),
-      (publicId) => CloudinaryService.deleteCoverImage(publicId),
+      (buffer, id) => R2Service.uploadCoverImage(buffer, id),
+      publicId => R2Service.deleteImage(publicId),
     );
   }
 

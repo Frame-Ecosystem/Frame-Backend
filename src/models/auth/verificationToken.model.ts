@@ -58,9 +58,6 @@ const verificationTokenSchema: Schema = new Schema(
   },
 );
 
-// Create TTL index for automatic cleanup (10 minutes)
-verificationTokenSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-
 const verificationTokenModel = model<VerificationTokenDocument>('VerificationToken', verificationTokenSchema);
 
 export default verificationTokenModel;

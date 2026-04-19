@@ -1,4 +1,10 @@
-import { Notification, NotificationType } from '@interfaces/realtime/notification.interface';
+import {
+  Notification,
+  NotificationType,
+  NotificationCategory,
+  NotificationMetadata,
+  NOTIFICATION_CATEGORY_MAP,
+} from '@interfaces/realtime/notification.interface';
 import notificationModel from '@models/realtime/notification.model';
 import SocketService from '@services/realtime/socket.service';
 import PushNotificationService from '@services/realtime/push.service';
@@ -21,20 +27,25 @@ class NotificationService {
 
   /**
    * Get paginated notifications for a user.
+   * Supports optional category filter.
    */
   public async getNotifications(
     userId: string,
     page = 1,
     limit = 20,
+    category?: NotificationCategory,
   ): Promise<{ notifications: Notification[]; total: number; unreadCount: number }> {
+    const filter: any = { userId };
+    if (category) filter.category = category;
+
     const [notifications, total, unreadCount] = await Promise.all([
       this.notifications
-        .find({ userId })
+        .find(filter)
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
-      this.notifications.countDocuments({ userId }),
+      this.notifications.countDocuments(filter),
       this.notifications.countDocuments({ userId, isRead: false }),
     ]);
 
@@ -42,10 +53,20 @@ class NotificationService {
   }
 
   /**
-   * Get unread count for a user.
+   * Get unread count for a user, optionally per category.
    */
-  public async getUnreadCount(userId: string): Promise<number> {
-    return this.notifications.countDocuments({ userId, isRead: false });
+  public async getUnreadCount(userId: string): Promise<{ total: number; byCategory: Record<string, number> }> {
+    const [total, byCategory] = await Promise.all([
+      this.notifications.countDocuments({ userId, isRead: false }),
+      this.notifications.aggregate([{ $match: { userId, isRead: false } }, { $group: { _id: '$category', count: { $sum: 1 } } }]),
+    ]);
+
+    const byCategoryMap: Record<string, number> = {};
+    for (const item of byCategory) {
+      byCategoryMap[item._id] = item.count;
+    }
+
+    return { total, byCategory: byCategoryMap };
   }
 
   /**
@@ -78,49 +99,70 @@ class NotificationService {
     return result.deletedCount;
   }
 
-  // ─── Notification Creators ────────────────────────────────────────
+  // ─── Core Creator ─────────────────────────────────────────────────
 
   /**
    * Create a notification, persist to DB, emit via socket, and send push.
+   * This is the single entry point for ALL notification creation.
    */
   private async create(data: {
     userId: string;
+    actorId?: string;
     title: string;
     body: string;
     type: NotificationType;
-    metadata?: Notification['metadata'];
+    metadata?: NotificationMetadata;
+    actionUrl?: string;
+    imageUrl?: string;
   }): Promise<Notification> {
     try {
+      // Never notify yourself
+      if (data.actorId && data.userId === data.actorId) return null;
+
+      const category = NOTIFICATION_CATEGORY_MAP[data.type];
+
       const notification = await this.notifications.create({
         userId: data.userId,
+        actorId: data.actorId,
         title: data.title,
         body: data.body,
         type: data.type,
+        category,
         isRead: false,
         metadata: data.metadata || {},
+        actionUrl: data.actionUrl,
+        imageUrl: data.imageUrl,
       });
 
-      // Emit real-time notification via socket
+      // Real-time delivery via Socket.IO
       this.socketService.emitNotification(data.userId, notification);
 
-      // Send push notification via FCM (fire-and-forget)
-      const pushData: Record<string, string> = { type: data.type, notificationId: notification._id?.toString() || '' };
+      // Push delivery via FCM (fire-and-forget)
+      const pushData: Record<string, string> = {
+        type: data.type,
+        category,
+        notificationId: notification._id?.toString() || '',
+      };
+      if (data.actionUrl) pushData.actionUrl = data.actionUrl;
       if (data.metadata?.bookingId) pushData.bookingId = data.metadata.bookingId;
       if (data.metadata?.loungeId) pushData.loungeId = data.metadata.loungeId;
+      if (data.metadata?.postId) pushData.postId = data.metadata.postId;
+      if (data.metadata?.commentId) pushData.commentId = data.metadata.commentId;
 
       this.pushService
-        .sendToUser(data.userId, { title: data.title, body: data.body, data: pushData })
+        .sendToUser(data.userId, { title: data.title, body: data.body, data: pushData, imageUrl: data.imageUrl })
         .catch(err => logger.error(`Push notification failed for user ${data.userId}: ${err.message}`));
 
       return notification;
     } catch (error) {
       logger.error(`NotificationService.create failed for user ${data.userId}: ${error.message}`);
-      // Don't throw — notifications should never break the main flow
       return null;
     }
   }
 
-  // ─── Booking Notifications ────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  //  BOOKING NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════════
 
   public async notifyBookingCreated(booking: any): Promise<void> {
     const loungeId = this.extractId(booking.loungeId);
@@ -154,10 +196,6 @@ class NotificationService {
     });
   }
 
-  /**
-   * Notify the other party when a booking is cancelled.
-   * Uses cancelledBy.idUser to determine who cancelled and notify the opposite party.
-   */
   public async notifyBookingCancelled(booking: any): Promise<void> {
     const clientId = this.extractId(booking.clientId);
     const loungeId = this.extractId(booking.loungeId);
@@ -170,27 +208,30 @@ class NotificationService {
 
     const cancellerUserId = cancelledBy.idUser.toString();
     const cancellerName = cancelledBy.cancelledByName || 'Someone';
+    const cancellationNote = cancelledBy.note;
 
-    logger.info(
-      `NotificationService.notifyBookingCancelled: cancellerUserId=${cancellerUserId}, cancellerName=${cancellerName}, loungeId=${loungeId}, clientId=${clientId}`,
-    );
-
-    // If the canceller is the client → notify the lounge
     if (cancellerUserId === clientId && loungeId) {
+      const body = cancellationNote ? `${cancellerName} cancelled their booking: "${cancellationNote}"` : `${cancellerName} cancelled their booking`;
+
       await this.notifyUser(loungeId, booking, {
         title: 'Booking Cancelled',
-        body: `${cancellerName} cancelled their booking`,
+        body,
         type: NotificationType.BOOKING_CANCELLED,
-        extraMetadata: { clientId },
+        extraMetadata: { clientId, ...(cancellationNote && { cancellationNote }) },
       });
     }
 
-    // If the canceller is NOT the client → notify the client
     if (cancellerUserId !== clientId && clientId) {
+      const loungeTitle = this.extractLoungeTitle(booking.loungeId);
+      const body = cancellationNote
+        ? `Your booking at ${loungeTitle} was cancelled by ${cancellerName}: "${cancellationNote}"`
+        : `Your booking at ${loungeTitle} was cancelled by ${cancellerName}`;
+
       await this.notifyUser(clientId, booking, {
         title: 'Booking Cancelled',
-        body: `Your booking at ${this.extractLoungeTitle(booking.loungeId)} was cancelled by ${cancellerName}`,
+        body,
         type: NotificationType.BOOKING_CANCELLED,
+        ...(cancellationNote && { extraMetadata: { cancellationNote } }),
       });
     }
   }
@@ -219,7 +260,9 @@ class NotificationService {
     });
   }
 
-  // ─── Queue Person Notifications ───────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  //  QUEUE NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════════
 
   public async notifyQueueInService(booking: any): Promise<void> {
     await this.notifyClient(booking, {
@@ -264,7 +307,259 @@ class NotificationService {
     });
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════════
+  //  CONTENT NOTIFICATIONS (Posts, Reels, Comments)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Notify the post author that someone liked their post.
+   */
+  public async notifyPostLiked(postAuthorId: string, actorId: string, actorName: string, postId: string, actorImage?: string): Promise<void> {
+    await this.create({
+      userId: postAuthorId,
+      actorId,
+      title: 'New Like',
+      body: `${actorName} liked your post`,
+      type: NotificationType.POST_LIKED,
+      metadata: { postId },
+      actionUrl: `/posts/${postId}`,
+      imageUrl: actorImage,
+    });
+  }
+
+  /**
+   * Notify the post/reel author that someone commented on their content.
+   */
+  public async notifyContentCommented(
+    contentAuthorId: string,
+    actorId: string,
+    actorName: string,
+    targetType: 'post' | 'reel',
+    targetId: string,
+    commentId: string,
+    commentPreview: string,
+    actorImage?: string,
+  ): Promise<void> {
+    const type = targetType === 'post' ? NotificationType.POST_COMMENTED : NotificationType.REEL_COMMENTED;
+    const label = targetType === 'post' ? 'post' : 'reel';
+    const preview = commentPreview.length > 80 ? commentPreview.substring(0, 80) + '...' : commentPreview;
+
+    await this.create({
+      userId: contentAuthorId,
+      actorId,
+      title: 'New Comment',
+      body: `${actorName} commented on your ${label}: "${preview}"`,
+      type,
+      metadata: {
+        [targetType === 'post' ? 'postId' : 'reelId']: targetId,
+        commentId,
+        targetType,
+      },
+      actionUrl: `/${targetType}s/${targetId}`,
+      imageUrl: actorImage,
+    });
+  }
+
+  /**
+   * Notify the parent comment author that someone replied.
+   */
+  public async notifyCommentReplied(
+    parentAuthorId: string,
+    actorId: string,
+    actorName: string,
+    targetType: 'post' | 'reel',
+    targetId: string,
+    commentId: string,
+    replyPreview: string,
+    actorImage?: string,
+  ): Promise<void> {
+    const preview = replyPreview.length > 80 ? replyPreview.substring(0, 80) + '...' : replyPreview;
+
+    await this.create({
+      userId: parentAuthorId,
+      actorId,
+      title: 'New Reply',
+      body: `${actorName} replied to your comment: "${preview}"`,
+      type: NotificationType.COMMENT_REPLIED,
+      metadata: {
+        [targetType === 'post' ? 'postId' : 'reelId']: targetId,
+        commentId,
+        targetType,
+      },
+      actionUrl: `/${targetType}s/${targetId}`,
+      imageUrl: actorImage,
+    });
+  }
+
+  /**
+   * Notify the comment author that someone liked their comment.
+   */
+  public async notifyCommentLiked(
+    commentAuthorId: string,
+    actorId: string,
+    actorName: string,
+    commentId: string,
+    targetType: 'post' | 'reel',
+    targetId: string,
+    actorImage?: string,
+  ): Promise<void> {
+    await this.create({
+      userId: commentAuthorId,
+      actorId,
+      title: 'Comment Liked',
+      body: `${actorName} liked your comment`,
+      type: NotificationType.COMMENT_LIKED,
+      metadata: { commentId, targetType, [targetType === 'post' ? 'postId' : 'reelId']: targetId },
+      actionUrl: `/${targetType}s/${targetId}`,
+      imageUrl: actorImage,
+    });
+  }
+
+  /**
+   * Notify the reel author that someone liked their reel.
+   */
+  public async notifyReelLiked(reelAuthorId: string, actorId: string, actorName: string, reelId: string, actorImage?: string): Promise<void> {
+    await this.create({
+      userId: reelAuthorId,
+      actorId,
+      title: 'New Like',
+      body: `${actorName} liked your reel`,
+      type: NotificationType.REEL_LIKED,
+      metadata: { reelId },
+      actionUrl: `/reels/${reelId}`,
+      imageUrl: actorImage,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  SOCIAL NOTIFICATIONS (Follow, Like Lounge, Rate)
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Notify a user that someone followed them.
+   */
+  public async notifyNewFollower(targetUserId: string, followerId: string, followerName: string, followerImage?: string): Promise<void> {
+    await this.create({
+      userId: targetUserId,
+      actorId: followerId,
+      title: 'New Follower',
+      body: `${followerName} started following you`,
+      type: NotificationType.NEW_FOLLOWER,
+      metadata: { followerId },
+      actionUrl: `/profile/${followerId}`,
+      imageUrl: followerImage,
+    });
+  }
+
+  /**
+   * Notify a lounge that a client liked them.
+   */
+  public async notifyLoungeLiked(loungeId: string, clientId: string, clientName: string, clientImage?: string): Promise<void> {
+    await this.create({
+      userId: loungeId,
+      actorId: clientId,
+      title: 'New Like',
+      body: `${clientName} liked your lounge`,
+      type: NotificationType.LOUNGE_LIKED,
+      metadata: { clientId, loungeId },
+      actionUrl: `/profile/${clientId}`,
+      imageUrl: clientImage,
+    });
+  }
+
+  /**
+   * Notify a lounge that a client rated them.
+   */
+  public async notifyLoungeRated(loungeId: string, clientId: string, clientName: string, score: number, clientImage?: string): Promise<void> {
+    await this.create({
+      userId: loungeId,
+      actorId: clientId,
+      title: 'New Rating',
+      body: `${clientName} rated your lounge ${score}/5`,
+      type: NotificationType.LOUNGE_RATED,
+      metadata: { clientId, loungeId, ratingScore: score },
+      actionUrl: `/profile/${clientId}`,
+      imageUrl: clientImage,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  ADMIN / MODERATION NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Notify admins that a new service suggestion was submitted.
+   */
+  public async notifySuggestionCreated(adminIds: string[], loungeName: string, suggestionId: string, suggestionName: string): Promise<void> {
+    for (const adminId of adminIds) {
+      await this.create({
+        userId: adminId,
+        title: 'New Service Suggestion',
+        body: `${loungeName} suggested a new service: "${suggestionName}"`,
+        type: NotificationType.SUGGESTION_CREATED,
+        metadata: { suggestionId },
+        actionUrl: `/admin/suggestions/${suggestionId}`,
+      });
+    }
+  }
+
+  /**
+   * Notify lounge that their service suggestion was approved.
+   */
+  public async notifySuggestionApproved(loungeId: string, suggestionName: string, suggestionId: string): Promise<void> {
+    await this.create({
+      userId: loungeId,
+      title: 'Suggestion Approved',
+      body: `Your service suggestion "${suggestionName}" has been approved`,
+      type: NotificationType.SUGGESTION_APPROVED,
+      metadata: { suggestionId, loungeId },
+      actionUrl: `/lounge/services`,
+    });
+  }
+
+  /**
+   * Notify lounge that their service suggestion was rejected.
+   */
+  public async notifySuggestionRejected(loungeId: string, suggestionName: string, suggestionId: string, reason?: string): Promise<void> {
+    const body = reason
+      ? `Your service suggestion "${suggestionName}" was rejected: "${reason}"`
+      : `Your service suggestion "${suggestionName}" was rejected`;
+
+    await this.create({
+      userId: loungeId,
+      title: 'Suggestion Rejected',
+      body,
+      type: NotificationType.SUGGESTION_REJECTED,
+      metadata: { suggestionId, loungeId, reason },
+      actionUrl: `/lounge/suggestions`,
+    });
+  }
+
+  /**
+   * Notify a user that their content was hidden by moderation.
+   */
+  public async notifyContentHidden(authorId: string, contentType: 'post' | 'reel' | 'comment', contentId: string, reason?: string): Promise<void> {
+    const label = contentType === 'post' ? 'post' : contentType === 'reel' ? 'reel' : 'comment';
+    const body = reason
+      ? `Your ${label} was hidden by moderation: "${reason}"`
+      : `Your ${label} was hidden by moderation for violating community guidelines`;
+
+    await this.create({
+      userId: authorId,
+      title: 'Content Hidden',
+      body,
+      type: NotificationType.CONTENT_HIDDEN,
+      metadata: {
+        [contentType === 'post' ? 'postId' : contentType === 'reel' ? 'reelId' : 'commentId']: contentId,
+        targetType: contentType,
+        reason,
+      },
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ═══════════════════════════════════════════════════════════════════
 
   /**
    * Send a notification to a specific user with standard booking metadata.
@@ -275,7 +570,6 @@ class NotificationService {
     opts: { title: string; body: string; type: NotificationType; extraMetadata?: Record<string, string | undefined> },
   ): Promise<void> {
     const bookingId = (booking._id || booking.id)?.toString();
-    // booking model uses agentIds (array), fall back to singular agentId if present
     const agentId = this.extractId(booking.agentIds?.[0]) || this.extractId(booking.agentId);
     await this.create({
       userId,
@@ -288,6 +582,7 @@ class NotificationService {
         agentId,
         ...opts.extraMetadata,
       },
+      actionUrl: bookingId ? `/bookings/${bookingId}` : undefined,
     });
   }
 
@@ -300,17 +595,18 @@ class NotificationService {
     await this.notifyUser(clientId, booking, opts);
   }
 
-  private extractId(ref: any): string | undefined {
+  public extractId(ref: any): string | undefined {
     if (!ref) return undefined;
     return (ref._id || ref.id || ref)?.toString();
   }
 
-  private extractName(ref: any): string {
-    if (!ref) return 'A client';
+  public extractName(ref: any): string {
+    if (!ref) return 'Someone';
+    if (ref.loungeTitle) return ref.loungeTitle;
     if (ref.firstName || ref.lastName) {
       return [ref.firstName, ref.lastName].filter(Boolean).join(' ');
     }
-    return 'A client';
+    return 'Someone';
   }
 
   private extractLoungeTitle(ref: any): string {

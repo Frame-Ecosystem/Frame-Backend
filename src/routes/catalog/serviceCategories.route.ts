@@ -2,9 +2,9 @@ import { Router } from 'express';
 import ServiceCategoriesController from '@controllers/catalog/serviceCategories.controller';
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@dtos/catalog/serviceCategories.dto';
 import { Routes } from '@interfaces/routes.interface';
-import validationMiddleware from '@/middlewares/validation.middleware';
-import authMiddleware from '@/middlewares/auth.middleware';
-import { adminMiddleware } from '@/middlewares/role.middleware';
+import validationMiddleware from '@middlewares/validation.middleware';
+import authMiddleware from '@middlewares/auth.middleware';
+import { adminMiddleware } from '@middlewares/role.middleware';
 
 class ServiceCategoriesRoute implements Routes {
   public path = '/v1/admin/service-categories';

@@ -1,4 +1,4 @@
-import { NextFunction, Request, Response } from 'express';
+import { NextFunction, Response } from 'express';
 import AgentService from '@services/user/agent.service';
 import { CreateAgentDto, UpdateAgentDto } from '@dtos/user/agent.dto';
 import { RequestWithUser } from '@interfaces/auth/auth.interface';

@@ -150,7 +150,11 @@ class BookingController {
 
     if (bookingData.status === 'cancelled') {
       const cancelledByName = this.deriveCancelledByName(user);
-      bookingData.cancelledBy = { idUser: userId, cancelledByName };
+      bookingData.cancelledBy = {
+        idUser: userId,
+        cancelledByName,
+        ...(bookingData.cancellationNote && { note: bookingData.cancellationNote }),
+      };
     }
 
     if (userType === 'client') {

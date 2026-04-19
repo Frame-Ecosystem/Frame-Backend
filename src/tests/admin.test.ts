@@ -1,10 +1,10 @@
-import AdminService from '../services/user/admin.service';
-import { CreateUserDto, UpdateUserDto } from '../dtos/user/users.dto';
-import userModel from '../models/user/users.model';
+import UserManagementService from '../services/admin/userManagement.service';
+import { CreateUserDto, UpdateUserDto } from '../dtos/user/user.dto';
+import userModel from '../models/user/user.model';
 
-jest.mock('../models/user/users.model');
+jest.mock('../models/user/user.model');
 
-const adminService = new AdminService();
+const adminService = new UserManagementService();
 
 describe('AdminService', () => {
   beforeEach(() => {

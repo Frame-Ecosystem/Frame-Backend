@@ -1,0 +1,173 @@
+# ── Feed ──
+
+/v1/feed:
+  get:
+    tags: [Feed]
+    summary: Following-based feed
+    description: Posts and reels from users the authenticated user follows, sorted by most recent.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: Feed items (each has contentType = "post" or "reel", plus isLiked and isSaved)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/FeedItem' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+      '401':
+        $ref: '#/components/responses/401'
+
+/v1/feed/explore:
+  get:
+    tags: [Feed]
+    summary: Global explore feed
+    description: All public content sorted by engagement (likes + comments), then recency.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: Explore feed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/FeedItem' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+
+/v1/feed/saved:
+  get:
+    tags: [Feed]
+    summary: Saved/bookmarked content
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: Saved items
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/FeedItem' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+
+/v1/feed/hashtag/{tag}:
+  get:
+    tags: [Feed]
+    summary: Feed filtered by hashtag
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: tag
+        in: path
+        required: true
+        schema: { type: string }
+        description: Hashtag name (without #)
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1, default: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+    responses:
+      '200':
+        description: Hashtag feed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/FeedItem' }
+                pagination:
+                  $ref: '#/components/schemas/Pagination'
+                message: { type: string }
+
+/v1/feed/hashtags/trending:
+  get:
+    tags: [Feed]
+    summary: Trending hashtags
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      '200':
+        description: Trending hashtags sorted by post count
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Hashtag' }
+                message: { type: string }
+
+/v1/feed/hashtags/search:
+  get:
+    tags: [Feed]
+    summary: Search hashtags
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: q
+        in: query
+        required: true
+        schema: { type: string }
+        description: Search query
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    responses:
+      '200':
+        description: Matching hashtags
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Hashtag' }
+                message: { type: string }

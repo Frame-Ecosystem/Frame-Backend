@@ -11,37 +11,51 @@ const main = async () => {
   // Import routes AFTER validateEnv
   const { default: App } = await import('@/app');
   const { default: AuthRoute } = await import('@routes/auth/auth.route');
-  const { default: AdminRoute } = await import('@routes/user/admin.route');
-  const { default: AdminServicesRoute } = await import('@routes/user/adminServices.route');
+  const { default: AdminRoute } = await import('@routes/admin/admin.route');
   const { default: CurrentUserRoute } = await import('@routes/user/currentUser.route');
   const { default: ClientRoute } = await import('@routes/user/client.route');
   const { default: LoungeServicesRoute } = await import('@routes/lounge/loungeServices.route');
-  const { default: ServicesRoute } = await import('@routes/catalog/services.route');
-  const { default: ServiceCategoriesRoute } = await import('@routes/catalog/serviceCategories.route');
   const { default: ServiceSuggestionsRoute } = await import('@routes/catalog/serviceSuggestions.route');
+  const { default: PublicServicesRoute } = await import('@routes/catalog/publicServices.route');
+  const { default: PublicServiceCategoriesRoute } = await import('@routes/catalog/publicServiceCategories.route');
   const { default: AgentRoute } = await import('@routes/user/agent.route');
   const { default: LoungeRoute } = await import('@routes/lounge/lounge.route');
   const { default: BookingRoute } = await import('@routes/booking/booking.route');
   const { default: QueueRoute } = await import('@routes/queue/queue.route');
   const { default: NotificationRoute } = await import('@routes/realtime/notification.route');
+  const { default: RatingRoute } = await import('@routes/rating/rating.route');
+  const { default: LikeRoute } = await import('@routes/like/like.route');
+  const { default: FollowRoute } = await import('@routes/follow/follow.route');
+  const { default: PostRoute } = await import('@routes/content/post.route');
+  const { default: ReelRoute } = await import('@routes/content/reel.route');
+  const { default: CommentRoute } = await import('@routes/content/comment.route');
+  const { default: FeedRoute } = await import('@routes/content/feed.route');
+  const { default: ReportRoute } = await import('@routes/content/report.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
     new IndexRoute(),
     new AuthRoute(),
     new AdminRoute(),
-    new AdminServicesRoute(),
     new CurrentUserRoute(),
     new ClientRoute(),
     new LoungeServicesRoute(),
-    new ServicesRoute(),
-    new ServiceCategoriesRoute(),
     new ServiceSuggestionsRoute(),
+    new PublicServicesRoute(),
+    new PublicServiceCategoriesRoute(),
     new AgentRoute(),
     new LoungeRoute(),
     new BookingRoute(),
     new QueueRoute(),
     new NotificationRoute(),
+    new RatingRoute(),
+    new LikeRoute(),
+    new FollowRoute(),
+    new PostRoute(),
+    new ReelRoute(),
+    new CommentRoute(),
+    new FeedRoute(),
+    new ReportRoute(),
   ]);
 
   app.listen();

@@ -1,5 +1,6 @@
 import { NextFunction, Response } from 'express';
 import { RequestWithUser } from '@interfaces/auth/auth.interface';
+import { NotificationCategory } from '@interfaces/realtime/notification.interface';
 import NotificationService from '@services/realtime/notification.service';
 import PushNotificationService from '@services/realtime/push.service';
 
@@ -7,14 +8,15 @@ class NotificationController {
   private notificationService = NotificationService.getInstance();
   private pushService = PushNotificationService.getInstance();
 
-  /** GET /v1/notifications — paginated list. */
+  /** GET /v1/notifications — paginated list with optional ?category= filter. */
   public getNotifications = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 20;
+      const category = req.query.category as NotificationCategory | undefined;
 
-      const result = await this.notificationService.getNotifications(userId, page, limit);
+      const result = await this.notificationService.getNotifications(userId, page, limit, category);
       res.status(200).json({
         success: true,
         data: result.notifications,
@@ -30,11 +32,11 @@ class NotificationController {
     }
   };
 
-  /** GET /v1/notifications/unread-count */
+  /** GET /v1/notifications/unread-count — total + per-category breakdown. */
   public getUnreadCount = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const count = await this.notificationService.getUnreadCount(req.user._id.toString());
-      res.status(200).json({ success: true, data: { unreadCount: count }, message: 'Unread count retrieved successfully' });
+      const counts = await this.notificationService.getUnreadCount(req.user._id.toString());
+      res.status(200).json({ success: true, data: counts, message: 'Unread count retrieved successfully' });
     } catch (error) {
       next(error);
     }

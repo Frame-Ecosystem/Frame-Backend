@@ -1,16 +1,15 @@
-import { ChangePasswordDto } from '../dtos/user/users.dto';
+import { ChangePasswordDto } from '../dtos/user/user.dto';
 import bcrypt from 'bcrypt';
 import CurrentUserService from '../services/user/currentUser.service';
-import userModel from '../models/user/users.model';
+import userModel from '../models/user/user.model';
 
-jest.mock('../models/user/users.model');
-jest.mock('../services/cloudinary.service', () => ({
+jest.mock('../models/user/user.model');
+jest.mock('../services/shared/cloudflareR2.service', () => ({
   __esModule: true,
   default: {
     uploadProfileImage: jest.fn().mockResolvedValue({ url: 'http://example.com/image.jpg', publicId: 'test-id' }),
     uploadCoverImage: jest.fn().mockResolvedValue({ url: 'http://example.com/cover.jpg', publicId: 'cover-id' }),
-    deleteProfileImage: jest.fn().mockResolvedValue(undefined),
-    deleteCoverImage: jest.fn().mockResolvedValue(undefined),
+    deleteImage: jest.fn().mockResolvedValue(undefined),
   },
 }));
 

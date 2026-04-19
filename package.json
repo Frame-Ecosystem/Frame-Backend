@@ -1,10 +1,14 @@
 {
-  "name": "frame",
+  "name": "frame-beauty-api",
   "version": "1.1.7",
-  "private": false,
-  "description": "TypeScript + Express + Mongoose + MongoDB",
+  "private": true,
+  "description": "Frame Beauty - Enterprise backend API for the Frame Beauty salon & booking platform",
   "license": "ISC",
-  "author": "Ahmad Joya",
+  "author": "Frame Team",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
   "bin": {
     "frame": "./bin/cli.js"
   },
@@ -16,34 +20,32 @@
     "test": "jest --forceExit --detectOpenHandles",
     "lint": "eslint --ignore-path .gitignore --ext .ts src/",
     "lint:fix": "npm run lint -- --fix",
-    "deploy:prod": "npm run build && pm2 start ecosystem.config.js --only prod",
-    "deploy:dev": "pm2 start ecosystem.config.js --only dev",
+    "deploy:prod": "npm run build && pm2 start ecosystem.config.js --only frame-beauty-prod",
+    "deploy:dev": "pm2 start ecosystem.config.js --only frame-beauty-dev",
     "postinstall": "npx husky install",
     "prod:health": "curl -f http://localhost/health || exit 1",
     "prod:ready": "curl -f http://localhost/ready || exit 1",
-    "prod:logs": "pm2 logs prod --lines 50",
+    "prod:logs": "pm2 logs frame-beauty-prod --lines 50",
     "prod:status": "pm2 status",
-    "prod:restart": "pm2 restart prod",
-    "prod:stop": "pm2 stop prod",
-    "prod:delete": "pm2 delete prod",
+    "prod:restart": "pm2 restart frame-beauty-prod",
+    "prod:stop": "pm2 stop frame-beauty-prod",
+    "prod:delete": "pm2 delete frame-beauty-prod",
     "docker:build": "docker-compose build",
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "docker:clean": "docker-compose down -v && docker system prune -f",
     "db:backup": "docker-compose exec mongo mongodump --db prod --out /backup/$(date +%Y%m%d_%H%M%S)",
-    "db:restore": "echo 'Usage: make db:restore BACKUP_DIR=/path/to/backup' && exit 1"
+    "db:restore": "echo 'Usage: make db:restore BACKUP_DIR=/path/to/backup' && exit 1",
+    "audit": "npm audit --production",
+    "audit:fix": "npm audit fix --production"
   },
   "dependencies": {
-    "@types/multer": "^2.0.0",
-    "@types/passport": "^1.0.17",
-    "@types/passport-google-oauth20": "^2.0.17",
-    "@types/yamljs": "^0.2.34",
+    "@aws-sdk/client-s3": "^3.1010.0",
     "axios": "^1.13.2",
     "bcrypt": "^5.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
-    "cloudinary": "^2.8.0",
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
@@ -87,6 +89,10 @@
     "@types/mongoose": "^5.11.97",
     "@types/morgan": "^1.9.3",
     "@types/node": "^17.0.45",
+    "@types/multer": "^2.0.0",
+    "@types/passport": "^1.0.17",
+    "@types/passport-google-oauth20": "^2.0.17",
+    "@types/yamljs": "^0.2.34",
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^7.0.9",
     "@types/supertest": "^2.0.12",
@@ -120,23 +126,21 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ahmadjoya/typescript-express-mongoose-starter.git"
+    "url": "git+https://github.com/frame-enterprise/frame-beauty-api.git"
   },
   "keywords": [
-    "TypeScript",
-    "Express",
-    "ExpressJS",
-    "express.js",
+    "frame",
+    "frame-beauty",
+    "salon-booking",
+    "beauty-platform",
+    "express",
+    "typescript",
     "mongoose",
-    "typescript express",
-    "typescript express mongoose",
-    "starter",
-    "boilerplate",
-    "typescript express mongooses tarter",
-    "typescript-express-mongooses-tarter"
+    "real-time",
+    "queue-management"
   ],
   "bugs": {
-    "url": "https://github.com/ahmadjoya/typescript-express-mongoose-starter/issues"
+    "url": "https://github.com/frame-enterprise/frame-beauty-api/issues"
   },
-  "homepage": "https://github.com/ahmadjoya/typescript-express-mongoose-starter#readme"
+  "homepage": "https://github.com/frame-enterprise/frame-beauty-api#readme"
 }

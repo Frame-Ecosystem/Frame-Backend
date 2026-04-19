@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import CurrentUserController from '@controllers/user/currentUser.controller';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, ChangePasswordDto } from '@dtos/user/users.dto';
+import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, UpdateLanguageDto, ChangePasswordDto } from '@dtos/user/user.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
-import { strictRateLimiter } from '@middlewares/rate-limit.middleware';
-import upload from '@middlewares/image-upload.middleware';
+import { strictRateLimiter } from '@middlewares/rateLimit.middleware';
+import upload from '@middlewares/imageUpload.middleware';
 
 class CurrentUserRoute implements Routes {
   public path = '/v1/me';
@@ -46,10 +46,15 @@ class CurrentUserRoute implements Routes {
       this.currentUserController.updateClientProfile,
     );
 
+    // DELETE - Delete current user's reel by ID
+    this.router.delete('/reels/:reelId', authMiddleware, this.currentUserController.deleteMyReel);
+
     // DELETE - Delete current user account
     this.router.delete('/', authMiddleware, validationMiddleware(DeleteAccountDto, 'body'), this.currentUserController.deleteMe);
     // PUT - Update current user theme
     this.router.put('/theme', authMiddleware, validationMiddleware(UpdateThemeDto, 'body'), this.currentUserController.updateTheme);
+    // PUT - Update current user language preference
+    this.router.put('/language', authMiddleware, validationMiddleware(UpdateLanguageDto, 'body'), this.currentUserController.updateLanguage);
     // POST - Send email verification code
     this.router.post('/send-verification-code', this.currentUserController.sendVerificationCode);
     // POST - Verify email code

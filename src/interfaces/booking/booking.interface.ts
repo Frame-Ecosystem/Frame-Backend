@@ -10,6 +10,7 @@ export enum BookingStatus {
 export interface CancelledBy {
   idUser: string;
   cancelledByName: string;
+  note?: string;
 }
 
 export interface Booking {

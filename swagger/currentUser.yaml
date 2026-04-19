@@ -1,0 +1,165 @@
+# Current User endpoints
+/v1/me:
+  get:
+    tags: [Current User]
+    summary: Get current user profile
+    responses:
+      '200': { description: User profile }
+  put:
+    tags: [Current User]
+    summary: Update current user profile
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              email: { type: string, format: email }
+              phoneNumber: { type: string, pattern: '^\d{8}$' }
+              gender: { type: string, enum: [male, female, unisex, kids] }
+              firstName: { type: string, maxLength: 50 }
+              lastName: { type: string, maxLength: 50 }
+              bio: { type: string, maxLength: 500 }
+              loungeTitle: { type: string, maxLength: 100 }
+              location: { $ref: '#/components/schemas/Location' }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Current User]
+    summary: Delete current user account
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [password]
+            properties:
+              password: { type: string }
+    responses:
+      '200': { description: Account deleted }
+
+/v1/me/change-password:
+  post:
+    tags: [Current User]
+    summary: Change password
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [currentPassword, newPassword, newPasswordConfirm]
+            properties:
+              currentPassword: { type: string }
+              newPassword: { type: string, minLength: 8, maxLength: 128 }
+              newPasswordConfirm: { type: string }
+    responses:
+      '200': { description: Password changed }
+
+/v1/me/location:
+  put:
+    tags: [Current User]
+    summary: Update location
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Location' }
+    responses:
+      '200': { description: Location updated }
+
+/v1/me/image:
+  put:
+    tags: [Current User]
+    summary: Upload profile image
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              image: { type: string, format: binary }
+    responses:
+      '200': { description: Image uploaded }
+
+/v1/me/cover-image:
+  put:
+    tags: [Current User]
+    summary: Upload cover image
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              coverImage: { type: string, format: binary }
+    responses:
+      '200': { description: Cover image uploaded }
+
+/v1/me/client:
+  put:
+    tags: [Current User]
+    summary: Update client profile (first/last name)
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              firstName: { type: string, maxLength: 50 }
+              lastName: { type: string, maxLength: 50 }
+    responses:
+      '200': { description: Updated }
+
+/v1/me/theme:
+  put:
+    tags: [Current User]
+    summary: Update UI theme
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [theme]
+            properties:
+              theme: { type: string, maxLength: 50 }
+    responses:
+      '200': { description: Theme updated }
+
+/v1/me/send-verification-code:
+  post:
+    tags: [Current User]
+    summary: Send email verification code
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [email]
+            properties:
+              email: { type: string, format: email }
+    responses:
+      '200': { description: Code sent }
+
+/v1/me/verify-email:
+  post:
+    tags: [Current User]
+    summary: Verify email with code
+    security: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code]
+            properties:
+              code: { type: string }
+    responses:
+      '200': { description: Email verified }

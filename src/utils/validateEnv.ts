@@ -17,11 +17,13 @@ const validateEnv = () => {
     ADMIN_EMAIL: str({ default: 'admin@admin.com' }),
     ADMIN_PASSWORD: str({ default: 'Admin@123' }),
     // Image upload feature flag
-    ENABLE_IMAGE_UPLOAD: bool({ default: false, desc: 'Enable image upload feature (requires Cloudinary config)' }),
-    // Cloudinary configuration (required if ENABLE_IMAGE_UPLOAD is true)
-    CLOUDINARY_CLOUD_NAME: str({ default: '' }),
-    CLOUDINARY_API_KEY: str({ default: '' }),
-    CLOUDINARY_API_SECRET: str({ default: '' }),
+    ENABLE_IMAGE_UPLOAD: bool({ default: false, desc: 'Enable image upload feature (requires Cloudflare R2 config)' }),
+    // Cloudflare R2 configuration (required if ENABLE_IMAGE_UPLOAD is true)
+    R2_ACCOUNT_ID: str({ default: '' }),
+    R2_ACCESS_KEY_ID: str({ default: '' }),
+    R2_SECRET_ACCESS_KEY: str({ default: '' }),
+    R2_BUCKET_NAME: str({ default: '' }),
+    R2_PUBLIC_URL: str({ default: '' }),
     // Firebase push notifications (optional — push disabled if not set)
     FIREBASE_SERVICE_ACCOUNT_PATH: str({ default: '', desc: 'Path to Firebase service account JSON file' }),
     FIREBASE_PROJECT_ID: str({ default: '', desc: 'Firebase project ID (alternative to service account file)' }),
@@ -29,16 +31,22 @@ const validateEnv = () => {
     FIREBASE_PRIVATE_KEY: str({ default: '', desc: 'Firebase private key (alternative to service account file)' }),
   });
 
-  // Validate Cloudinary config if image upload is enabled
+  // Validate Cloudflare R2 config if image upload is enabled
   if (env.ENABLE_IMAGE_UPLOAD) {
-    const cloudinaryConfigured = env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET;
+    const r2Configured = env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME && env.R2_PUBLIC_URL;
 
-    if (!cloudinaryConfigured) {
-      logger.error('❌ ENABLE_IMAGE_UPLOAD is true but Cloudinary credentials are missing!');
-      logger.error('   Required: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET');
-      throw new Error('Cloudinary configuration required when ENABLE_IMAGE_UPLOAD is enabled');
+    if (!r2Configured) {
+      logger.error('❌ ENABLE_IMAGE_UPLOAD is true but Cloudflare R2 credentials are missing!');
+      logger.error('   Required: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL');
+      throw new Error('Cloudflare R2 configuration required when ENABLE_IMAGE_UPLOAD is enabled');
     }
-    logger.info('✅ Cloudinary configuration validated');
+    logger.info('✅ Cloudflare R2 configuration validated');
+  }
+
+  // Ensure access token and refresh token secrets are different
+  if (env.SECRET_KEY === env.REFRESH_TOKEN_SECRET) {
+    logger.error('❌ SECRET_KEY and REFRESH_TOKEN_SECRET must be different!');
+    throw new Error('SECRET_KEY and REFRESH_TOKEN_SECRET must be distinct to prevent token confusion attacks');
   }
 
   return env;

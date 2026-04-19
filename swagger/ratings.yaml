@@ -1,0 +1,60 @@
+# Rating endpoints
+/v1/ratings:
+  put:
+    tags: [Ratings]
+    summary: Create or update rating (client only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [loungeId, score]
+            properties:
+              loungeId: { type: string }
+              score: { type: integer, minimum: 1, maximum: 5 }
+              comment: { type: string, maxLength: 1000 }
+    responses:
+      '200': { description: Rating saved }
+
+/v1/ratings/lounge/{loungeId}:
+  get:
+    tags: [Ratings]
+    summary: Get paginated ratings for a lounge
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, minimum: 1, maximum: 50 }
+    responses:
+      '200': { description: Rating list with pagination }
+
+/v1/ratings/me/{loungeId}:
+  get:
+    tags: [Ratings]
+    summary: Get my rating for a lounge (client only)
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: My rating or null }
+
+/v1/ratings/{loungeId}:
+  delete:
+    tags: [Ratings]
+    summary: Delete my rating for a lounge (client only)
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Rating deleted }

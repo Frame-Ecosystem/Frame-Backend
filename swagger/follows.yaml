@@ -1,0 +1,258 @@
+# ── Follows ──────────────────────────────────────────────────────────────
+# Follow / unfollow system between users (clients & lounges).
+# Base path: /v1/follows
+
+/v1/follows/{targetId}:
+  post:
+    tags: [Follows]
+    summary: Follow a user
+    description: |
+      Follow the target user. Allowed follow pairs:
+      - Client → Client
+      - Client → Lounge
+      - Lounge → Client
+      - Lounge → Lounge
+
+      Self-follows and follows to admin users are rejected.
+      Rate-limited: 30 requests / 15 min.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+        description: MongoDB ObjectId of the user to follow
+    responses:
+      '200':
+        description: User followed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    following: { type: boolean, example: true }
+                message: { type: string, example: 'User followed successfully' }
+      '400':
+        description: |
+          - Invalid ObjectId
+          - Self-follow attempt
+          - Already following
+          - Invalid follow pair (e.g. client → admin)
+      '401': { $ref: '#/components/responses/401' }
+      '403': { $ref: '#/components/responses/403' }
+      '404': { description: Target user not found or blocked }
+      '429': { description: Rate limit exceeded }
+
+  delete:
+    tags: [Follows]
+    summary: Unfollow a user
+    description: Remove the follow relationship with the target user.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+        description: MongoDB ObjectId of the user to unfollow
+    responses:
+      '200':
+        description: User unfollowed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    following: { type: boolean, example: false }
+                message: { type: string, example: 'User unfollowed successfully' }
+      '400':
+        description: |
+          - Invalid ObjectId
+          - Self-unfollow attempt
+          - Not following this user
+      '401': { $ref: '#/components/responses/401' }
+      '403': { $ref: '#/components/responses/403' }
+
+/v1/follows/check/{targetId}:
+  get:
+    tags: [Follows]
+    summary: Check if following a user
+    description: Returns whether the authenticated user is following the target user.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Follow status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    following: { type: boolean }
+      '400': { description: Invalid ObjectId }
+      '401': { $ref: '#/components/responses/401' }
+
+/v1/follows/following/{userId}:
+  get:
+    tags: [Follows]
+    summary: Get users that someone is following
+    description: Returns a paginated list of users the specified user is following. Optionally filter by user type.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+        description: The user whose following list to retrieve
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [client, lounge]
+        description: Filter by followed user type
+    responses:
+      '200':
+        description: Following list
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    users:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          _id: { type: string }
+                          firstName: { type: string }
+                          lastName: { type: string }
+                          loungeTitle: { type: string }
+                          profileImage:
+                            type: object
+                            properties:
+                              url: { type: string }
+                          bio: { type: string }
+                          type: { type: string, enum: [client, lounge] }
+                    total: { type: integer }
+                    page: { type: integer }
+                    limit: { type: integer }
+                message: { type: string }
+      '400': { description: Invalid ObjectId }
+      '401': { $ref: '#/components/responses/401' }
+
+/v1/follows/followers/{userId}:
+  get:
+    tags: [Follows]
+    summary: Get followers of a user
+    description: Returns a paginated list of users who follow the specified user. Optionally filter by follower type.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+        description: The user whose followers to retrieve
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum: [client, lounge]
+        description: Filter by follower user type
+    responses:
+      '200':
+        description: Followers list
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    users:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          _id: { type: string }
+                          firstName: { type: string }
+                          lastName: { type: string }
+                          loungeTitle: { type: string }
+                          profileImage:
+                            type: object
+                            properties:
+                              url: { type: string }
+                          bio: { type: string }
+                          type: { type: string, enum: [client, lounge] }
+                    total: { type: integer }
+                    page: { type: integer }
+                    limit: { type: integer }
+                message: { type: string }
+      '400': { description: Invalid ObjectId }
+      '401': { $ref: '#/components/responses/401' }
+
+/v1/follows/counts/{userId}:
+  get:
+    tags: [Follows]
+    summary: Get follow counts for a user
+    description: Returns the follower count and following count for the specified user.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200':
+        description: Follow counts
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    followersCount: { type: integer, example: 42 }
+                    followingCount: { type: integer, example: 18 }
+      '400': { description: Invalid ObjectId }
+      '401': { $ref: '#/components/responses/401' }

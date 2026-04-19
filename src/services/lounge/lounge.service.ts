@@ -1,6 +1,6 @@
 import { NotFoundException, BadRequestException, HttpException, InternalServerException } from '@exceptions/HttpException';
-import { User } from '@interfaces/user/users.interface';
-import userModel from '@models/user/users.model';
+import { User } from '@interfaces/user/user.interface';
+import userModel from '@models/user/user.model';
 import agentModel from '@models/user/agent.model';
 import mongoose from 'mongoose';
 import { isEmpty, handleMongooseError } from '@utils/util';
@@ -56,7 +56,7 @@ class LoungeService {
   /**
    * Patch opening hours for a lounge
    */
-  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@dtos/user/users.dto').DayOpeningHoursDto): Promise<User> {
+  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@dtos/user/user.dto').DayOpeningHoursDto): Promise<User> {
     try {
       if (isEmpty(loungeId) || isEmpty(openingHoursData)) {
         logger.warn('LoungeService.patchLoungeOpeningHours: empty loungeId or openingHoursData provided');
@@ -100,7 +100,7 @@ class LoungeService {
   /**
    * Update lounge profile (title and opening hours)
    */
-  public async updateLoungeProfile(loungeId: string, loungeData: import('@dtos/user/users.dto').UpdateLoungeProfileDto): Promise<User> {
+  public async updateLoungeProfile(loungeId: string, loungeData: import('@dtos/user/user.dto').UpdateLoungeProfileDto): Promise<User> {
     try {
       if (isEmpty(loungeId) || isEmpty(loungeData)) {
         throw new BadRequestException('Lounge ID and profile data are required', 'MISSING_REQUIRED_FIELDS');

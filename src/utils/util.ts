@@ -1,23 +1,14 @@
 import { BadRequestException, ConflictException, InternalServerException } from '@exceptions/HttpException';
+import { logger } from '@utils/logger';
 
 /**
- * @method isEmpty
- * @param {String | Number | Object} value
- * @returns {Boolean} true & false
- * @description this value is Empty Check
+ * Check whether a value is empty (null, undefined, empty string, or empty object).
  */
-export const isEmpty = (value: string | number | object): boolean => {
-  if (value === null) {
-    return true;
-  } else if (typeof value !== 'number' && value === '') {
-    return true;
-  } else if (typeof value === 'undefined' || value === undefined) {
-    return true;
-  } else if (value !== null && typeof value === 'object' && !Object.keys(value).length) {
-    return true;
-  } else {
-    return false;
-  }
+export const isEmpty = (value: unknown): boolean => {
+  if (value == null) return true;
+  if (typeof value === 'string' && value === '') return true;
+  if (typeof value === 'object' && Object.keys(value).length === 0) return true;
+  return false;
 };
 
 /**
@@ -33,9 +24,7 @@ export const stripSensitiveFields = <T extends Record<string, any>>(obj: T): Par
   } else {
     plainObj = obj as unknown as Record<string, unknown>;
   }
-  const { password, refreshTokens, ...safeFields } = plainObj;
-  void password;
-  void refreshTokens;
+  const { password: _pw, refreshTokens: _rt, ...safeFields } = plainObj;
   return safeFields as Partial<T>;
 };
 
@@ -100,23 +89,21 @@ export const handleMongooseError = (
     logMeta = {},
   } = options;
 
-  const { logger: _logger } = require('@utils/logger');
-
   if (error.name === 'ValidationError') {
-    _logger.error(`${context} validation error: ${error.message}`, { ...logMeta, stack: error.stack });
+    logger.error(`${context} validation error: ${error.message}`, { ...logMeta, stack: error.stack });
     throw new BadRequestException(validationMessage, 'VALIDATION_ERROR');
   }
 
   if (error.name === 'CastError' && error.kind === 'ObjectId') {
-    _logger.error(`${context} invalid ID format`, { ...logMeta, stack: error.stack });
+    logger.error(`${context} invalid ID format`, { ...logMeta, stack: error.stack });
     throw new BadRequestException(castMessage, 'INVALID_ID_FORMAT');
   }
 
   if (error.code === MONGO_DUPLICATE_KEY_ERROR) {
-    _logger.error(`${context} duplicate key error: ${error.message}`, { ...logMeta, stack: error.stack });
+    logger.error(`${context} duplicate key error: ${error.message}`, { ...logMeta, stack: error.stack });
     throw new ConflictException(duplicateMessage, 'DUPLICATE_KEY_ERROR');
   }
 
-  _logger.error(`${context} error: ${error.message}`, { ...logMeta, stack: error.stack });
+  logger.error(`${context} error: ${error.message}`, { ...logMeta, stack: error.stack });
   throw new InternalServerException(fallbackMessage);
 };

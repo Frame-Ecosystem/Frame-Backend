@@ -1,0 +1,93 @@
+# Agent endpoints
+/v1/agents:
+  get:
+    tags: [Agents]
+    summary: List all agents
+    parameters:
+      - name: loungeId
+        in: query
+        schema: { type: string }
+        description: Filter by lounge
+    responses:
+      '200': { description: Agent list }
+  post:
+    tags: [Agents]
+    summary: Create agent
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [agentName, password, loungeId, idLoungeService]
+            properties:
+              agentName: { type: string }
+              password: { type: string }
+              loungeId: { type: string }
+              idLoungeService: { type: array, items: { type: string } }
+              acceptQueueBooking: { type: boolean }
+              image: { type: string, format: binary }
+    responses:
+      '201': { description: Agent created }
+
+/v1/agents/{agentId}:
+  get:
+    tags: [Agents]
+    summary: Get agent by ID
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Agent details }
+  put:
+    tags: [Agents]
+    summary: Update agent
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              agentName: { type: string }
+              password: { type: string }
+              isBlocked: { type: boolean }
+              acceptQueueBooking: { type: boolean }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Agents]
+    summary: Delete agent
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Deleted }
+
+/v1/agents/{agentId}/image:
+  put:
+    tags: [Agents]
+    summary: Upload agent profile image
+    parameters:
+      - name: agentId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              image: { type: string, format: binary }
+    responses:
+      '200': { description: Image uploaded }

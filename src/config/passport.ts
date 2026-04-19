@@ -1,8 +1,8 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 import { Document } from 'mongoose';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '@config';
 import { logger } from '@utils/logger';
 
@@ -21,14 +21,20 @@ function buildGoogleOAuthData(profile: any) {
 
 /**
  * Sanitize legacy refreshTokens that may not match the current schema.
- * Clears the array if any entry is malformed.
+ * Removes only malformed entries instead of destroying all sessions.
  */
 function sanitizeRefreshTokens(user: any): void {
   if (!Array.isArray(user.refreshTokens)) return;
-  const valid = user.refreshTokens.every((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
-  if (!valid) {
-    user.refreshTokens = [];
+  const original = user.refreshTokens.length;
+  user.refreshTokens = user.refreshTokens.filter((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
+  if (user.refreshTokens.length < original) {
+    logger.warn(`sanitizeRefreshTokens: removed ${original - user.refreshTokens.length} malformed tokens for user ${user._id}`);
   }
+}
+
+// Validate Google OAuth config at startup
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+  logger.warn('⚠️ Google OAuth is not configured (GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET missing). OAuth routes will fail.');
 }
 
 // Configure Passport Google OAuth Strategy
@@ -51,6 +57,9 @@ passport.use(
           if (state.startsWith('signup:')) {
             return done(null, false, { message: 'account_exists' });
           }
+          if (user.isBlocked) {
+            return done(null, false, { message: 'account_blocked' });
+          }
           user.oauth.google = buildGoogleOAuthData(profile);
           sanitizeRefreshTokens(user);
           await user.save();
@@ -63,6 +72,9 @@ passport.use(
         if (existingUser) {
           if (state.startsWith('signup:')) {
             return done(null, false, { message: 'account_exists' });
+          }
+          if (existingUser.isBlocked) {
+            return done(null, false, { message: 'account_blocked' });
           }
           existingUser.oauth = existingUser.oauth || {};
           existingUser.oauth.google = buildGoogleOAuthData(profile);
@@ -103,7 +115,7 @@ passport.serializeUser((user: User & Document, done) => {
 // Deserialize user from session
 passport.deserializeUser(async (id: string, done) => {
   try {
-    const user = await userModel.findById(id);
+    const user = await userModel.findById(id).select('-password -refreshTokens');
     done(null, user);
   } catch (error) {
     done(error, null);

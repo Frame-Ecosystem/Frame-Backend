@@ -1,0 +1,192 @@
+# Lounge Services endpoints
+/v1/lounge-services:
+  get:
+    tags: [Lounge Services]
+    summary: List all lounge services
+    responses:
+      '200': { description: Lounge service list }
+  post:
+    tags: [Lounge Services]
+    summary: Create lounge service
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [loungeId, serviceId, price, duration, gender]
+            properties:
+              loungeId: { type: string }
+              serviceId: { type: string }
+              agentIds: { type: array, items: { type: string } }
+              price: { type: number, minimum: 0 }
+              duration: { type: number, minimum: 1 }
+              gender: { type: string, enum: [men, women, unisex, kids] }
+              status: { type: string, enum: [active, inactive] }
+              description: { type: string, maxLength: 1000 }
+              image: { type: string, format: binary }
+    responses:
+      '201': { description: Created }
+
+/v1/lounge-services/search:
+  get:
+    tags: [Lounge Services]
+    summary: Search lounge services
+    parameters:
+      - name: q
+        in: query
+        schema: { type: string }
+    responses:
+      '200': { description: Search results }
+
+/v1/lounge-services/bulk:
+  post:
+    tags: [Lounge Services]
+    summary: Bulk create lounge services
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              type: object
+              required: [loungeId, serviceId, price, duration, gender]
+              properties:
+                loungeId: { type: string }
+                serviceId: { type: string }
+                price: { type: number, minimum: 0 }
+                duration: { type: number, minimum: 1 }
+                gender: { type: string, enum: [men, women, unisex, kids] }
+    responses:
+      '201': { description: Bulk created }
+
+/v1/lounge-services/lounge/{loungeId}:
+  get:
+    tags: [Lounge Services]
+    summary: Get lounge services by lounge ID
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounge services }
+
+/v1/lounge-services/lounge/{loungeId}/agents:
+  get:
+    tags: [Lounge Services]
+    summary: Get agents for a lounge
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Agent list }
+
+/v1/lounge-services/lounge/{loungeId}/opening-hours:
+  patch:
+    tags: [Lounge Services]
+    summary: Update lounge opening hours
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/DayOpeningHours' }
+    responses:
+      '200': { description: Opening hours updated }
+
+/v1/lounge-services/lounge/{loungeId}/profile:
+  put:
+    tags: [Lounge Services]
+    summary: Update lounge profile
+    parameters:
+      - name: loungeId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              loungeTitle: { type: string, maxLength: 100 }
+              openingHours: { $ref: '#/components/schemas/DayOpeningHours' }
+    responses:
+      '200': { description: Profile updated }
+
+/v1/lounge-services/{serviceId}:
+  get:
+    tags: [Lounge Services]
+    summary: Get lounge service by ID
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Lounge service }
+  put:
+    tags: [Lounge Services]
+    summary: Update lounge service
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              serviceId: { type: string }
+              agentIds: { type: array, items: { type: string } }
+              price: { type: number, minimum: 0 }
+              duration: { type: number, minimum: 1 }
+              gender: { type: string, enum: [men, women, unisex, kids] }
+              status: { type: string, enum: [active, inactive] }
+              description: { type: string, maxLength: 1000 }
+              image: { type: string, format: binary }
+    responses:
+      '200': { description: Updated }
+  delete:
+    tags: [Lounge Services]
+    summary: Delete lounge service
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Deleted }
+
+/v1/lounge-services/{serviceId}/toggle-status:
+  patch:
+    tags: [Lounge Services]
+    summary: Toggle lounge service active/inactive
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Status toggled }
+
+/v1/lounge-services/service-name/{serviceId}:
+  get:
+    tags: [Lounge Services]
+    summary: Get service name by ID
+    parameters:
+      - name: serviceId
+        in: path
+        required: true
+        schema: { type: string }
+    responses:
+      '200': { description: Service name }

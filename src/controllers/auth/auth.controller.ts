@@ -1,9 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import { verify } from 'jsonwebtoken';
-import { CreateUserDto } from '@dtos/user/users.dto';
+import { CreateUserDto } from '@dtos/user/user.dto';
 import { LoginUserDto } from '@dtos/auth/auth.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@interfaces/auth/auth.interface';
-import { User } from '@interfaces/user/users.interface';
+import { User } from '@interfaces/user/user.interface';
 import AuthService from '@services/auth/auth.service';
 import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
@@ -184,21 +184,30 @@ class AuthController {
 
   public refreshToken = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const refreshToken = req.cookies['refreshToken'];
+      const refreshToken = req.cookies['refreshToken'] || req.body?.refreshToken;
       if (!refreshToken) {
         return res.status(401).json({ message: 'Refresh token missing' });
       }
 
+      const isMobile = req.headers['x-client-type'] === 'mobile';
       const { userAgent, ip } = this.extractDeviceInfo(req);
       const { tokenData, newRefreshToken } = await this.authService.refreshAccessToken(refreshToken, { userAgent, ip });
 
-      this.setRefreshTokenCookie(res, newRefreshToken);
-
-      res.status(200).json({
-        token: tokenData.token,
-        expiresIn: tokenData.expiresIn,
-        message: 'Token refreshed',
-      });
+      if (isMobile) {
+        res.status(200).json({
+          token: tokenData.token,
+          refreshToken: newRefreshToken,
+          expiresIn: tokenData.expiresIn,
+          message: 'Token refreshed',
+        });
+      } else {
+        this.setRefreshTokenCookie(res, newRefreshToken);
+        res.status(200).json({
+          token: tokenData.token,
+          expiresIn: tokenData.expiresIn,
+          message: 'Token refreshed',
+        });
+      }
     } catch (error) {
       next(error);
     }

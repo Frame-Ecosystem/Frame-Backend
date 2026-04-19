@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import ClientController from '@controllers/user/client.controller';
+import ClientVisitorProfileController from '@controllers/user/clientVisitorProfile.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
@@ -8,6 +9,7 @@ class ClientRoute implements Routes {
   public path = '/v1/client';
   public router = Router();
   public clientController = new ClientController();
+  public clientVisitorProfileController = new ClientVisitorProfileController();
 
   constructor() {
     this.initializeRoutes();
@@ -56,6 +58,66 @@ class ClientRoute implements Routes {
      * @query   userLongitude - User's longitude for distance-based sorting
      */
     this.router.get('/services/:serviceId/lounges', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientController.getLoungesByService);
+
+    /* ------------------------------------------------------------------ */
+    /*  Client Profile routes (visitor profile)                           */
+    /* ------------------------------------------------------------------ */
+
+    /**
+     * @route   GET /v1/client/profile/:clientId
+     * @desc    Get a client's public profile. Response varies by viewer role:
+     *          - Admin:  full profile (email, phone, blocked status, timestamps)
+     *          - Lounge: public profile + createdAt
+     *          - Client: minimal public profile (name, avatar, bio, gender)
+     * @access  Private (Client, Admin, or Lounge)
+     */
+    this.router.get('/profile/:clientId', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientVisitorProfileController.getClientProfile);
+
+    /**
+     * @route   GET /v1/client/profile/:clientId/bookings
+     * @desc    Get a client's booking history. Scoped by viewer role:
+     *          - Admin:  all bookings for this client
+     *          - Lounge: only bookings at their lounge
+     *          - Client: only own bookings (clientId must match logged-in user)
+     * @access  Private (Client, Admin, or Lounge)
+     * @query   page - Page number (default: 1)
+     * @query   limit - Items per page (default: 20, max: 50)
+     * @query   status - Filter by booking status (pending, confirmed, inQueue, completed, cancelled, absent)
+     */
+    this.router.get(
+      '/profile/:clientId/bookings',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientBookings,
+    );
+
+    /**
+     * @route   GET /v1/client/profile/:clientId/likes
+     * @desc    Get lounges liked by this client (public social data)
+     * @access  Private (Client, Admin, or Lounge)
+     * @query   page - Page number (default: 1)
+     * @query   limit - Items per page (default: 20, max: 50)
+     */
+    this.router.get(
+      '/profile/:clientId/likes',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientLikedLounges,
+    );
+
+    /**
+     * @route   GET /v1/client/profile/:clientId/ratings
+     * @desc    Get ratings given by this client (public social data)
+     * @access  Private (Client, Admin, or Lounge)
+     * @query   page - Page number (default: 1)
+     * @query   limit - Items per page (default: 20, max: 50)
+     */
+    this.router.get(
+      '/profile/:clientId/ratings',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      this.clientVisitorProfileController.getClientRatings,
+    );
   }
 }
 

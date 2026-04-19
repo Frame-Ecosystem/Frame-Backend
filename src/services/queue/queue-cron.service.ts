@@ -3,10 +3,10 @@ import { BookingStatus } from '@interfaces/booking/booking.interface';
 import queueModel from '@models/queue/queue.model';
 import bookingModel from '@models/booking/booking.model';
 import agentModel from '@models/user/agent.model';
-import userModel from '@models/user/users.model';
+import userModel from '@models/user/user.model';
 import { logger } from '@utils/logger';
 import NotificationService from '@services/realtime/notification.service';
-import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, resolveLoungeInfo } from '@services/queue/queue-helpers';
+import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, finalizeBooking, resolveLoungeInfo } from '@services/queue/queue.helpers';
 
 /** Shared result shape for all cron operations. */
 export interface CronResult {
@@ -47,13 +47,13 @@ class QueueCronService {
         for (const agentId of booking.agentIds ?? []) {
           try {
             await queueService.addPersonToQueue(agentId.toString(), { bookingId: (booking as any)._id.toString() });
-          } catch (err) {
+          } catch (err: any) {
             result.errors.push(`Booking ${(booking as any)._id} → agent ${agentId}: ${err.message}`);
           }
         }
 
         result.processed++;
-      } catch (err) {
+      } catch (err: any) {
         result.errors.push(`Booking ${(booking as any)._id}: ${err.message}`);
       }
     }
@@ -88,7 +88,7 @@ class QueueCronService {
 
     for (const queue of queues) {
       const cumulativeBase = await this.estimateInServiceRemaining(queue);
-      const waitingPersons = queue.persons.filter(p => p.status === QueuePersonStatus.WAITING).sort((a, b) => a.position - b.position);
+      const waitingPersons = queue.persons.filter((p: any) => p.status === QueuePersonStatus.WAITING).sort((a: any, b: any) => a.position - b.position);
 
       const durationMap = await this.buildDurationMap(waitingPersons);
       let cumulativeWait = cumulativeBase;
@@ -109,7 +109,7 @@ class QueueCronService {
               person.reminderSent = true;
               sent++;
             }
-          } catch (err) {
+          } catch (err: any) {
             errors.push(`Reminder for booking ${person.bookingId}: ${err.message}`);
           }
         }
@@ -153,7 +153,7 @@ class QueueCronService {
         result.errors.push(...queueResult.errors);
 
         await queue.save();
-      } catch (err) {
+      } catch (err: any) {
         result.errors.push(`Queue ${(queue as any)._id}: ${err.message}`);
       }
     }
@@ -189,17 +189,47 @@ class QueueCronService {
     for (const person of persons) {
       try {
         if (await finalizeQueuePerson(person, loungeInfo, agentId)) result.processed++;
-      } catch (err) {
+      } catch (err: any) {
         result.errors.push(`Booking ${person.bookingId}: ${err.message}`);
       }
     }
 
+    // Safety net: cancel any bookings still stuck in inQueue after all persons were processed.
+    // This guards against orphaned bookings (e.g. agent marked person absent without removing them).
+    await this.finalizeOrphanedBookings(persons, loungeInfo, agentId);
+
     return result;
+  }
+
+  /** Cancel bookings that are still inQueue after their queue persons have been finalized. */
+  private async finalizeOrphanedBookings(persons: any[], loungeInfo: { loungeId: string; loungeTitle: string }, agentId?: string): Promise<void> {
+    const bookingIds = persons.map(p => p.bookingId).filter(Boolean);
+    if (bookingIds.length === 0) return;
+
+    const orphaned = await bookingModel
+      .find({ _id: { $in: bookingIds }, status: BookingStatus.IN_QUEUE })
+      .select('_id')
+      .lean()
+      .exec();
+
+    for (const booking of orphaned) {
+      try {
+        await finalizeBooking((booking as any)._id.toString(), BookingStatus.CANCELLED, {
+          cancelledBy: { idUser: loungeInfo.loungeId, cancelledByName: loungeInfo.loungeTitle },
+          notify: 'autoCancelled',
+          loungeTitle: loungeInfo.loungeTitle,
+          agentId,
+        });
+        logger.info(`QueueCron: finalized orphaned inQueue booking ${(booking as any)._id}`);
+      } catch (err: any) {
+        logger.warn(`QueueCron: failed to finalize orphaned booking ${(booking as any)._id}: ${err.message}`);
+      }
+    }
   }
 
   /** Estimate remaining time (minutes) for the current in-service person. */
   private async estimateInServiceRemaining(queue: any): Promise<number> {
-    const inServicePerson = queue.persons.find(p => p.status === QueuePersonStatus.IN_SERVICE);
+    const inServicePerson = queue.persons.find((p: any) => p.status === QueuePersonStatus.IN_SERVICE);
     if (!inServicePerson) return 0;
 
     const booking = await bookingModel.findById(inServicePerson.bookingId).lean();

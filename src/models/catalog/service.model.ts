@@ -41,13 +41,4 @@ serviceSchema.index({ categoryId: 1 });
 
 const serviceModel = model<Service & Document>('Service', serviceSchema);
 
-// Drop the old slug index if it exists
-serviceModel.collection.dropIndex('slug_1').catch(err => {
-  // Index might not exist, which is fine
-  if (err.code !== 27) {
-    // 27 = index not found
-    console.warn('Warning: Could not drop old slug index:', err.message);
-  }
-});
-
 export default serviceModel;

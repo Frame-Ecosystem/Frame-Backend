@@ -1,0 +1,287 @@
+openapi: 3.0.3
+info:
+  title: Frame Beauty API
+  version: 2.0.0
+  description: |
+    Backend API for **Frame Beauty** — a child application of the **Frame** enterprise platform.
+    Provides salon discovery, booking, queue management, real-time notifications, and social features
+    for beauty professionals and clients.
+
+    ## Frame Ecosystem
+    - **Frame** — Enterprise parent platform
+    - **Frame Beauty** — Salon & beauty services marketplace
+
+    ## Features
+    - Authentication (JWT + Google OAuth)
+    - Salon/Lounge management & discovery
+    - Real-time booking & queue system
+    - Social feed (posts, reels, comments, likes, follows)
+    - Push notifications & in-app messaging
+    - Admin & agent management
+  contact:
+    name: Frame Team
+    url: https://framebeauty.com
+    email: support@framebeauty.com
+  license:
+    name: Proprietary
+    url: https://framebeauty.com/terms
+  x-logo:
+    url: https://framebeauty.com/logo.png
+    altText: Frame Beauty
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.framebeauty.com
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentication, registration, and session management
+  - name: Current User
+    description: Current authenticated user operations
+  - name: Admin
+    description: Administrative operations and analytics
+  - name: Admin Services
+    description: Admin service management
+  - name: Users
+    description: User profile management (clients, agents, admins)
+  - name: Lounge Visitor Profile
+    description: Lounge visitor profile viewing
+  - name: Client Visitor Profile
+    description: Client visitor profile viewing
+  - name: Agents
+    description: Agent management
+  - name: Lounges
+    description: Salon/lounge discovery and management
+  - name: Lounge Services
+    description: Services offered by lounges
+  - name: Catalog
+    description: Service categories, services, and suggestions
+  - name: Catalog Services
+    description: Catalog service listings
+  - name: Service Categories
+    description: Service category management
+  - name: Service Suggestions
+    description: Service suggestion management
+  - name: Bookings
+    description: Appointment booking and scheduling
+  - name: Queue
+    description: Real-time queue management
+  - name: Notifications
+    description: Push notifications and in-app alerts
+  - name: Ratings
+    description: Lounge and service ratings
+  - name: Likes
+    description: Like interactions
+  - name: Follows
+    description: Follow relationships
+  - name: Social
+    description: Posts, reels, comments, likes, follows, and feed
+  - name: Posts
+    description: User and lounge posts
+  - name: Reels
+    description: Short video reels
+  - name: Comments
+    description: Comments on posts and reels
+  - name: Feed
+    description: Personalized content feed
+  - name: Reports
+    description: Content reporting and moderation
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ── Shared ──
+    Location:
+      type: object
+      required: [latitude, longitude, address, placeId]
+      properties:
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        address: { type: string, maxLength: 500 }
+        placeId: { type: string, pattern: '^[A-Za-z0-9_-]+$' }
+        placeName: { type: string, maxLength: 200 }
+
+    OpeningHours:
+      type: object
+      properties:
+        from: { type: string, pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' }
+        to: { type: string, pattern: '^([01]?[0-9]|2[0-3]):[0-5][0-9]$' }
+
+    DayOpeningHours:
+      type: object
+      properties:
+        monday: { $ref: '#/components/schemas/OpeningHours' }
+        tuesday: { $ref: '#/components/schemas/OpeningHours' }
+        wednesday: { $ref: '#/components/schemas/OpeningHours' }
+        thursday: { $ref: '#/components/schemas/OpeningHours' }
+        friday: { $ref: '#/components/schemas/OpeningHours' }
+        saturday: { $ref: '#/components/schemas/OpeningHours' }
+        sunday: { $ref: '#/components/schemas/OpeningHours' }
+
+    Error:
+      type: object
+      properties:
+        status: { type: integer }
+        message: { type: string }
+        code: { type: string }
+
+    Pagination:
+      type: object
+      properties:
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+
+    PostMedia:
+      type: object
+      properties:
+        url: { type: string, format: uri }
+        publicId: { type: string }
+
+    AuthorSummary:
+      type: object
+      properties:
+        _id: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        loungeTitle: { type: string }
+        profileImage: { type: string }
+        type: { type: string, enum: [client, lounge] }
+
+    Post:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        text: { type: string }
+        media:
+          type: array
+          items: { $ref: '#/components/schemas/PostMedia' }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isHidden: { type: boolean }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Reel:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        videoUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        caption: { type: string }
+        duration: { type: number, minimum: 1, maximum: 60 }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isHidden: { type: boolean }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Comment:
+      type: object
+      properties:
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        targetId: { type: string }
+        targetType: { type: string, enum: [post, reel] }
+        text: { type: string }
+        parentCommentId: { type: string, nullable: true }
+        likeCount: { type: integer }
+        isHidden: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Report:
+      type: object
+      properties:
+        _id: { type: string }
+        reporterId: { $ref: '#/components/schemas/AuthorSummary' }
+        targetId: { type: string }
+        targetType: { type: string, enum: [post, reel, comment] }
+        reason: { type: string }
+        status: { type: string, enum: [pending, reviewed, dismissed] }
+        adminNote: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Hashtag:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        postCount: { type: integer }
+
+    FeedItem:
+      type: object
+      description: A post or reel with a contentType discriminator
+      properties:
+        contentType: { type: string, enum: [post, reel] }
+        _id: { type: string }
+        authorId: { $ref: '#/components/schemas/AuthorSummary' }
+        authorType: { type: string, enum: [client, lounge] }
+        text: { type: string }
+        media:
+          type: array
+          items: { $ref: '#/components/schemas/PostMedia' }
+        videoUrl: { type: string, format: uri }
+        thumbnailUrl: { type: string, format: uri }
+        caption: { type: string }
+        duration: { type: number }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+  parameters:
+    idParam:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    '401':
+      description: Unauthorized
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    '403':
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+    '404':
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+
+paths: {}

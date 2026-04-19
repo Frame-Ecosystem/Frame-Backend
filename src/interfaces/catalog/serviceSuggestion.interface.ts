@@ -1,5 +1,6 @@
 export enum ServiceSuggestionStatus {
   PENDING = 'pending',
+  APPROVED = 'approved',
   REJECTED = 'rejected',
   IMPLEMENTED = 'implemented',
 }
