@@ -1,7 +1,7 @@
 // ============================================
 // AUTHENTICATION DTOs
 // ============================================
-import { IsEmail, IsString, IsNotEmpty, MinLength, MaxLength, Matches } from 'class-validator';
+import { IsEmail, IsString, IsNotEmpty, IsOptional, MinLength, MaxLength, Matches } from 'class-validator';
 import { PASSWORD_REGEX, PASSWORD_VALIDATION_MESSAGE } from '@dtos/user/user.dto';
 
 // SEND VERIFICATION EMAIL DTO
@@ -53,6 +53,10 @@ export class LoginUserDto {
   @IsString({ message: 'Password is required' })
   @IsNotEmpty({ message: 'Password is required' })
   public password: string;
+
+  @IsOptional()
+  @IsString()
+  public deviceName?: string;
 }
 
 // SESSION ID DTO (for revoking sessions)
