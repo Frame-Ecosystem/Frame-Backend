@@ -24,16 +24,16 @@ services:
   server:
     build:
       context: ./
-      target: production-build-stage
+      target: production
       dockerfile: Dockerfile
     container_name: frame-beauty-server
+    env_file:
+      - .env.production
     ports:
       - '3000:3000'
     restart: 'unless-stopped'
     networks:
       - backend
-    links:
-      - mongo
     depends_on:
       mongo:
         condition: service_healthy
