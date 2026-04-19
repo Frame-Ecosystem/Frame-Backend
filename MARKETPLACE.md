@@ -1,6 +1,8 @@
 # Frame Beauty — Marketplace System
 
 > Full-stack marketplace module enabling clients and lounges to create stores, sell products, and discover/buy from each other. Includes admin moderation, analytics, cart, wishlist, reviews, and order management.
+> **Backend system**: [`src/systems/MarketplaceSystem`](src/systems/MarketplaceSystem/README.md) — see system README for implementation details.
+> **Last synced with backend**: April 19, 2026
 
 ---
 
@@ -769,4 +771,4 @@ All list endpoints support: `?page=1&limit=20`
 - Response includes `count` for total items
 
 ### Currency
-Default currency is `MAD` (Moroccan Dirham). Display prices with `MAD` suffix.
+Default currency is `TD` (Tunisian Dinart). Display prices with `DT` suffix.

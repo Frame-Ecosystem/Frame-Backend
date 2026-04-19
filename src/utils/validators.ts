@@ -1,7 +1,7 @@
-import mongoose from 'mongoose';
+﻿import mongoose from 'mongoose';
 import { Request } from 'express';
 import { BadRequestException } from '@exceptions/HttpException';
-import userModel from '@models/user/user.model';
+import userModel from '@systems/UserManager/models/user.model';
 
 /**
  * Validate a string is a valid MongoDB ObjectId.

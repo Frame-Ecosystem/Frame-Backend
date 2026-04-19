@@ -1,6 +1,6 @@
-import cron from 'node-cron';
-import QueueService from '@services/queue/queue.service';
-import BookingService from '@services/booking/booking.service';
+﻿import cron from 'node-cron';
+import QueueService from '@systems/BookingSystem/services/queue.service';
+import BookingService from '@systems/BookingSystem/services/booking.service';
 import { logger } from '@utils/logger';
 
 const queueService = new QueueService();

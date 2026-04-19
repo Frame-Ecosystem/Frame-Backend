@@ -1,4 +1,4 @@
-import 'reflect-metadata';
+﻿import 'reflect-metadata';
 import 'dotenv/config';
 import '@/config';
 
@@ -10,35 +10,35 @@ const main = async () => {
 
   // Import routes AFTER validateEnv
   const { default: App } = await import('@/app');
-  const { default: AuthRoute } = await import('@routes/auth/auth.route');
-  const { default: AdminRoute } = await import('@routes/admin/admin.route');
-  const { default: CurrentUserRoute } = await import('@routes/user/currentUser.route');
-  const { default: ClientRoute } = await import('@routes/user/client.route');
-  const { default: LoungeServicesRoute } = await import('@routes/lounge/loungeServices.route');
-  const { default: ServiceSuggestionsRoute } = await import('@routes/catalog/serviceSuggestions.route');
-  const { default: PublicServicesRoute } = await import('@routes/catalog/publicServices.route');
-  const { default: PublicServiceCategoriesRoute } = await import('@routes/catalog/publicServiceCategories.route');
-  const { default: AgentRoute } = await import('@routes/user/agent.route');
-  const { default: LoungeRoute } = await import('@routes/lounge/lounge.route');
-  const { default: BookingRoute } = await import('@routes/booking/booking.route');
-  const { default: QueueRoute } = await import('@routes/queue/queue.route');
-  const { default: NotificationRoute } = await import('@routes/realtime/notification.route');
-  const { default: RatingRoute } = await import('@routes/rating/rating.route');
-  const { default: LikeRoute } = await import('@routes/like/like.route');
-  const { default: FollowRoute } = await import('@routes/follow/follow.route');
-  const { default: PostRoute } = await import('@routes/content/post.route');
-  const { default: ReelRoute } = await import('@routes/content/reel.route');
-  const { default: CommentRoute } = await import('@routes/content/comment.route');
-  const { default: FeedRoute } = await import('@routes/content/feed.route');
-  const { default: ReportRoute } = await import('@routes/content/report.route');
-  const { default: StoreRoute } = await import('@routes/marketplace/store.route');
-  const { default: ProductRoute } = await import('@routes/marketplace/product.route');
-  const { default: OrderRoute } = await import('@routes/marketplace/order.route');
-  const { default: CartRoute } = await import('@routes/marketplace/cart.route');
-  const { default: ReviewRoute } = await import('@routes/marketplace/review.route');
-  const { default: WishlistRoute } = await import('@routes/marketplace/wishlist.route');
-  const { default: MarketplaceAnalyticsRoute } = await import('@routes/marketplace/analytics.route');
-  const { default: IndexRoute } = await import('@routes/index.route');
+  const { default: AuthRoute } = await import('@systems/AuthSystem/routes/auth.route');
+  const { default: AdminRoute } = await import('@systems/AdminSystem/routes/admin.route');
+  const { default: CurrentUserRoute } = await import('@systems/UserManager/routes/currentUser.route');
+  const { default: ClientRoute } = await import('@systems/UserManager/routes/client.route');
+  const { default: LoungeServicesRoute } = await import('@systems/ServiceCatalogSystem/routes/loungeServices.route');
+  const { default: ServiceSuggestionsRoute } = await import('@systems/ServiceCatalogSystem/routes/serviceSuggestions.route');
+  const { default: PublicServicesRoute } = await import('@systems/ServiceCatalogSystem/routes/publicServices.route');
+  const { default: PublicServiceCategoriesRoute } = await import('@systems/ServiceCatalogSystem/routes/publicServiceCategories.route');
+  const { default: AgentRoute } = await import('@systems/UserManager/routes/agent.route');
+  const { default: LoungeRoute } = await import('@systems/ServiceCatalogSystem/routes/lounge.route');
+  const { default: BookingRoute } = await import('@systems/BookingSystem/routes/booking.route');
+  const { default: QueueRoute } = await import('@systems/BookingSystem/routes/queue.route');
+  const { default: NotificationRoute } = await import('@systems/NotificationSystem/routes/notification.route');
+  const { default: RatingRoute } = await import('@systems/ServiceCatalogSystem/routes/rating.route');
+  const { default: LikeRoute } = await import('@systems/FeedContentSystem/routes/like.route');
+  const { default: FollowRoute } = await import('@systems/UserManager/routes/follow.route');
+  const { default: PostRoute } = await import('@systems/FeedContentSystem/routes/post.route');
+  const { default: ReelRoute } = await import('@systems/FeedContentSystem/routes/reel.route');
+  const { default: CommentRoute } = await import('@systems/FeedContentSystem/routes/comment.route');
+  const { default: FeedRoute } = await import('@systems/FeedContentSystem/routes/feed.route');
+  const { default: ReportRoute } = await import('@systems/FeedContentSystem/routes/report.route');
+  const { default: StoreRoute } = await import('@systems/MarketplaceSystem/routes/store.route');
+  const { default: ProductRoute } = await import('@systems/MarketplaceSystem/routes/product.route');
+  const { default: OrderRoute } = await import('@systems/MarketplaceSystem/routes/order.route');
+  const { default: CartRoute } = await import('@systems/MarketplaceSystem/routes/cart.route');
+  const { default: ReviewRoute } = await import('@systems/MarketplaceSystem/routes/review.route');
+  const { default: WishlistRoute } = await import('@systems/MarketplaceSystem/routes/wishlist.route');
+  const { default: MarketplaceAnalyticsRoute } = await import('@systems/MarketplaceSystem/routes/analytics.route');
+  const { default: IndexRoute } = await import('@systems/AdminSystem/routes/index.route');
 
   const app = new App([
     new IndexRoute(),

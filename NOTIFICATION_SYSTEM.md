@@ -1,6 +1,8 @@
 # Frame Beauty — Notification System
 
 > **Live Reference File** — This document is the single source of truth for the notification system architecture. Use it when building the frontend notification layer to ensure full backend–frontend synchronization.
+> **Backend system**: [`src/systems/NotificationSystem`](src/systems/NotificationSystem/README.md) — see system README for implementation details.
+> **Last synced with backend**: April 19, 2026
 
 ---
 

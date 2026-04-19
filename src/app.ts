@@ -1,4 +1,4 @@
-import compression from 'compression';
+﻿import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
@@ -17,7 +17,7 @@ import errorMiddleware from '@middlewares/error.middleware';
 import { logger, stream } from '@utils/logger';
 import { ensureAdminExists, ensureCollectionExists } from '@utils/initAdmin';
 import { REQUEST_BODY_LIMIT, SERVICE_NAME, SERVICE_BRAND, SERVICE_VERSION } from '@config/constants';
-import SocketService from '@services/realtime/socket.service';
+import SocketService from '@systems/NotificationSystem/services/socket.service';
 import './config/passport'; // Initialize Passport
 
 class App {
