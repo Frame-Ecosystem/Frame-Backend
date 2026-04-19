@@ -16,6 +16,8 @@ const main = async () => {
   const { default: ClientRoute } = await import('@routes/user/client.route');
   const { default: LoungeServicesRoute } = await import('@routes/lounge/loungeServices.route');
   const { default: ServiceSuggestionsRoute } = await import('@routes/catalog/serviceSuggestions.route');
+  const { default: PublicServicesRoute } = await import('@routes/catalog/publicServices.route');
+  const { default: PublicServiceCategoriesRoute } = await import('@routes/catalog/publicServiceCategories.route');
   const { default: AgentRoute } = await import('@routes/user/agent.route');
   const { default: LoungeRoute } = await import('@routes/lounge/lounge.route');
   const { default: BookingRoute } = await import('@routes/booking/booking.route');
@@ -39,6 +41,8 @@ const main = async () => {
     new ClientRoute(),
     new LoungeServicesRoute(),
     new ServiceSuggestionsRoute(),
+    new PublicServicesRoute(),
+    new PublicServiceCategoriesRoute(),
     new AgentRoute(),
     new LoungeRoute(),
     new BookingRoute(),
