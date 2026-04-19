@@ -1,8 +1,8 @@
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
-import { User } from '@interfaces/user/user.interface';
+import { User } from '@systems/UserManager/interfaces/user.interface';
 import { Document } from 'mongoose';
-import userModel from '@models/user/user.model';
+import userModel from '@systems/UserManager/models/user.model';
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '@config';
 import { logger } from '@utils/logger';
 

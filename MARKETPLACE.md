@@ -769,4 +769,4 @@ All list endpoints support: `?page=1&limit=20`
 - Response includes `count` for total items
 
 ### Currency
-Default currency is `MAD` (Moroccan Dirham). Display prices with `MAD` suffix.
+Default currency is `TD` (Tunisian Dinart). Display prices with `DT` suffix.
