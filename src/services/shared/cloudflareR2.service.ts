@@ -124,6 +124,24 @@ class CloudflareR2Service {
     return this.upload(fileBuffer, `reels/${reelId}`, 'thumb');
   }
 
+  /* ───────── Marketplace ───────── */
+
+  public async uploadStoreLogo(fileBuffer: Buffer, storeId: string) {
+    return this.upload(fileBuffer, `stores/${storeId}`, 'logo');
+  }
+
+  public async uploadStoreBanner(fileBuffer: Buffer, storeId: string) {
+    return this.upload(fileBuffer, `stores/${storeId}`, 'banner');
+  }
+
+  public async uploadProductImage(fileBuffer: Buffer, productId: string) {
+    return this.upload(fileBuffer, `products/${productId}`, 'img');
+  }
+
+  public async uploadReviewImage(fileBuffer: Buffer, reviewId: string) {
+    return this.upload(fileBuffer, `reviews/${reviewId}`, 'img');
+  }
+
   /* ───────── Utils ───────── */
 
   /** Best-effort content-type detection from magic bytes. */

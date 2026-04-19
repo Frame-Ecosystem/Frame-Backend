@@ -31,6 +31,13 @@ const main = async () => {
   const { default: CommentRoute } = await import('@routes/content/comment.route');
   const { default: FeedRoute } = await import('@routes/content/feed.route');
   const { default: ReportRoute } = await import('@routes/content/report.route');
+  const { default: StoreRoute } = await import('@routes/marketplace/store.route');
+  const { default: ProductRoute } = await import('@routes/marketplace/product.route');
+  const { default: OrderRoute } = await import('@routes/marketplace/order.route');
+  const { default: CartRoute } = await import('@routes/marketplace/cart.route');
+  const { default: ReviewRoute } = await import('@routes/marketplace/review.route');
+  const { default: WishlistRoute } = await import('@routes/marketplace/wishlist.route');
+  const { default: MarketplaceAnalyticsRoute } = await import('@routes/marketplace/analytics.route');
   const { default: IndexRoute } = await import('@routes/index.route');
 
   const app = new App([
@@ -56,6 +63,13 @@ const main = async () => {
     new CommentRoute(),
     new FeedRoute(),
     new ReportRoute(),
+    new StoreRoute(),
+    new ProductRoute(),
+    new OrderRoute(),
+    new CartRoute(),
+    new ReviewRoute(),
+    new WishlistRoute(),
+    new MarketplaceAnalyticsRoute(),
   ]);
 
   app.listen();
