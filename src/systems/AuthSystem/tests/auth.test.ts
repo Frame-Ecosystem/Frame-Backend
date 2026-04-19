@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import { BCRYPT_ROUNDS } from '../config/constants';
+import { BCRYPT_ROUNDS } from '@config/constants';
 import mongoose from 'mongoose';
 import request from 'supertest';
 import App from '@/app';

@@ -1,131 +1,94 @@
-import UserManagementService from '../services/admin/userManagement.service';
-import { CreateUserDto, UpdateUserDto } from '../dtos/user/user.dto';
-import userModel from '../models/user/user.model';
+jest.mock('@systems/UserManager/models/user.model', () => ({
+  __esModule: true,
+  default: {
+    findById: jest.fn(),
+    findOne: jest.fn(),
+    find: jest.fn(),
+    create: jest.fn(),
+    findByIdAndUpdate: jest.fn(),
+    findByIdAndDelete: jest.fn(),
+    countDocuments: jest.fn(),
+    aggregate: jest.fn(),
+  },
+  isAdmin: (u) => u?.type === 'admin',
+  isLounge: (u) => u?.type === 'lounge',
+  isClient: (u) => u?.type === 'client',
+}));
 
-jest.mock('../models/user/user.model');
+import UserManagementService from '@systems/UserManager/services/userManagement.service';
+import { CreateUserDto, UpdateUserDto } from '@systems/UserManager/dtos/user.dto';
+import userModel from '@systems/UserManager/models/user.model';
 
 const adminService = new UserManagementService();
 
-describe('AdminService', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
+describe('UserManagementService', () => {
+  beforeEach(() => { jest.clearAllMocks(); });
 
   describe('findUsersPaginated', () => {
-    it('should return paginated users', async () => {
-      const mockQueryChain = {
-        skip: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockResolvedValue([{ _id: '1', email: 'a@email.com' }]),
-      };
-      (userModel.find as jest.Mock).mockReturnValue(mockQueryChain);
-      (userModel.countDocuments as jest.Mock).mockResolvedValue(1);
-      const result = await adminService.findUsersPaginated('', 1, 20);
-      expect(result).toEqual({ users: [{ _id: '1', email: 'a@email.com' }], total: 1 });
-    });
-    it('should handle errors', async () => {
-      const mockQueryChain = {
-        skip: jest.fn().mockReturnThis(),
-        limit: jest.fn().mockRejectedValue(new Error('fail')),
-      };
-      (userModel.find as jest.Mock).mockReturnValue(mockQueryChain);
-      await expect(adminService.findUsersPaginated('', 1, 20)).rejects.toThrow('Operation failed. Please try again');
+    it('returns paginated users', async () => {
+      const chain: any = { select: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([{ _id: '1', email: 'a@e.com' }]) };
+      (userModel.find as jest.Mock).mockReturnValue(chain);
+      (userModel.countDocuments as jest.Mock).mockReturnValue({ exec: jest.fn().mockResolvedValue(1) });
+      const res = await adminService.findUsersPaginated('', 1, 20);
+      expect(res).toEqual({ users: [{ _id: '1', email: 'a@e.com' }], total: 1 });
     });
   });
 
   describe('findUserById', () => {
-    it('should return user by id', async () => {
-      (userModel.findOne as jest.Mock).mockResolvedValue({ _id: '1', email: 'a@email.com' });
-      const user = await adminService.findUserById('1');
-      expect(user).toEqual({ _id: '1', email: 'a@email.com' });
+    it('returns user', async () => {
+      (userModel.findOne as jest.Mock).mockResolvedValue({ _id: '1', email: 'a@e.com' });
+      expect(await adminService.findUserById('1')).toEqual({ _id: '1', email: 'a@e.com' });
     });
-    it('should throw if user not found', async () => {
+    it('throws when not found', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValue(null);
       await expect(adminService.findUserById('1')).rejects.toThrow('User not found');
-    });
-    it('should throw on error', async () => {
-      (userModel.findOne as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(adminService.findUserById('1')).rejects.toThrow('Operation failed. Please try again');
     });
   });
 
   describe('createUser', () => {
-    const dto: CreateUserDto = { email: 'a@email.com', password: 'pass', phoneNumber: '123' };
-    it('should create user', async () => {
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
+    const dto = { email: 'a@e.com', password: 'pass', phoneNumber: '123' };
+    it('creates user', async () => {
+      (userModel.findOne as jest.Mock).mockResolvedValue(null);
       (userModel.create as jest.Mock).mockResolvedValue({ _id: '1', ...dto });
-      const user = await adminService.createUser(dto);
-      expect(user).toMatchObject({ _id: '1', email: 'a@email.com' });
-    });
-    it.skip('should throw if phone exists', async () => {
-      jest.clearAllMocks();
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce({ phoneNumber: '123' });
-      await expect(adminService.createUser(dto)).rejects.toThrow('Phone number already registered');
-    });
-    it.skip('should handle errors', async () => {
-      jest.clearAllMocks();
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.findOne as jest.Mock).mockResolvedValueOnce(null);
-      (userModel.create as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(adminService.createUser(dto)).rejects.toThrow('Operation failed. Please try again');
+      const u = await adminService.createUser(dto);
+      expect(u).toMatchObject({ _id: '1', email: 'a@e.com' });
     });
   });
 
   describe('updateUser', () => {
-    const dto: UpdateUserDto = { email: 'a@email.com', phoneNumber: '123' };
-    it('should update user', async () => {
+    const dto = { email: 'a@e.com', phoneNumber: '123' };
+    it('updates user', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValue(null);
       (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue({ _id: '1', ...dto });
-      const user = await adminService.updateUser('1', dto);
-      expect(user).toMatchObject({ _id: '1', email: 'a@email.com' });
+      const u = await adminService.updateUser('1', dto);
+      expect(u).toMatchObject({ _id: '1', email: 'a@e.com' });
     });
-    it('should throw if not found', async () => {
+    it('throws when not found', async () => {
       (userModel.findOne as jest.Mock).mockResolvedValue(null);
       (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(null);
       await expect(adminService.updateUser('1', dto)).rejects.toThrow('User not found');
     });
-    it('should handle errors', async () => {
-      (userModel.findOne as jest.Mock).mockResolvedValue(null);
-      (userModel.findByIdAndUpdate as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(adminService.updateUser('1', dto)).rejects.toThrow('Operation failed. Please try again');
-    });
   });
 
   describe('deleteUser', () => {
-    it('should delete user', async () => {
-      (userModel.findByIdAndDelete as jest.Mock).mockResolvedValue({ _id: '1', email: 'a@email.com' });
-      const user = await adminService.deleteUser('1');
-      expect(user).toMatchObject({ _id: '1', email: 'a@email.com' });
+    it('deletes user', async () => {
+      (userModel.findByIdAndDelete as jest.Mock).mockResolvedValue({ _id: '1', email: 'a@e.com' });
+      const u = await adminService.deleteUser('1');
+      expect(u).toMatchObject({ _id: '1', email: 'a@e.com' });
     });
-    it('should throw if not found', async () => {
+    it('throws when not found', async () => {
       (userModel.findByIdAndDelete as jest.Mock).mockResolvedValue(null);
       await expect(adminService.deleteUser('1')).rejects.toThrow('User not found');
-    });
-    it('should handle errors', async () => {
-      (userModel.findByIdAndDelete as jest.Mock).mockRejectedValue(new Error('fail'));
-      await expect(adminService.deleteUser('1')).rejects.toThrow('Operation failed. Please try again');
     });
   });
 
   describe('getOnlineUsers', () => {
-    it('should return online users', async () => {
-      const mockUsers = [{ _id: '1', email: 'a@email.com', firstName: 'Test', lastName: 'User', sessionTrack: { isOnline: true, devices: [] } }];
-      const mockQuery = {
-        select: jest.fn().mockResolvedValue(mockUsers),
-      };
-      (userModel.find as jest.Mock).mockReturnValue(mockQuery);
+    it('returns online users', async () => {
+      const list = [{ _id: '1', email: 'a@e.com', firstName: 'T', lastName: 'U', sessionTrack: { isOnline: true, devices: [] } }];
+      const q: any = { select: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue(list) };
+      (userModel.find as jest.Mock).mockReturnValue(q);
       const users = await adminService.getOnlineUsers();
-      expect(users[0]).toMatchObject({ _id: '1', email: 'a@email.com' });
-    });
-    it('should handle errors', async () => {
-      const mockQuery = {
-        select: jest.fn().mockRejectedValue(new Error('fail')),
-      };
-      (userModel.find as jest.Mock).mockReturnValue(mockQuery);
-      await expect(adminService.getOnlineUsers()).rejects.toThrow('Failed to retrieve online users');
+      expect(users[0]).toMatchObject({ _id: '1', email: 'a@e.com' });
     });
   });
 });

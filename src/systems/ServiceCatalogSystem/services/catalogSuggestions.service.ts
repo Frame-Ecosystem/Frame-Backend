@@ -219,7 +219,7 @@ class CatalogSuggestionsService {
         description: suggestion.description,
       });
 
-      const createdLoungeService = await loungeServicesService.createLoungeService({
+      const [createdLoungeService] = await loungeServicesService.bulkCreateLoungeServices([{
         loungeId: (suggestion.loungeId as any)._id,
         serviceId: createdService._id,
         price: opts.price || suggestion.estimatedPrice || 0,
@@ -228,7 +228,7 @@ class CatalogSuggestionsService {
         description: suggestion.description,
         status: LoungeServiceStatus.ACTIVE,
         isActive: true,
-      } as any);
+      } as any]);
 
       await this.serviceSuggestions.findByIdAndUpdate(suggestion._id, {
         status: ServiceSuggestionStatus.IMPLEMENTED,

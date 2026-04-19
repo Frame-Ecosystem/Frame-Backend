@@ -1,6 +1,6 @@
 import request from 'supertest';
 import App from '@/app';
-import IndexRoute from '@routes/index.route';
+import IndexRoute from '@systems/AdminSystem/routes/index.route';
 
 jest.setTimeout(10000); // Increased timeout for the test
 
