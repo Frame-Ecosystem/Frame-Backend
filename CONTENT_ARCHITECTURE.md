@@ -2,7 +2,8 @@
 
 > Living reference document for the Frame Beauty social content system.
 > **Audience**: Frontend agents and developers integrating with the Frame Beauty API.
-> **Last synced with backend**: April 18, 2026
+> **Last synced with backend**: April 19, 2026
+> **Backend system**: [`src/systems/FeedContentSystem`](src/systems/FeedContentSystem/README.md) — see system README for implementation details.
 
 ---
 

@@ -41,14 +41,52 @@ cp .env.example .env.development.local
 ```
 
 Required variables:
-```
+```env
+# Server
 NODE_ENV=development
 PORT=3000
+
+# MongoDB
 DB_HOST=127.0.0.1
 DB_PORT=27017
 DB_DATABASE=frame_beauty_dev
+
+# JWT — must be two distinct secrets
 SECRET_KEY=<your-jwt-secret>
-REFRESH_TOKEN_SECRET=<different-secret>
+REFRESH_TOKEN_SECRET=<different-refresh-secret>
+
+# Admin seed account
+ADMIN_EMAIL=admin@framebeauty.com
+ADMIN_PASSWORD=Admin@123
+
+# CORS allowed origin(s)
+ORIGIN=http://localhost:3001
+
+# Google OAuth 2.0
+GOOGLE_CLIENT_ID=<google-client-id>
+GOOGLE_CLIENT_SECRET=<google-client-secret>
+GOOGLE_REDIRECT_URI=http://localhost:3000/v1/auth/google/callback
+FRONTEND_BASE_URL=http://localhost:3001
+
+# Email — Brevo SMTP (optional — magic-link and password reset)
+BREVO_SMTP_USER=<brevo-smtp-login>
+BREVO_SMTP_KEY=<brevo-smtp-api-key>
+SMTP_FROM=noreply@framebeauty.com
+
+# Media — Cloudflare R2 (required if ENABLE_IMAGE_UPLOAD=true)
+ENABLE_IMAGE_UPLOAD=false
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+R2_PUBLIC_URL=
+
+# Firebase FCM push notifications (optional)
+FIREBASE_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+# — or inline credentials:
+FIREBASE_PROJECT_ID=
+FIREBASE_CLIENT_EMAIL=
+FIREBASE_PRIVATE_KEY=
 ```
 
 ## Development
@@ -75,22 +113,45 @@ npm run docker:up
 
 Swagger UI is available at `/api-docs` in non-production environments.
 
-## Project Structure
+## Architecture — Vertical Domain Systems
+
+The codebase is organised into **8 self-contained domain systems**, each owning its own controllers, services, models, routes, DTOs, and interfaces. This structure is designed for future microservice extraction.
 
 ```
 src/
-├── config/         # Environment config, Passport, constants
-├── controllers/    # Route handlers
-├── databases/      # MongoDB connection config
-├── dtos/           # Request validation (class-validator)
-├── exceptions/     # HTTP exception hierarchy
-├── interfaces/     # TypeScript interfaces
-├── middlewares/     # Auth, CSRF, rate-limit, validation, upload
-├── models/         # Mongoose schemas
-├── routes/         # Express route definitions
-├── services/       # Business logic layer
-└── utils/          # Logger, email, cron, admin init
+├── systems/
+│   ├── AuthSystem/           # Registration, login, JWT, OAuth, sessions
+│   ├── UserManager/          # User profiles (client/lounge), agents, follow graph
+│   ├── BookingSystem/        # Appointments, walk-in queues, analytics, cron
+│   ├── ServiceCatalogSystem/ # Service catalog, lounge offerings, ratings, suggestions
+│   ├── NotificationSystem/   # WebSocket (Socket.IO), FCM push, notification history
+│   ├── FeedContentSystem/    # Posts, reels, comments, likes, feed, moderation
+│   ├── MarketplaceSystem/    # Stores, products, cart, orders, reviews, wishlist
+│   └── AdminSystem/          # Platform administration, dashboards, moderation
+│
+├── shared/
+│   └── services/             # Cross-system utilities (Cloudflare R2 upload)
+│
+├── config/                   # Env vars, Passport OAuth strategy, constants
+├── databases/                # MongoDB connection
+├── exceptions/               # HttpException base class
+├── interfaces/               # Shared interfaces (routes.interface)
+├── middlewares/              # Auth, CSRF, rate-limit, role, validation, upload
+└── utils/                    # Logger, email, cron, admin seeder, validators
 ```
+
+Each system has its own `README.md`:
+
+| System | Description |
+|---|---|
+| [AuthSystem](src/systems/AuthSystem/README.md) | Magic-link signup, JWT refresh rotation, Google OAuth, CSRF |
+| [UserManager](src/systems/UserManager/README.md) | Profiles, agents, blocking, social follow graph |
+| [BookingSystem](src/systems/BookingSystem/README.md) | Service appointments, walk-in queue, cron automation |
+| [ServiceCatalogSystem](src/systems/ServiceCatalogSystem/README.md) | Global catalog, lounge service offerings, ratings |
+| [NotificationSystem](src/systems/NotificationSystem/README.md) | Real-time (Socket.IO) + FCM push + notification history |
+| [FeedContentSystem](src/systems/FeedContentSystem/README.md) | Posts, reels, hashtags, comments, personalized feed |
+| [MarketplaceSystem](src/systems/MarketplaceSystem/README.md) | E-commerce — stores, products, orders, reviews |
+| [AdminSystem](src/systems/AdminSystem/README.md) | Platform admin — user, content, catalog management |
 
 ## Available Scripts
 
