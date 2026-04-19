@@ -231,6 +231,10 @@ export class CreateUserDto {
 
   @IsOptional()
   public emailVerification?: Array<{ isVerified: boolean; verifCode?: string }> = [{ isVerified: true }];
+
+  @IsOptional()
+  @IsString()
+  public deviceName?: string;
 }
 
 // UPDATE USER DTO (Partial updates)
@@ -365,4 +369,11 @@ export class UpdateThemeDto {
   @IsNotEmpty({ message: 'Theme name is required' })
   @MaxLength(50, { message: 'Theme name cannot exceed 50 characters' })
   public theme: string;
+}
+
+export class UpdateLanguageDto {
+  @IsString({ message: 'Language must be a string' })
+  @IsNotEmpty({ message: 'Language is required' })
+  @MaxLength(10, { message: 'Language code cannot exceed 10 characters' })
+  public language: string;
 }

@@ -59,6 +59,11 @@ const userSchema: Schema = new Schema(
       default: 'silver-light',
       required: false,
     },
+    language: {
+      type: String,
+      default: 'en',
+      required: false,
+    },
     loungeTitle: {
       type: String,
       required: false,

@@ -1308,6 +1308,37 @@ paths:
         500:
           description: Server error
 
+  /v1/me/language:
+    put:
+      tags: [current-user]
+      summary: Update language preference
+      operationId: updateLanguage
+      description: Update the authenticated user's language preference (e.g. 'en', 'ar', 'fr').
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateLanguageDto'
+      responses:
+        200:
+          description: Language updated
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/UserResponse'
+              message:
+                type: string
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
   /v1/me/send-verification-code:
     post:
       tags: [current-user]
@@ -5992,6 +6023,17 @@ definitions:
         type: string
         maxLength: 50
         example: "dark"
+
+  UpdateLanguageDto:
+    type: object
+    required:
+      - language
+    properties:
+      language:
+        type: string
+        maxLength: 10
+        example: "en"
+        description: Language code (e.g. 'en', 'ar', 'fr')
 
   UpdateLoungeProfileDto:
     type: object

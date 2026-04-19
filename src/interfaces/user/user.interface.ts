@@ -72,6 +72,7 @@ export interface User {
   lastName?: string; // Client-specific
   bio?: string;
   theme?: string;
+  language?: string; // User language preference (e.g. 'en', 'ar', 'fr')
   loungeTitle?: string; // Lounge-specific
   openingHours?: DayOpeningHours; // Lounge-specific
   averageRating?: number; // Lounge-specific — denormalized from ratings

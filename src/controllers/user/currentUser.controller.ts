@@ -66,6 +66,20 @@ class CurrentUserController {
     }
   };
 
+  public updateLanguage = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const { language } = req.body;
+      const updatedUser = await this.currentUserService.updateLanguage(userId, language);
+      res.status(200).json({
+        data: stripSensitiveFields(updatedUser),
+        message: 'Language updated successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public updateMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();

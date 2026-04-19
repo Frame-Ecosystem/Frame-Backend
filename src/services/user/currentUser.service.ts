@@ -218,6 +218,24 @@ class CurrentUserService {
     }
   }
 
+  /**
+   * Update user language preference
+   */
+  public async updateLanguage(userId: string, language: string): Promise<User> {
+    try {
+      if (isEmpty(userId)) throw new BadRequestException('User ID is required');
+      if (isEmpty(language)) throw new BadRequestException('Language is required');
+
+      const updatedUser = await this.users.findByIdAndUpdate(userId, { language }, { new: true });
+      if (!updatedUser) throw new NotFoundException('User not found');
+
+      logger.info(`Language updated for user: ${userId}, language=${language}`);
+      return updatedUser;
+    } catch (error) {
+      this.handleError(error, 'updateLanguage', userId, 'Failed to update language. Please try again');
+    }
+  }
+
   // ─── Image Upload ────────────────────────────────────────────────────
 
   /**

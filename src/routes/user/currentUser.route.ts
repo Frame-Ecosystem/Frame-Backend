@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import CurrentUserController from '@controllers/user/currentUser.controller';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, ChangePasswordDto } from '@dtos/user/user.dto';
+import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, UpdateLanguageDto, ChangePasswordDto } from '@dtos/user/user.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
@@ -53,6 +53,8 @@ class CurrentUserRoute implements Routes {
     this.router.delete('/', authMiddleware, validationMiddleware(DeleteAccountDto, 'body'), this.currentUserController.deleteMe);
     // PUT - Update current user theme
     this.router.put('/theme', authMiddleware, validationMiddleware(UpdateThemeDto, 'body'), this.currentUserController.updateTheme);
+    // PUT - Update current user language preference
+    this.router.put('/language', authMiddleware, validationMiddleware(UpdateLanguageDto, 'body'), this.currentUserController.updateLanguage);
     // POST - Send email verification code
     this.router.post('/send-verification-code', this.currentUserController.sendVerificationCode);
     // POST - Verify email code
