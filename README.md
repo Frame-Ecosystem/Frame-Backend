@@ -1,6 +1,12 @@
-# 🪞 Frame Beauty — Backend API
+<p align="center">
+  <img src="assets/frame-logo-animated.svg" alt="Frame Beauty" width="420" />
+</p>
 
-> **Frame Beauty** is a Tunisian startup revolutionizing the beauty and salon industry by connecting clients with beauty lounges, agents (stylists/technicians), and an integrated marketplace — all from a single platform.
+<h1 align="center">Frame Beauty — Backend API</h1>
+
+<p align="center">
+  <strong>Frame Beauty</strong> is a Tunisian startup revolutionizing the beauty and salon industry by connecting clients with beauty lounges, agents (stylists/technicians), and an integrated marketplace — all from a single platform.
+</p>
 
 [![Node.js](https://img.shields.io/badge/Node.js-18+-339933?logo=node.js)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org/)

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # AuthSystem
 
 > Handles all authentication and authorization flows: signup via magic link, email/password login, Google OAuth 2.0, JWT token management (access + refresh with rotation), password recovery, and multi-device session management.

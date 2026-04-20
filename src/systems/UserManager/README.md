@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # UserManager
 
 > Manages all user entities (clients, lounges, agents), profile operations, the follow system, and client-facing lounge/profile browsing.

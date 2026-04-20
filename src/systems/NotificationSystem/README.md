@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # NotificationSystem
 
 > Delivers notifications across three channels — in-app (MongoDB), real-time (Socket.IO), and push (Firebase FCM) — with 27 notification types across 6 categories.

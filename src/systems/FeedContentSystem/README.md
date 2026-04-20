@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # FeedContentSystem
 
 > Powers the social content layer — posts, reels, comments, likes, saved content, hashtags, content feeds, and abuse reporting.

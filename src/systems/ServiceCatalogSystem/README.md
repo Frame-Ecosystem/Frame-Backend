@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # ServiceCatalogSystem
 
 > Manages the beauty service catalog: global services & categories, lounge-specific service offerings, service suggestions workflow, lounge ratings, and the queue-booking agent toggle.

@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # AdminSystem
 
 > The centralized administration dashboard providing platform-wide management capabilities: user CRUD, system health monitoring, content moderation, catalog management facade, and audit logging.

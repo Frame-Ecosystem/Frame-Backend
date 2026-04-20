@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # MarketplaceSystem
 
 > Full e-commerce marketplace — stores, products, orders, cart, reviews, wishlists, product categories with suggestion workflow, and analytics.

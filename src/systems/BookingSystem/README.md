@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # BookingSystem
 
 > Manages the full booking lifecycle — from client reservation through queue management to completion — including real-time queue updates, automated reminders, and cron-based cleanup jobs.
