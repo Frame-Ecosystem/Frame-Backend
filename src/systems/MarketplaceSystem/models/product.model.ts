@@ -1,5 +1,5 @@
 import { model, Schema, Document } from 'mongoose';
-import { Product, ProductStatus, ProductCategory, ProductCondition } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
+import { Product, ProductStatus, ProductCondition } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 
 const productVariantSchema = new Schema(
   {
@@ -28,7 +28,7 @@ const productSchema: Schema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 200 },
     slug: { type: String, required: true, lowercase: true, trim: true },
     description: { type: String, maxlength: 5000, default: '' },
-    category: { type: String, enum: Object.values(ProductCategory), required: true },
+    categoryId: { type: Schema.Types.ObjectId, ref: 'ProductCategory', required: true },
     tags: [{ type: String, trim: true }],
     images: [productImageSchema],
     price: { type: Number, required: true, min: 0 },
@@ -60,7 +60,7 @@ const productSchema: Schema = new Schema(
 
 productSchema.index({ storeId: 1, status: 1 });
 productSchema.index({ slug: 1, storeId: 1 }, { unique: true });
-productSchema.index({ category: 1, status: 1 });
+productSchema.index({ categoryId: 1, status: 1 });
 productSchema.index({ status: 1, createdAt: -1 });
 productSchema.index({ price: 1 });
 productSchema.index({ 'stats.averageRating': -1 });

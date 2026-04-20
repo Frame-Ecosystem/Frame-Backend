@@ -296,7 +296,7 @@ describe('MarketplaceSystem — Route Tests', () => {
       const res = await request(server)
         .post('/v1/marketplace/products')
         .set('Authorization', bearerHeader(clientToken()))
-        .send({ storeId: testIds.store, name: 'Test Product', price: 50, category: 'beauty' });
+        .send({ storeId: testIds.store, name: 'Test Product', price: 50, categoryId: '507f1f77bcf86cd799439011' });
       expectRouteOk(res.status);
     });
 

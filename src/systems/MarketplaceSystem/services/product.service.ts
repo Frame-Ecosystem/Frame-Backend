@@ -4,6 +4,7 @@ import { BadRequestException, NotFoundException, ForbiddenException } from '@exc
 import productModel from '@systems/MarketplaceSystem/models/product.model';
 import storeModel from '@systems/MarketplaceSystem/models/store.model';
 import wishlistModel from '@systems/MarketplaceSystem/models/wishlist.model';
+import ProductCategoriesService from '@systems/MarketplaceSystem/services/productCategories.service';
 import { Product, ProductStatus, StoreStatus } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 import { CreateProductDto, UpdateProductDto } from '@systems/MarketplaceSystem/dtos/product.dto';
 import cloudflareR2Service from '@shared/services/cloudflareR2.service';
@@ -12,6 +13,7 @@ class ProductService {
   private products = productModel;
   private stores = storeModel;
   private wishlists = wishlistModel;
+  private categoriesService = new ProductCategoriesService();
 
   /* ───────── Slug helper ───────── */
 
@@ -40,6 +42,7 @@ class ProductService {
 
   public async createProduct(ownerId: string, dto: CreateProductDto): Promise<Product> {
     await this.verifyStoreOwnership(dto.storeId, ownerId);
+    await this.categoriesService.assertCategoryExists(dto.categoryId);
 
     const slug = await this.generateUniqueSlug(dto.name, dto.storeId);
 
@@ -76,7 +79,7 @@ class ProductService {
     page?: number;
     limit?: number;
     status?: string;
-    category?: string;
+    categoryId?: string;
     sort?: string;
   }): Promise<{ products: Product[]; total: number }> {
     if (!mongoose.Types.ObjectId.isValid(storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
@@ -87,7 +90,7 @@ class ProductService {
 
     const filter: any = { storeId };
     if (query.status) filter.status = query.status;
-    if (query.category) filter.category = query.category;
+    if (query.categoryId && mongoose.Types.ObjectId.isValid(query.categoryId)) filter.categoryId = query.categoryId;
 
     let sortOption: any = { createdAt: -1 };
     if (query.sort === 'price_asc') sortOption = { price: 1 };
@@ -96,7 +99,7 @@ class ProductService {
     if (query.sort === 'rating') sortOption = { 'stats.averageRating': -1 };
 
     const [products, total] = await Promise.all([
-      this.products.find(filter).sort(sortOption).skip(skip).limit(limit).lean(),
+      this.products.find(filter).populate('categoryId', 'name slug icon').sort(sortOption).skip(skip).limit(limit).lean(),
       this.products.countDocuments(filter),
     ]);
 
@@ -106,7 +109,7 @@ class ProductService {
   public async discoverProducts(query: {
     page?: number;
     limit?: number;
-    category?: string;
+    categoryId?: string;
     minPrice?: number;
     maxPrice?: number;
     condition?: string;
@@ -120,7 +123,7 @@ class ProductService {
 
     const filter: any = { status: ProductStatus.ACTIVE };
 
-    if (query.category) filter.category = query.category;
+    if (query.categoryId && mongoose.Types.ObjectId.isValid(query.categoryId)) filter.categoryId = query.categoryId;
     if (query.condition) filter.condition = query.condition;
     if (query.minPrice || query.maxPrice) {
       filter.price = {};
@@ -138,7 +141,14 @@ class ProductService {
     if (query.sort === 'newest') sortOption = { createdAt: -1 };
 
     const [products, total] = await Promise.all([
-      this.products.find(filter).populate('storeId', 'name slug logo').sort(sortOption).skip(skip).limit(limit).lean(),
+      this.products
+        .find(filter)
+        .populate('storeId', 'name slug logo')
+        .populate('categoryId', 'name slug icon')
+        .sort(sortOption)
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.products.countDocuments(filter),
     ]);
 
@@ -154,6 +164,10 @@ class ProductService {
     if (!product) throw new NotFoundException('Product not found', 'PRODUCT_NOT_FOUND');
 
     await this.verifyStoreOwnership(product.storeId.toString(), ownerId);
+
+    if (dto.categoryId) {
+      await this.categoriesService.assertCategoryExists(dto.categoryId);
+    }
 
     if (dto.name && dto.name !== product.name) {
       (dto as any).slug = await this.generateUniqueSlug(dto.name, product.storeId.toString());
