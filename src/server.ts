@@ -33,6 +33,8 @@ const main = async () => {
   const { default: ReportRoute } = await import('@systems/FeedContentSystem/routes/report.route');
   const { default: StoreRoute } = await import('@systems/MarketplaceSystem/routes/store.route');
   const { default: ProductRoute } = await import('@systems/MarketplaceSystem/routes/product.route');
+  const { default: ProductCategoriesRoute } = await import('@systems/MarketplaceSystem/routes/productCategories.route');
+  const { default: ProductCategorySuggestionsRoute } = await import('@systems/MarketplaceSystem/routes/productCategorySuggestions.route');
   const { default: OrderRoute } = await import('@systems/MarketplaceSystem/routes/order.route');
   const { default: CartRoute } = await import('@systems/MarketplaceSystem/routes/cart.route');
   const { default: ReviewRoute } = await import('@systems/MarketplaceSystem/routes/review.route');
@@ -65,6 +67,8 @@ const main = async () => {
     new ReportRoute(),
     new StoreRoute(),
     new ProductRoute(),
+    new ProductCategoriesRoute(),
+    new ProductCategorySuggestionsRoute(),
     new OrderRoute(),
     new CartRoute(),
     new ReviewRoute(),

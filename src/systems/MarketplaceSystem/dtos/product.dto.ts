@@ -3,7 +3,7 @@ import {
   Min, Max, ValidateNested, ArrayMaxSize, IsMongoId,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ProductCategory, ProductCondition } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
+import { ProductCondition } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 
 class ProductVariantDto {
   @IsOptional() @IsString() @MaxLength(50)
@@ -41,8 +41,8 @@ export class CreateProductDto {
   @IsOptional() @IsString() @MaxLength(5000)
   description?: string;
 
-  @IsEnum(ProductCategory, { message: 'Invalid product category' })
-  category: ProductCategory;
+  @IsMongoId({ message: 'Invalid product category ID' })
+  categoryId: string;
 
   @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(20)
   tags?: string[];
@@ -85,8 +85,8 @@ export class UpdateProductDto {
   @IsOptional() @IsString() @MaxLength(5000)
   description?: string;
 
-  @IsOptional() @IsEnum(ProductCategory, { message: 'Invalid product category' })
-  category?: ProductCategory;
+  @IsOptional() @IsMongoId({ message: 'Invalid product category ID' })
+  categoryId?: string;
 
   @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(20)
   tags?: string[];

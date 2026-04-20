@@ -558,6 +558,72 @@ class NotificationService {
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  //  MARKETPLACE · PRODUCT CATEGORY SUGGESTIONS
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Notify admins that a new product category suggestion was submitted.
+   */
+  public async notifyProductCategorySuggestionCreated(
+    adminIds: string[],
+    requesterName: string,
+    suggestionId: string,
+    suggestionName: string,
+  ): Promise<void> {
+    for (const adminId of adminIds) {
+      await this.create({
+        userId: adminId,
+        title: 'New Product Category Suggestion',
+        body: `${requesterName} suggested a new product category: "${suggestionName}"`,
+        type: NotificationType.PRODUCT_CATEGORY_SUGGESTION_CREATED,
+        metadata: { suggestionId },
+        actionUrl: `/admin/marketplace/category-suggestions/${suggestionId}`,
+      });
+    }
+  }
+
+  /**
+   * Notify the suggester that their product category suggestion was approved/implemented.
+   */
+  public async notifyProductCategorySuggestionApproved(
+    userId: string,
+    suggestionName: string,
+    suggestionId: string,
+  ): Promise<void> {
+    await this.create({
+      userId,
+      title: 'Category Suggestion Approved',
+      body: `Your product category suggestion "${suggestionName}" has been approved and is now available in the marketplace`,
+      type: NotificationType.PRODUCT_CATEGORY_SUGGESTION_APPROVED,
+      metadata: { suggestionId },
+      actionUrl: `/marketplace/category-suggestions/${suggestionId}`,
+    });
+  }
+
+  /**
+   * Notify the suggester that their product category suggestion was rejected.
+   */
+  public async notifyProductCategorySuggestionRejected(
+    userId: string,
+    suggestionName: string,
+    suggestionId: string,
+    reason?: string,
+  ): Promise<void> {
+    const body = reason
+      ? `Your product category suggestion "${suggestionName}" was rejected: "${reason}"`
+      : `Your product category suggestion "${suggestionName}" was rejected`;
+
+    await this.create({
+      userId,
+      title: 'Category Suggestion Rejected',
+      body,
+      type: NotificationType.PRODUCT_CATEGORY_SUGGESTION_REJECTED,
+      metadata: { suggestionId, reason },
+      actionUrl: `/marketplace/category-suggestions/${suggestionId}`,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   //  HELPERS
   // ═══════════════════════════════════════════════════════════════════
 

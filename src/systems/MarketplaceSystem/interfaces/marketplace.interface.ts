@@ -72,17 +72,23 @@ export enum ProductStatus {
   HIDDEN = 'hidden',
 }
 
-export enum ProductCategory {
-  SKINCARE = 'skincare',
-  HAIRCARE = 'haircare',
-  MAKEUP = 'makeup',
-  TOOLS = 'tools',
-  ACCESSORIES = 'accessories',
-  FRAGRANCE = 'fragrance',
-  WELLNESS = 'wellness',
-  NAILS = 'nails',
-  OTHER = 'other',
-}
+/**
+ * @deprecated Product categories are now managed dynamically by admins
+ * (see `ProductCategory` document in `productCategory.interface.ts` and
+ * the `/v1/marketplace/product-categories` endpoints). This list is kept
+ * only as the seed of default categories on first boot.
+ */
+export const LEGACY_PRODUCT_CATEGORY_TAGS = [
+  'skincare',
+  'haircare',
+  'makeup',
+  'tools',
+  'accessories',
+  'fragrance',
+  'wellness',
+  'nails',
+  'other',
+] as const;
 
 export enum ProductCondition {
   NEW = 'new',
@@ -120,7 +126,8 @@ export interface Product {
   name: string;
   slug: string;
   description?: string;
-  category: ProductCategory;
+  /** ObjectId reference to a `ProductCategory` document. */
+  categoryId: string;
   tags: string[];
   images: ProductImage[];
   price: number;

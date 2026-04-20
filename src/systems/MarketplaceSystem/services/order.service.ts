@@ -142,7 +142,7 @@ class OrderService {
 
     // Verify access: buyer, store owner, or admin
     if (!isAdmin) {
-      const isBuyer = order.buyerId._id?.toString() === userId || (order.buyerId as any).toString() === userId;
+      const isBuyer = (order.buyerId as any)._id?.toString() === userId || (order.buyerId as any).toString() === userId;
       const isStoreOwner = (order.storeId as any).ownerId?.toString() === userId;
       if (!isBuyer && !isStoreOwner) throw new ForbiddenException('Access denied');
     }

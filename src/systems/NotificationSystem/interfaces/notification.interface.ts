@@ -49,6 +49,11 @@ export enum NotificationType {
   SUGGESTION_APPROVED = 'admin:suggestionApproved',
   SUGGESTION_REJECTED = 'admin:suggestionRejected',
   CONTENT_HIDDEN = 'admin:contentHidden',
+
+  // ── Marketplace · Category Suggestions ─────────────────────────
+  PRODUCT_CATEGORY_SUGGESTION_CREATED = 'admin:productCategorySuggestionCreated',
+  PRODUCT_CATEGORY_SUGGESTION_APPROVED = 'admin:productCategorySuggestionApproved',
+  PRODUCT_CATEGORY_SUGGESTION_REJECTED = 'admin:productCategorySuggestionRejected',
 }
 
 /* ------------------------------------------------------------------ */
@@ -85,6 +90,9 @@ export const NOTIFICATION_CATEGORY_MAP: Record<NotificationType, NotificationCat
   [NotificationType.SUGGESTION_APPROVED]: NotificationCategory.ADMIN,
   [NotificationType.SUGGESTION_REJECTED]: NotificationCategory.ADMIN,
   [NotificationType.CONTENT_HIDDEN]: NotificationCategory.ADMIN,
+  [NotificationType.PRODUCT_CATEGORY_SUGGESTION_CREATED]: NotificationCategory.ADMIN,
+  [NotificationType.PRODUCT_CATEGORY_SUGGESTION_APPROVED]: NotificationCategory.ADMIN,
+  [NotificationType.PRODUCT_CATEGORY_SUGGESTION_REJECTED]: NotificationCategory.ADMIN,
 };
 
 /* ------------------------------------------------------------------ */
