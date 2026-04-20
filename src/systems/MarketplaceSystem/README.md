@@ -1,313 +1,882 @@
+<p align="center">
+  <img src="../../../assets/frame-logo-animated.svg" alt="Frame Beauty" width="320" />
+</p>
+
 # MarketplaceSystem
 
-Full e-commerce layer enabling lounges and users to run stores, list products, manage orders, and receive reviews.
-
-> **What changed (v2):** Product categories are now **first-class admin-managed documents**, no longer a hard-coded enum. Any authenticated user (buyer or store owner) can submit a **category suggestion** when an appropriate one cannot be found; admins moderate suggestions and **on `IMPLEMENTED` the underlying `ProductCategory` is auto-created**.
+> Full e-commerce marketplace — stores, products, orders, cart, reviews, wishlists, product categories with suggestion workflow, and analytics.
 
 ---
 
-## Responsibilities
+## Table of Contents
 
-- Store creation and management per lounge / store-owner
-- Product listing with **variants**, images, pricing, and inventory
-- **Admin-managed product categories** (CRUD with usage protection)
-- **User-driven category suggestions** with admin moderation and auto-implementation
-- Auto-slug generation for products and categories
-- Media upload to **Cloudflare R2** (product images)
-- **Shopping cart** — add, update, remove items
-- **Order lifecycle** — create, pay, track, cancel
-- **Wishlist** — save products for later
-- **Product reviews** with star ratings
-- **Analytics** — sales, revenue, top products per store
-- Admin store suspension / closure
+- [Overview](#overview)
+- [Database Schemas](#database-schemas)
+- [Entity Relationships](#entity-relationships)
+- [API Endpoints](#api-endpoints)
+- [DTOs & Validation](#dtos--validation)
+- [Services](#services)
+- [Flows](#flows)
+- [Directory Structure](#directory-structure)
 
 ---
 
-## Structure
+## Overview
+
+The MarketplaceSystem extends Frame Beauty beyond services into **physical product sales**. Lounges can open stores, list beauty products, and process orders — all within the same platform.
+
+**Key Capabilities:**
+
+| Feature | Description |
+|---------|-------------|
+| **Stores** | Lounges create stores with categories, badges, policies |
+| **Products** | Full product catalog with variants, stock, SKU, images |
+| **Orders** | Multi-status order lifecycle with 3 payment methods |
+| **Cart** | Persistent shopping cart per user |
+| **Reviews** | Verified-purchase product reviews with ratings |
+| **Wishlists** | Save products for later |
+| **Categories** | Admin-managed product categories + lounge suggestion workflow |
+| **Analytics** | Store & product performance metrics |
+
+```mermaid
+graph TB
+    subgraph Store Management
+        L[Lounge Owner] --> S[Store]
+        S --> P[Product]
+        S --> PC[ProductCategory]
+    end
+
+    subgraph Shopping
+        C[Client] --> Cart
+        Cart --> O[Order]
+        C --> W[Wishlist]
+    end
+
+    subgraph Feedback
+        C --> R[Review]
+        R --> P
+        R --> S
+    end
+
+    subgraph Admin
+        A[Admin] --> PCS[CategorySuggestion]
+        PCS -->|approve| PC
+    end
+```
+
+---
+
+## Database Schemas
+
+### Store
+
+```mermaid
+erDiagram
+    Store {
+        ObjectId _id PK
+        ObjectId ownerId FK UK "ref: User, required"
+        String name "required"
+        String slug UK "auto-generated"
+        String description "optional"
+        String logo "R2 URL"
+        String coverImage "R2 URL"
+        String status "pending|active|suspended|closed"
+        String category "beauty|fashion|wellness|accessories|tools|other"
+        String badge "optional"
+        String phoneNumber "optional"
+        String email "optional"
+        String website "optional"
+        Object socialLinks "instagram, facebook, tiktok"
+        Object policies "return, shipping, privacy"
+        Date createdAt
+        Date updatedAt
+    }
+
+    Store ||--o| StoreLocation : has
+    Store ||--o| StoreStats : has
+
+    StoreLocation {
+        String type "Point"
+        Array coordinates "lng_lat"
+        String address
+        String city
+        String state
+    }
+
+    StoreStats {
+        Number totalProducts "default 0"
+        Number totalOrders "default 0"
+        Number totalRevenue "default 0"
+        Number averageRating "default 0"
+        Number totalReviews "default 0"
+    }
+
+    Store }o--|| User : "owned by (lounge)"
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `ownerId` | ObjectId | Yes | **Unique** — one store per lounge |
+| `name` | String | Yes | Store name |
+| `slug` | String | Auto | URL-friendly auto-generated slug |
+| `status` | String | — | `pending` → `active` → `suspended` / `closed` |
+| `category` | String | Yes | `beauty`, `fashion`, `wellness`, `accessories`, `tools`, `other` |
+| `badge` | String | No | Special badge (e.g., "Verified", "Top Seller") |
+| `location` | GeoJSON | No | 2dsphere-indexed store location |
+| `policies` | Object | No | `{returnPolicy, shippingPolicy, privacyPolicy}` |
+| `stats` | Object | — | Denormalized aggregate stats |
+
+### Product
+
+```mermaid
+erDiagram
+    Product {
+        ObjectId _id PK
+        ObjectId storeId FK "ref: Store, required"
+        String name "required"
+        String slug "auto-generated"
+        String description "optional"
+        ObjectId categoryId FK "ref: ProductCategory"
+        Array images "R2 URLs, max 8"
+        Number price "required, DZD"
+        Number compareAtPrice "optional, strikethrough price"
+        String currency "default: DZD"
+        Array variants "ProductVariant[]"
+        Number stock "default 0"
+        String sku "optional"
+        String status "draft|active|archived|outOfStock"
+        String condition "new|used|refurbished"
+        Boolean isDigital "default false"
+        Number weight "grams, optional"
+        Object dimensions "l x w x h, optional"
+        Boolean isActive "default true"
+        Date createdAt
+        Date updatedAt
+    }
+
+    Product ||--o| ProductStats : has
+    Product ||--o{ ProductVariant : has
+
+    ProductStats {
+        Number viewsCount "default 0"
+        Number ordersCount "default 0"
+        Number wishlistCount "default 0"
+        Number averageRating "default 0"
+        Number totalReviews "default 0"
+    }
+
+    ProductVariant {
+        String name "e.g., Size, Color"
+        String value "e.g., M, Red"
+        Number price "variant-specific price"
+        Number stock "variant stock"
+        String sku "variant SKU"
+    }
+
+    Product }o--|| Store : "sold by"
+    Product }o--o| ProductCategory : "categorized in"
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `storeId` | ObjectId | Yes | Store selling this product |
+| `name` | String | Yes | Product name |
+| `slug` | String | Auto | URL-friendly slug |
+| `categoryId` | ObjectId | No | Product category |
+| `images` | String[] | No | Up to 8 R2 image URLs |
+| `price` | Number | Yes | Price in DZD (Algerian Dinar) |
+| `compareAtPrice` | Number | No | Original price for discount display |
+| `currency` | String | — | Always `DZD` |
+| `variants` | Array | No | Product variants (size, color, etc.) |
+| `stock` | Number | — | Available stock count |
+| `sku` | String | No | Stock Keeping Unit |
+| `status` | String | — | `draft`, `active`, `archived`, `outOfStock` |
+| `condition` | String | — | `new`, `used`, `refurbished` |
+| `isDigital` | Boolean | — | Digital product flag |
+| `weight` | Number | No | Weight in grams (for shipping) |
+| `dimensions` | Object | No | `{length, width, height}` in cm |
+| `stats` | Object | — | Denormalized stats |
+
+### Order
+
+```mermaid
+erDiagram
+    Order {
+        ObjectId _id PK
+        String orderNumber UK "auto-generated"
+        ObjectId buyerId FK "ref: User, required"
+        ObjectId storeId FK "ref: Store, required"
+        Array items "OrderItem[]"
+        Number subtotal "sum of items"
+        Number shippingCost "default 0"
+        Number total "subtotal + shipping"
+        String status "8 states"
+        String paymentMethod "cashOnDelivery|bankTransfer|inStore"
+        String paymentStatus "pending|paid|refunded"
+        Date createdAt
+        Date updatedAt
+    }
+
+    Order ||--o{ OrderItem : contains
+    Order ||--o| ShippingAddress : "ships to"
+    Order ||--o| OrderTracking : "tracked by"
+
+    OrderItem {
+        ObjectId productId FK "ref: Product"
+        String productName "snapshot"
+        String productImage "snapshot"
+        Number quantity
+        Number price "at time of order"
+        String variant "optional"
+    }
+
+    ShippingAddress {
+        String fullName
+        String phone
+        String address
+        String city
+        String state
+        String zipCode
+        String country "default: Algeria"
+    }
+
+    OrderTracking {
+        String carrier "optional"
+        String trackingNumber "optional"
+        String trackingUrl "optional"
+        Date shippedAt
+        Date deliveredAt
+    }
+
+    Order }o--|| User : "placed by"
+    Order }o--|| Store : "fulfilled by"
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `orderNumber` | String | Auto | Unique order number (e.g., `ORD-20240115-XXXX`) |
+| `buyerId` | ObjectId | Yes | Client who placed the order |
+| `storeId` | ObjectId | Yes | Store fulfilling the order |
+| `items` | OrderItem[] | Yes | Product snapshots at time of order |
+| `subtotal` | Number | — | Sum of item prices × quantities |
+| `shippingCost` | Number | — | Shipping fee |
+| `total` | Number | — | `subtotal + shippingCost` |
+| `status` | String | — | See status lifecycle below |
+| `paymentMethod` | String | Yes | `cashOnDelivery`, `bankTransfer`, `inStore` |
+| `paymentStatus` | String | — | `pending`, `paid`, `refunded` |
+| `shippingAddress` | Object | Yes | Full delivery address |
+| `tracking` | Object | No | Shipping tracking info |
+
+**Order Status Lifecycle:**
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending : Order placed
+    pending --> confirmed : Store confirms
+    pending --> cancelled : Buyer/Store cancels
+    confirmed --> processing : Store prepares
+    processing --> shipped : Store ships
+    shipped --> delivered : Package delivered
+    delivered --> completed : Auto-complete after 7 days
+    delivered --> returned : Buyer returns
+    completed --> [*]
+    cancelled --> [*]
+    returned --> [*]
+```
+
+### Cart
+
+```mermaid
+erDiagram
+    Cart {
+        ObjectId _id PK
+        ObjectId userId FK UK "ref: User, unique"
+        Array items "CartItem[]"
+        Date updatedAt
+    }
+
+    Cart ||--o{ CartItem : contains
+
+    CartItem {
+        ObjectId productId FK "ref: Product"
+        Number quantity "min 1"
+        String variant "optional"
+        Date addedAt
+    }
+
+    Cart }o--|| User : "belongs to"
+```
+
+| Constraint | Description |
+|-----------|-------------|
+| **Unique:** `userId` | One cart per user |
+
+### Review
+
+```mermaid
+erDiagram
+    Review {
+        ObjectId _id PK
+        ObjectId productId FK "ref: Product, required"
+        ObjectId storeId FK "ref: Store, required"
+        ObjectId userId FK "ref: User, required"
+        ObjectId orderId FK "ref: Order, optional"
+        Number rating "1-5, required"
+        String title "optional"
+        String comment "optional"
+        Array images "R2 URLs"
+        Boolean isVerifiedPurchase "default false"
+        String status "pending|approved|rejected"
+        Number helpfulCount "default 0"
+        Date createdAt
+        Date updatedAt
+    }
+
+    Review }o--|| Product : "reviews"
+    Review }o--|| Store : "at store"
+    Review }o--|| User : "written by"
+    Review }o--o| Order : "for order"
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `rating` | Number | 1–5 stars |
+| `isVerifiedPurchase` | Boolean | Auto-set `true` if `orderId` links to a completed order by the reviewer |
+| `status` | String | `pending` → `approved` / `rejected` |
+| `helpfulCount` | Number | "Was this helpful?" counter |
+
+### Wishlist
+
+```mermaid
+erDiagram
+    Wishlist {
+        ObjectId _id PK
+        ObjectId userId FK "ref: User"
+        ObjectId productId FK "ref: Product"
+        Date createdAt
+    }
+
+    Wishlist }o--|| User : "saved by"
+    Wishlist }o--|| Product : "wishlisted"
+```
+
+| Constraint | Description |
+|-----------|-------------|
+| **Unique compound:** `{userId, productId}` | One wishlist entry per product per user |
+
+### ProductCategory
+
+```mermaid
+erDiagram
+    ProductCategory {
+        ObjectId _id PK
+        String name UK "unique, required"
+        String description "optional"
+        String image "R2 URL"
+        ObjectId parentId FK "ref: self, optional"
+        Boolean isActive "default true"
+        Number sortOrder "default 0"
+        Date createdAt
+        Date updatedAt
+    }
+
+    ProductCategory }o--o| ProductCategory : "child of (parent)"
+```
+
+### ProductCategorySuggestion
+
+```mermaid
+erDiagram
+    ProductCategorySuggestion {
+        ObjectId _id PK
+        String name "required"
+        String description "required"
+        ObjectId loungeId FK "ref: User"
+        String status "pending|approved|rejected|implemented"
+        String adminNote "optional"
+        Date createdAt
+        Date updatedAt
+    }
+
+    ProductCategorySuggestion }o--|| User : "suggested by (lounge)"
+```
+
+---
+
+## Entity Relationships
+
+```mermaid
+erDiagram
+    User ||--o| Store : "owns (lounge)"
+    Store ||--o{ Product : sells
+    User ||--o| Cart : "has"
+    User ||--o{ Order : places
+    Store ||--o{ Order : fulfills
+    User ||--o{ Review : writes
+    Product ||--o{ Review : "reviewed"
+    User ||--o{ Wishlist : "wishlists"
+    Product ||--o{ Wishlist : "wishlisted"
+    ProductCategory ||--o{ Product : categorizes
+    ProductCategory ||--o{ ProductCategory : "has children"
+    User ||--o{ ProductCategorySuggestion : suggests
+```
+
+---
+
+## API Endpoints
+
+### Store Routes — `/v1/stores`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | public | List active stores (paginated, searchable) |
+| `GET` | `/:storeId` | public | Get store details |
+| `GET` | `/slug/:slug` | public | Get store by slug |
+| `GET` | `/my` | auth + lounge | Get own store |
+| `POST` | `/` | auth + lounge | Create store |
+| `PUT` | `/:storeId` | auth + lounge | Update own store |
+| `PUT` | `/:storeId/logo` | auth + imageUpload | Upload store logo |
+| `PUT` | `/:storeId/cover` | auth + imageUpload | Upload cover image |
+| `PATCH` | `/:storeId/status` | admin | Update store status |
+| `GET` | `/category/:category` | public | Stores by category |
+| `GET` | `/nearby` | public | Geo-based store discovery |
+| `DELETE` | `/:storeId` | admin | Delete store |
+
+### Product Routes — `/v1/products`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | public | List products (paginated, filterable) |
+| `GET` | `/:productId` | public | Get product details |
+| `GET` | `/slug/:slug` | public | Get product by slug |
+| `GET` | `/store/:storeId` | public | Products by store |
+| `POST` | `/` | auth + lounge + imageUpload | Create product |
+| `PUT` | `/:productId` | auth + lounge | Update product |
+| `PUT` | `/:productId/images` | auth + imageUpload | Upload product images |
+| `PATCH` | `/:productId/status` | auth | Update product status |
+| `PATCH` | `/:productId/stock` | auth | Update stock count |
+| `DELETE` | `/:productId` | auth | Delete product |
+
+### Product Category Routes — `/v1/product-categories`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | public | List all active categories |
+| `GET` | `/:categoryId` | public | Get category details |
+| `POST` | `/` | admin | Create category |
+| `PUT` | `/:categoryId` | admin | Update category |
+| `DELETE` | `/:categoryId` | admin | Delete category |
+| `GET` | `/:categoryId/children` | public | Get child categories |
+
+### Product Category Suggestion Routes — `/v1/product-category-suggestions`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | auth | List suggestions (paginated) |
+| `GET` | `/stats` | admin | Suggestion statistics |
+| `GET` | `/:id` | auth | Get suggestion by ID |
+| `POST` | `/` | lounge | Create suggestion |
+| `PUT` | `/:id` | lounge | Update own suggestion |
+| `PATCH` | `/:id/status` | admin | Update suggestion status |
+| `PATCH` | `/:id/admin-approve` | admin | Approve + auto-create category |
+| `DELETE` | `/:id` | auth | Delete suggestion |
+
+### Order Routes — `/v1/orders`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | auth | List orders (buyer sees own, store sees theirs) |
+| `GET` | `/:orderId` | auth | Get order details |
+| `POST` | `/` | auth | Place order (from cart or direct) |
+| `PATCH` | `/:orderId/status` | auth | Update order status |
+| `PATCH` | `/:orderId/tracking` | lounge | Add tracking info |
+| `PATCH` | `/:orderId/cancel` | auth | Cancel order |
+| `GET` | `/store/:storeId` | lounge | Store's orders |
+
+### Cart Routes — `/v1/cart`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | auth | Get cart contents |
+| `POST` | `/add` | auth | Add item to cart |
+| `PATCH` | `/update` | auth | Update item quantity |
+| `DELETE` | `/remove/:productId` | auth | Remove item |
+| `DELETE` | `/clear` | auth | Clear entire cart |
+
+### Review Routes — `/v1/reviews`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/product/:productId` | public | Get reviews for a product |
+| `GET` | `/store/:storeId` | public | Get reviews for a store |
+| `GET` | `/:reviewId` | public | Get single review |
+| `POST` | `/` | auth | Create review |
+| `PUT` | `/:reviewId` | auth | Update own review |
+| `DELETE` | `/:reviewId` | auth | Delete own review |
+| `POST` | `/:reviewId/helpful` | auth | Mark review as helpful |
+| `PATCH` | `/:reviewId/status` | admin | Approve/reject review |
+
+### Wishlist Routes — `/v1/wishlist`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/` | auth | Get user's wishlist |
+| `POST` | `/:productId` | auth | Add to wishlist |
+| `DELETE` | `/:productId` | auth | Remove from wishlist |
+
+### Analytics Routes — `/v1/analytics`
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/store/:storeId` | lounge | Store analytics dashboard |
+| `GET` | `/product/:productId` | lounge | Product performance metrics |
+| `GET` | `/overview` | admin | Platform-wide marketplace stats |
+
+---
+
+## DTOs & Validation
+
+### Store DTOs
+
+| DTO | Fields | Key Validations |
+|-----|--------|----------------|
+| `CreateStoreDto` | name, description?, category, phoneNumber?, email?, website?, socialLinks?, policies? | `@IsString()`, `@IsEnum(StoreCategory)` |
+| `UpdateStoreDto` | all optional | `@IsOptional()` |
+
+### Product DTOs
+
+| DTO | Fields | Key Validations |
+|-----|--------|----------------|
+| `CreateProductDto` | name, description?, categoryId?, price, compareAtPrice?, variants?, stock?, sku?, condition?, isDigital?, weight?, dimensions? | `@IsNumber()` for price/stock, `@Min(0)` |
+| `UpdateProductDto` | all optional | `@IsOptional()` |
+| `UpdateProductStockDto` | stock | `@IsNumber()`, `@Min(0)` |
+
+### Order DTOs
+
+| DTO | Fields | Key Validations |
+|-----|--------|----------------|
+| `CreateOrderDto` | storeId, items[]?, fromCart?, paymentMethod, shippingAddress | `@IsEnum(PaymentMethod)`, `@ValidateNested()` |
+| `UpdateOrderStatusDto` | status | `@IsEnum(OrderStatus)` |
+| `AddTrackingDto` | carrier?, trackingNumber?, trackingUrl? | `@IsString()` |
+
+### Review DTOs
+
+| DTO | Fields | Key Validations |
+|-----|--------|----------------|
+| `CreateReviewDto` | productId, storeId, orderId?, rating, title?, comment?, images? | `@Min(1) @Max(5)` for rating |
+| `UpdateReviewDto` | rating?, title?, comment?, images? | All optional |
+
+### Enums
+
+```typescript
+enum StoreStatus {
+  pending = 'pending',
+  active = 'active',
+  suspended = 'suspended',
+  closed = 'closed'
+}
+
+enum StoreCategory {
+  beauty = 'beauty',
+  fashion = 'fashion',
+  wellness = 'wellness',
+  accessories = 'accessories',
+  tools = 'tools',
+  other = 'other'
+}
+
+enum ProductStatus {
+  draft = 'draft',
+  active = 'active',
+  archived = 'archived',
+  outOfStock = 'outOfStock'
+}
+
+enum ProductCondition {
+  new = 'new',
+  used = 'used',
+  refurbished = 'refurbished'
+}
+
+enum OrderStatus {
+  pending = 'pending',
+  confirmed = 'confirmed',
+  processing = 'processing',
+  shipped = 'shipped',
+  delivered = 'delivered',
+  completed = 'completed',
+  cancelled = 'cancelled',
+  returned = 'returned'
+}
+
+enum PaymentMethod {
+  cashOnDelivery = 'cashOnDelivery',
+  bankTransfer = 'bankTransfer',
+  inStore = 'inStore'
+}
+
+enum PaymentStatus {
+  pending = 'pending',
+  paid = 'paid',
+  refunded = 'refunded'
+}
+```
+
+---
+
+## Services
+
+### StoreService
+
+| Method | Description |
+|--------|-------------|
+| `createStore(ownerId, data)` | Create store (one per lounge), generate slug |
+| `getStores(page, limit, search?, category?)` | Paginated active stores |
+| `getStoreById(storeId)` | Full store details |
+| `getStoreBySlug(slug)` | Lookup by URL slug |
+| `getMyStore(ownerId)` | Get lounge's own store |
+| `updateStore(storeId, ownerId, data)` | Update store info |
+| `updateStoreLogo(storeId, file)` | Upload logo to R2 |
+| `updateStoreCover(storeId, file)` | Upload cover to R2 |
+| `updateStoreStatus(storeId, status)` | Admin status management |
+| `getStoresByCategory(category, page, limit)` | Filter by category |
+| `getNearbyStores(lat, lng, radius, page, limit)` | Geospatial query |
+| `deleteStore(storeId)` | Delete store + cascade products |
+
+### ProductService
+
+| Method | Description |
+|--------|-------------|
+| `createProduct(storeId, data, files?)` | Create product, upload images, increment store stats |
+| `getProducts(page, limit, filters)` | Paginated with category/price/status filters |
+| `getProductById(productId)` | Full product + increment viewsCount |
+| `getProductBySlug(slug)` | Lookup by slug |
+| `getProductsByStore(storeId, page, limit)` | Store's products |
+| `updateProduct(productId, storeId, data)` | Update product fields |
+| `updateProductImages(productId, files)` | Replace images |
+| `updateProductStatus(productId, status)` | Status management |
+| `updateProductStock(productId, stock)` | Stock update |
+| `deleteProduct(productId, storeId)` | Delete + cleanup |
+
+### OrderService
+
+| Method | Description |
+|--------|-------------|
+| `createOrder(buyerId, data)` | Create order, snapshot product data, decrement stock, clear cart items, notify store |
+| `getOrders(userId, userType, filters)` | Buyer/store/admin filtered list |
+| `getOrderById(orderId, userId)` | Get order with authorization |
+| `updateOrderStatus(orderId, userId, status)` | Status transition with validation |
+| `addTracking(orderId, storeOwnerId, tracking)` | Add shipping tracking |
+| `cancelOrder(orderId, userId)` | Cancel + restore stock + notify |
+| `getStoreOrders(storeId, filters)` | Store's order list |
+
+### CartService
+
+| Method | Description |
+|--------|-------------|
+| `getCart(userId)` | Get cart with populated product details |
+| `addToCart(userId, productId, quantity, variant?)` | Add/update item |
+| `updateCartItem(userId, productId, quantity)` | Change quantity |
+| `removeFromCart(userId, productId)` | Remove item |
+| `clearCart(userId)` | Empty cart |
+
+### ReviewService
+
+| Method | Description |
+|--------|-------------|
+| `createReview(userId, data)` | Create review, auto-detect verified purchase, update product/store ratings |
+| `getProductReviews(productId, page, limit)` | Paginated product reviews |
+| `getStoreReviews(storeId, page, limit)` | Paginated store reviews |
+| `getReviewById(reviewId)` | Single review |
+| `updateReview(reviewId, userId, data)` | Update own review |
+| `deleteReview(reviewId, userId)` | Delete + recalculate ratings |
+| `markHelpful(reviewId, userId)` | Increment helpfulCount |
+| `updateReviewStatus(reviewId, status)` | Admin approve/reject |
+
+### WishlistService
+
+| Method | Description |
+|--------|-------------|
+| `getWishlist(userId, page, limit)` | Paginated wishlist with product details |
+| `addToWishlist(userId, productId)` | Add product + increment wishlistCount |
+| `removeFromWishlist(userId, productId)` | Remove + decrement |
+
+### ProductCategoriesService
+
+| Method | Description |
+|--------|-------------|
+| `createCategory(data)` | Admin creates category |
+| `getCategories()` | All active categories (tree structure) |
+| `getCategoryById(id)` | Single category |
+| `updateCategory(id, data)` | Update category |
+| `deleteCategory(id)` | Delete (fails if products exist) |
+| `getChildCategories(parentId)` | Get sub-categories |
+
+### ProductCategorySuggestionsService & ProductCategorySuggestionsAdminService
+
+| Method | Description |
+|--------|-------------|
+| `createSuggestion(loungeId, data)` | Lounge suggests new category |
+| `getSuggestions(page, limit, filters)` | Paginated list |
+| `getSuggestionById(id)` | Single suggestion |
+| `updateSuggestion(id, loungeId, data)` | Lounge updates own |
+| `deleteSuggestion(id)` | Delete suggestion |
+| `getSuggestionStats()` | Count by status |
+| `updateSuggestionStatus(id, data)` | Admin status transition + notify |
+| `adminApproveSuggestion(id, data)` | Approve → auto-create ProductCategory |
+
+### MarketplaceAnalyticsService
+
+| Method | Description |
+|--------|-------------|
+| `getStoreAnalytics(storeId)` | Revenue, orders, top products, rating trends |
+| `getProductAnalytics(productId)` | Views, orders, conversion rate, reviews |
+| `getPlatformOverview()` | Total stores, products, orders, revenue across platform |
+
+---
+
+## Flows
+
+### Order Placement Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as OrderController
+    participant OS as OrderService
+    participant CS as CartService
+    participant PS as ProductService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    C->>API: POST /v1/orders {storeId, fromCart: true, paymentMethod, shippingAddress}
+    API->>OS: createOrder(buyerId, data)
+    OS->>CS: getCart(buyerId)
+    CS->>DB: Cart.findOne({userId}).populate('items.productId')
+    CS-->>OS: Cart with product details
+
+    loop For each cart item
+        OS->>PS: Check stock availability
+        OS->>DB: Decrement product stock
+    end
+
+    OS->>DB: Create Order (snapshot prices, status: pending)
+    OS->>CS: clearCart(buyerId) — remove ordered items
+    OS->>DB: Increment store.stats.totalOrders, totalRevenue
+    OS->>NS: notifyOrderPlaced(order)
+    OS-->>C: 201 Order created {orderNumber}
+```
+
+### Product Category Suggestion → Approval
+
+```mermaid
+sequenceDiagram
+    participant L as Lounge
+    participant API as SuggestionController
+    participant SS as SuggestionService
+    participant AS as AdminService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    L->>API: POST /v1/product-category-suggestions {name, description}
+    API->>SS: createSuggestion(loungeId, data)
+    SS->>DB: Create suggestion (status: pending)
+    SS->>NS: Notify admins
+    SS-->>L: 201 Created
+
+    Note over API: Admin reviews...
+
+    API->>AS: adminApproveSuggestion(id, {status: approved})
+    AS->>DB: Update suggestion → approved
+    AS->>DB: Create ProductCategory from suggestion data
+    AS->>DB: Update suggestion → implemented
+    AS->>NS: Notify lounge of approval
+    AS-->>API: Done
+```
+
+### Review & Rating Recalculation
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as ReviewController
+    participant RS as ReviewService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    C->>API: POST /v1/reviews {productId, storeId, orderId, rating: 5, comment: "..."}
+    API->>RS: createReview(userId, data)
+    RS->>DB: Check orderId belongs to user → set isVerifiedPurchase
+    RS->>DB: Create Review (status: pending or approved)
+    RS->>DB: Aggregate avg(rating) for product → update product.stats
+    RS->>DB: Aggregate avg(rating) for store → update store.stats
+    RS->>NS: notifyNewReview(review)
+    RS-->>C: 201 Review created
+```
+
+---
+
+## Directory Structure
 
 ```
 MarketplaceSystem/
 ├── controllers/
-│   ├── product.controller.ts
-│   ├── productCategories.controller.ts          ← NEW
-│   ├── productCategorySuggestions.controller.ts ← NEW
-│   ├── store · cart · order · review · wishlist · analytics
-├── services/
-│   ├── product.service.ts                       ← validates categoryId
-│   ├── productCategories.service.ts             ← NEW
-│   ├── productCategorySuggestions.service.ts    ← NEW
-│   ├── productCategorySuggestionsAdmin.service.ts ← NEW (auto-implement engine)
-│   ├── store · cart · order · review · wishlist · analytics
-├── models/
-│   ├── product.model.ts                         ← categoryId is now ObjectId ref
-│   ├── productCategory.model.ts                 ← NEW
-│   ├── productCategorySuggestion.model.ts       ← NEW
-│   ├── store · cart · order · review · wishlist
-├── routes/
-│   ├── productCategories.route.ts               ← NEW (/v1/marketplace/product-categories)
-│   ├── productCategorySuggestions.route.ts      ← NEW (/v1/marketplace/product-category-suggestions)
-│   ├── product · store · cart · order · review · wishlist · analytics
+│   ├── store.controller.ts                    # Store CRUD + images
+│   ├── product.controller.ts                  # Product CRUD + images + stock
+│   ├── order.controller.ts                    # Order lifecycle
+│   ├── cart.controller.ts                     # Cart management
+│   ├── review.controller.ts                   # Review CRUD + moderation
+│   ├── wishlist.controller.ts                 # Wishlist add/remove
+│   ├── productCategories.controller.ts        # Category CRUD
+│   ├── productCategorySuggestions.controller.ts  # Suggestion workflow
+│   └── analytics.controller.ts               # Analytics endpoints
 ├── dtos/
-│   ├── product.dto.ts                           ← uses categoryId (IsMongoId)
-│   ├── productCategories.dto.ts                 ← NEW
-│   ├── productCategorySuggestions.dto.ts        ← NEW
-│   ├── store · cart · order · review
-└── interfaces/
-    ├── marketplace.interface.ts                 ← LEGACY_PRODUCT_CATEGORY_TAGS for seeding
-    └── productCategory.interface.ts             ← NEW (ProductCategory + Suggestion + status enum)
+│   ├── store.dto.ts
+│   ├── product.dto.ts
+│   ├── order.dto.ts
+│   ├── cart.dto.ts
+│   ├── review.dto.ts
+│   ├── productCategories.dto.ts
+│   └── productCategorySuggestions.dto.ts
+├── interfaces/
+│   ├── store.interface.ts
+│   ├── product.interface.ts
+│   ├── order.interface.ts
+│   ├── cart.interface.ts
+│   ├── review.interface.ts
+│   ├── wishlist.interface.ts
+│   ├── productCategory.interface.ts
+│   └── productCategorySuggestion.interface.ts
+├── models/
+│   ├── store.model.ts
+│   ├── product.model.ts
+│   ├── order.model.ts
+│   ├── cart.model.ts
+│   ├── review.model.ts
+│   ├── wishlist.model.ts
+│   ├── productCategory.model.ts
+│   └── productCategorySuggestion.model.ts
+├── routes/
+│   ├── store.route.ts
+│   ├── product.route.ts
+│   ├── order.route.ts
+│   ├── cart.route.ts
+│   ├── review.route.ts
+│   ├── wishlist.route.ts
+│   ├── productCategories.route.ts
+│   ├── productCategorySuggestions.route.ts
+│   └── analytics.route.ts
+├── services/
+│   ├── store.service.ts
+│   ├── product.service.ts
+│   ├── order.service.ts
+│   ├── cart.service.ts
+│   ├── review.service.ts
+│   ├── wishlist.service.ts
+│   ├── productCategories.service.ts
+│   ├── productCategorySuggestions.service.ts
+│   ├── productCategorySuggestionsAdmin.service.ts
+│   └── marketplaceAnalytics.service.ts
+└── tests/
+    └── marketplace.test.ts
 ```
-
----
-
-## Key Entities
-
-| Entity | Description |
-|---|---|
-| `Store` | Seller storefront — ownerId, name, status, images, contact |
-| `Product` | Item for sale — slug, **categoryId** (ref ProductCategory), variants, price, stock, condition, isDigital |
-| `ProductCategory` | Admin-managed marketplace category — name, slug, description, icon, image, isActive, displayOrder, productCount |
-| `ProductCategorySuggestion` | User-submitted proposal — name, description, exampleProducts, iconHint, status, suggestedBy, implementedCategoryId, adminNote |
-| `Cart` | User's active cart with line items |
-| `Order` | Confirmed purchase with status tracking and payment info |
-| `Review` | Product review — stars (1-5), comment, verified purchase |
-| `Wishlist` | User's saved products |
-
----
-
-## Status Enums
-
-| Field | Values |
-|---|---|
-| Product `status` | `DRAFT` → `ACTIVE` \| `ARCHIVED` \| `HIDDEN` |
-| Product `condition` | `NEW` \| `LIKE_NEW` \| `USED` |
-| Store `status` | `PENDING` \| `ACTIVE` \| `SUSPENDED` \| `CLOSED` |
-| ProductCategorySuggestion `status` | `pending` → `approved` \| `rejected` \| `implemented` |
-
-### Suggestion lifecycle
-
-```
-                  ┌─────────────┐
-   user submits ──►│  PENDING    │
-                  └──────┬──────┘
-                         │ admin moderation
-            ┌────────────┼────────────┐
-            ▼            ▼            ▼
-       ┌────────┐  ┌──────────┐  ┌──────────┐
-       │APPROVED│  │ REJECTED │  │IMPLEMENT.│ ← auto-creates ProductCategory
-       └────┬───┘  └──────────┘  └────┬─────┘
-            │                         │ implementedCategoryId set
-            └────► admin can later ◄──┘
-                  PATCH .../status
-                  with status=implemented
-```
-
-* `APPROVED` is an optional intermediate state (admin endorses but defers implementation).
-* `IMPLEMENTED` is **terminal**. The suggestion record stores `implementedCategoryId` so the suggester can navigate to the live category.
-* `REJECTED` is **terminal** (re-submit a new suggestion if needed).
-
----
-
-## API — Product Categories
-
-Base path: `/v1/marketplace/product-categories`. All routes require `authMiddleware`. Mutations require `adminMiddleware` + `csrfMiddleware`.
-
-| Method | Path | Auth | Body / Query | Description |
-|---|---|---|---|---|
-| GET | `/` | any auth | `?activeOnly=true` | List all categories (sorted by `displayOrder`, then `name`) |
-| GET | `/search` | any auth | `?q=…` | Case-insensitive name search |
-| GET | `/:categoryId` | any auth | — | Fetch one |
-| POST | `/` | admin | `CreateProductCategoryDto` | Create (slug auto-generated, name unique) |
-| PUT | `/:categoryId` | admin | `UpdateProductCategoryDto` | Update (slug regenerated if `name` changes) |
-| DELETE | `/:categoryId` | admin | — | Delete (rejected with `409 CATEGORY_IN_USE` if any product references it — hide via `isActive=false` instead) |
-
-### `CreateProductCategoryDto`
-```ts
-{
-  name: string;            // required, 2-100
-  description?: string;    // 0-500
-  icon?: string;           // emoji or short label, 0-100
-  image?: { url?: string; publicId?: string };
-  isActive?: boolean;      // default true
-  displayOrder?: number;   // default 0, lower surfaces first
-}
-```
-
-### Response envelope (all category endpoints)
-```jsonc
-{
-  "data": { /* ProductCategory or ProductCategory[] */ },
-  "count": 12,                     // only on list endpoints
-  "message": "Product categories retrieved successfully"
-}
-```
-
----
-
-## API — Product Category Suggestions
-
-Base path: `/v1/marketplace/product-category-suggestions`. All routes require `authMiddleware`. Mutations require `csrfMiddleware`.
-
-| Method | Path | Auth | Body / Query | Description |
-|---|---|---|---|---|
-| GET | `/` | any auth | `?page=&limit=&status=` | List — admins see all; non-admins see only their own |
-| GET | `/stats` | admin | — | `{ total, pending, approved, rejected, implemented }` |
-| GET | `/:suggestionId` | owner or admin | — | Fetch one |
-| POST | `/` | any auth | `CreateProductCategorySuggestionDto` | Submit a new suggestion |
-| PUT | `/:suggestionId` | owner | `UpdateProductCategorySuggestionDto` | Edit while still `pending` |
-| PATCH | `/:suggestionId/status` | admin | `UpdateProductCategorySuggestionStatusDto` | Moderation (approve / reject / **implement-with-overrides**) |
-| PATCH | `/:suggestionId/admin-approve` | admin | `AdminApproveProductCategorySuggestionDto` | One-shot approve & implement (status defaults to `implemented`) |
-| DELETE | `/:suggestionId` | owner or admin | — | Hard delete |
-
-### `CreateProductCategorySuggestionDto`
-```ts
-{
-  name: string;              // required, 2-100
-  description: string;       // required, 10-1000 (explain why it's needed)
-  exampleProducts?: string[]; // up to 10 strings, each ≤ 200 chars
-  iconHint?: string;         // optional emoji / short label
-}
-```
-Validation rules enforced by the service layer:
-* Rejects `409 CATEGORY_ALREADY_EXISTS` when a real `ProductCategory` with the same name already exists (the user should select it instead).
-* Rejects `409 SUGGESTION_ALREADY_EXISTS` when another **pending** suggestion with the same name exists.
-
-### `UpdateProductCategorySuggestionStatusDto` (admin moderation)
-```ts
-{
-  status: 'pending' | 'approved' | 'rejected' | 'implemented';
-  adminNote?: string;        // ≤ 500 chars — surfaced back to suggester on approve/reject
-  // The fields below are used ONLY when status === 'implemented'
-  // (admin can override the suggester's proposed values when creating the real category):
-  name?: string;
-  description?: string;
-  icon?: string;
-  displayOrder?: number;
-}
-```
-
-### Status-update response envelope
-```jsonc
-{
-  "data": {
-    "suggestion": { /* updated ProductCategorySuggestion (with implementedCategoryId if implemented) */ },
-    "category": { /* the new ProductCategory created on implementation, OR null */ }
-  },
-  "message": "Category suggestion approved and implemented successfully"
-}
-```
-
----
-
-## Product creation (now uses `categoryId`)
-
-`POST /v1/marketplace/products` body:
-```ts
-{
-  storeId: string;     // ObjectId
-  name: string;        // 2-200
-  categoryId: string;  // ObjectId of an existing ProductCategory  ← was `category: enum`
-  price: number;
-  // …rest unchanged
-}
-```
-The service layer calls `ProductCategoriesService.assertCategoryExists(categoryId)` on both create and update — invalid IDs return `400 INVALID_CATEGORY_ID`.
-
-Discovery / store-product queries also use `categoryId`:
-- `GET /v1/marketplace/products/discover?categoryId=…&minPrice=…`
-- `GET /v1/marketplace/products/store/:storeId?categoryId=…`
-
-Responses populate `categoryId` with `{ name, slug, icon }` for direct rendering.
-
----
-
-## Notifications
-
-Three new `NotificationType` values fire end-to-end via `NotificationService`:
-
-| Event | Type | Recipient | Action URL |
-|---|---|---|---|
-| Suggestion submitted | `admin:productCategorySuggestionCreated` | all admins | `/admin/marketplace/category-suggestions/:id` |
-| Suggestion approved or implemented | `admin:productCategorySuggestionApproved` | suggester | `/marketplace/category-suggestions/:id` |
-| Suggestion rejected | `admin:productCategorySuggestionRejected` | suggester | `/marketplace/category-suggestions/:id` |
-
-All map to the `ADMIN` notification category, so they appear in the existing admin/moderation notification feed.
-
----
-
-## Frontend integration plan
-
-> **Audience:** the agents working on the front layer.
-
-### 1. Replace the hard-coded category dropdown
-Wherever the product create/edit form previously used the `ProductCategory` enum:
-
-```diff
-- const CATEGORIES = ['skincare','haircare','makeup','tools', …];   // deprecated
-+ const { data } = await api.get('/v1/marketplace/product-categories?activeOnly=true');
-+ // data: ProductCategory[] sorted by displayOrder
-```
-
-Render the icon + name. Submit `categoryId` (the `_id`) instead of the enum string.
-
-### 2. Add a "Suggest a new category" affordance
-Below the category dropdown in the product create/edit form (and in the buyer-side discover filters), surface a link or `+` button that opens a `CategorySuggestionModal`:
-
-```tsx
-<CategoryPicker categories={categories} value={categoryId} onChange={setCategoryId} />
-<button onClick={openSuggestionModal}>Can't find what you need? Suggest a category</button>
-```
-
-Modal posts to `POST /v1/marketplace/product-category-suggestions` with `{ name, description, exampleProducts, iconHint }`. On 201, show a success toast: *"Thanks! An admin will review your suggestion shortly."* Surface the 409 errors verbatim — they're user-actionable.
-
-### 3. "My suggestions" dashboard tab
-Any authenticated user benefits from a list at `GET /v1/marketplace/product-category-suggestions` (auto-scoped server-side). Show status badge, `adminNote` when present, and a deep link to the implemented category (via `implementedCategoryId`) when the suggestion was approved.
-
-### 4. Admin moderation panel
-At `/admin/marketplace/category-suggestions`:
-- List with filters (use `?status=pending` for the default work queue).
-- Each row shows suggester, name, description, exampleProducts, createdAt.
-- **Reject** action → `PATCH /:id/status` with `{ status: 'rejected', adminNote }` (note required for transparency).
-- **Approve & implement** action → `PATCH /:id/admin-approve` with `{ name?, description?, icon?, displayOrder?, adminNote? }` (all fields optional — defaults to the suggester's values). Server response includes the newly created `category` so the panel can immediately reflect it in the categories list.
-
-### 5. Admin product-category management
-At `/admin/marketplace/categories` build a CRUD table backed by `/v1/marketplace/product-categories`. Notes:
-- **Cannot delete** a category in use → server returns `409 CATEGORY_IN_USE` with a friendly message — surface a toast and offer the **Hide (set isActive=false)** action instead.
-- Toggling `isActive` immediately removes the category from the buyer-facing dropdown (`?activeOnly=true`) without affecting historical product references.
-- `displayOrder` controls dropdown order; UI should expose drag-and-drop reordering.
-
-### 6. Real-time updates
-Suggestion notifications are pushed over the existing Socket.IO channel — front-end already subscribes to `admin` category events. No new socket handlers are required; just ensure the notification renderer recognises the three new `type` strings (`admin:productCategorySuggestion*`).
-
-### 7. Migration / seeding (one-shot, dev environments)
-The legacy enum values are kept in `marketplace.interface.ts` as `LEGACY_PRODUCT_CATEGORY_TAGS` and can be used by an ops script to seed initial admin-managed categories. For environments with existing products carrying the old string `category` field:
-1. Seed admin categories with the same names as the legacy enum.
-2. Run a one-shot migration: for each product, look up the matching `ProductCategory` by name and `$set` `categoryId`, `$unset` `category`.
-
-A seed script is intentionally **not** run on boot — admins should curate categories explicitly.
-
----
-
-## Dependencies
-
-- **Inbound**: `UserManager` (store owner / suggester identity), `AuthSystem`
-- **Outbound**: `NotificationSystem` (suggestion + order events), `shared/cloudflareR2` (product / category images)
-
----
-
-## Error codes (suggestion + category surface)
-
-| Code | When |
-|---|---|
-| `MISSING_CATEGORY_NAME` / `MISSING_CATEGORY_ID` / `MISSING_SUGGESTION_ID` / `MISSING_STATUS` | Required field omitted |
-| `INVALID_CATEGORY_ID` | `categoryId` does not match any `ProductCategory` document |
-| `CATEGORY_NAME_EXISTS` | Duplicate category name on create/update |
-| `CATEGORY_NAME_CONFLICT` | Implementation conflicts with an existing category name |
-| `CATEGORY_IN_USE` | Delete rejected — products reference this category |
-| `CATEGORY_ALREADY_EXISTS` | Suggestion submitted for a name that already exists as a real category |
-| `SUGGESTION_ALREADY_EXISTS` | Another **pending** suggestion already proposes this name |
-| `SUGGESTION_NOT_FOUND` | ID not found |
-| `SUGGESTION_ALREADY_IMPLEMENTED` | Cannot re-moderate a terminal suggestion |
-| `STATUS_ALREADY_SET` | New status equals current status |
-| `INVALID_STATUS_FOR_UPDATE` | Owner edit attempted on a non-pending suggestion |
-| `UNAUTHORIZED_ACCESS` | Non-owner attempted to edit/delete |
-| `CATEGORY_CREATION_FAILED` | Implementation step failed unexpectedly (server-side error) |
