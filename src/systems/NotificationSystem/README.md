@@ -292,6 +292,123 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    participant QS as QueueService
+    participant NS as NotificationService
+    participant SS as SocketService
+    participant DB as MongoDB
+    participant WS as Lounge WebSocket
+
+    QS->>QS: updatePersonStatus(agentId, bookingId, "inService")
+    QS->>SS: emitQueueUpdated(agentId, queue)
+    SS->>WS: Socket event "queueUpdated" → lounge:{loungeId}
+    QS->>NS: notifyQueueTurn(queue, person)
+    NS->>DB: Create Notification { type: "queue_turn" }
+    NS->>SS: emitNotification(clientId, notification)
+    NS->>NS: sendToUser(clientId, "Your turn!", body)
+```
+
+### Device Token Registration Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Mobile Client
+    participant API as NotificationController
+    participant PS as PushService
+    participant DB as MongoDB
+
+    C->>API: POST /v1/notifications/device-token
+    note over C: { token, deviceId, platform: "ios" }
+    API->>PS: registerToken(userId, token, deviceId, platform)
+    PS->>DB: Find user
+    PS->>DB: Upsert in user.fcmTokens[] where deviceId matches
+    PS-->>C: 200 "Device token registered"
+
+    C->>API: DELETE /v1/notifications/device-token
+    note over C: { deviceId }
+    API->>PS: removeToken(userId, deviceId)
+    PS->>DB: Pull token from user.fcmTokens[]
+    PS-->>C: 200 "Device token removed"
+```
+
+---
+
+## DTOs (Extended)
+
+| DTO | Fields | Validations |
+|-----|--------|-------------|
+| `GetNotificationsDto` | `page?`, `limit?` (1–100), `category?`, `isRead?` | `@IsOptional()`, `@IsNumber()`, `@IsEnum(NotificationCategory)` |
+| `MarkNotificationsReadDto` | `notificationIds?[]` | `@IsOptional()`, `@IsArray()`, `@IsMongoId({ each: true })` |
+| `RegisterDeviceTokenDto` | `token`, `deviceId`, `platform` | `@IsString()`, `@IsEnum(['ios','android','web'])` |
+| `UnregisterDeviceTokenDto` | `deviceId` | `@IsString()` |
+
+---
+
+## Socket.IO Integration
+
+### Room Join Strategy
+
+```
+On socket connect:
+  socket.join(`user:${userId}`)           → booking/notification events
+  socket.join(`notifications:${userId}`)  → real-time notification stream
+
+On joinConversation event:
+  socket.join(`chat:${conversationId}`)   → message events
+
+On lounge agent connect:
+  socket.join(`lounge:${loungeId}`)       → queue update events
+```
+
+### Client-Side Integration Example
+
+```javascript
+const socket = io('wss://api.framebeauty.tn', {
+  auth: { token: `Bearer ${accessToken}` }
+});
+
+// Listen for in-app notifications
+socket.on('notification', (notification) => {
+  showToast(notification.title, notification.body);
+  incrementUnreadBadge();
+});
+
+// Listen for queue updates (lounge/agent clients)
+socket.on('queueUpdated', ({ agentId, queue }) => {
+  updateQueueDisplay(agentId, queue);
+});
+
+// Listen for booking changes
+socket.on('bookingUpdated', ({ booking }) => {
+  refreshBookingCard(booking);
+});
+```
+
+---
+
+## Directory Structure
+
+```
+src/systems/NotificationSystem/
+├── interfaces/
+│   └── notification.interface.ts   # NotificationType, NotificationCategory enums
+├── models/
+│   └── notification.model.ts       # Mongoose Notification schema + TTL index
+├── dtos/
+│   └── notification.dto.ts         # GetNotificationsDto, MarkNotificationsReadDto, etc.
+├── services/
+│   ├── notification.service.ts     # CRUD + 27 trigger methods
+│   ├── socket.service.ts           # Socket.IO singleton
+│   └── push.service.ts             # Firebase FCM integration
+├── controllers/
+│   └── notification.controller.ts
+├── routes/
+│   └── notification.route.ts
+└── README.md
+```
+
+
+```mermaid
+sequenceDiagram
     participant L as Lounge App
     participant QS as QueueService
     participant SS as SocketService

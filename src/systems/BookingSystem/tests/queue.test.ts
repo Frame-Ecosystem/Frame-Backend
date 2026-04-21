@@ -3,11 +3,11 @@ import { QueuePersonStatus } from '../interfaces/queue.interface';
 import { BookingStatus } from '../interfaces/booking.interface';
 import queueModel from '../models/queue.model';
 import bookingModel from '../models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
+import userModel from '@systems/UserManager/models/user.model';
 
 jest.mock('../models/queue.model');
 jest.mock('../models/booking.model');
-jest.mock('@systems/UserManager/models/agent.model');
+jest.mock('@systems/UserManager/models/user.model');
 
 const queueService = new QueueService();
 
@@ -42,11 +42,11 @@ describe('QueueService', () => {
   // ─── createQueue ─────────────────────────────────────────────
   describe('createQueue', () => {
     it('should create a new queue for an agent', async () => {
-      (agentModel.findById as jest.Mock).mockResolvedValue({ _id: 'agent1' });
+      (userModel.findOne as jest.Mock).mockResolvedValue({ _id: 'agent1', type: 'agent' });
       (queueModel.findOneAndUpdate as jest.Mock).mockResolvedValue(mockQueueDoc());
 
       const result = await queueService.createQueue('agent1');
-      expect(agentModel.findById).toHaveBeenCalledWith('agent1');
+      expect(userModel.findOne).toHaveBeenCalledWith({ _id: 'agent1', type: 'agent' });
       expect(queueModel.findOneAndUpdate).toHaveBeenCalled();
       expect(result).toHaveProperty('agentId', 'agent1');
     });
@@ -56,7 +56,7 @@ describe('QueueService', () => {
     });
 
     it('should throw NotFoundException if agent does not exist', async () => {
-      (agentModel.findById as jest.Mock).mockResolvedValue(null);
+      (userModel.findOne as jest.Mock).mockResolvedValue(null);
       await expect(queueService.createQueue('nonexistent')).rejects.toThrow('Agent not found');
     });
   });
@@ -97,7 +97,7 @@ describe('QueueService', () => {
   // ─── getQueuesByLounge ────────────────────────────────────────
   describe('getQueuesByLounge', () => {
     it('should return all queues for a lounge', async () => {
-      (agentModel.find as jest.Mock).mockResolvedValue([{ _id: 'agent1' }, { _id: 'agent2' }]);
+      (userModel.find as jest.Mock).mockResolvedValue([{ _id: 'agent1', type: 'agent' }, { _id: 'agent2', type: 'agent' }]);
 
       const populateChain = {
         populate: jest.fn().mockReturnThis(),

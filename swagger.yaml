@@ -130,6 +130,12 @@ tags:
     description: Content feed, explore, saved content, and hashtag discovery
   - name: reports
     description: Content reporting and admin moderation
+  - name: chat
+    description: Real-time 1-to-1 direct messaging (REST + Socket.IO)
+  - name: marketplace
+    description: Stores, products, cart, orders, reviews and wishlist
+  - name: marketplace-analytics
+    description: Marketplace analytics for store owners and admins
 
 # =====================================================================
 #  PATHS
@@ -5889,6 +5895,2690 @@ paths:
         500:
           description: Server error
 
+
+  # ----------------------------------------------------------------
+  # Agent self-management routes
+  # ----------------------------------------------------------------
+  /v1/agents/me:
+    get:
+      tags: [agents]
+      summary: Get own agent profile
+      operationId: getOwnAgentProfile
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Agent profile
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Agent'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+        500:
+          description: Server error
+    patch:
+      tags: [agents]
+      summary: Update own agent profile
+      operationId: updateOwnAgentProfile
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateAgentSelfDto'
+      responses:
+        200:
+          description: Profile updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+        500:
+          description: Server error
+
+  /v1/agents/me/availability:
+    patch:
+      tags: [agents]
+      summary: Toggle own queue-booking availability
+      operationId: toggleAgentAvailability
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ToggleAvailabilityDto'
+      responses:
+        200:
+          description: Availability updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/image:
+    put:
+      tags: [agents]
+      summary: Update own profile image
+      operationId: updateOwnAgentImage
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: image
+          in: formData
+          required: false
+          type: file
+          description: Profile image file
+      responses:
+        200:
+          description: Image updated
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/queue:
+    get:
+      tags: [agents]
+      summary: Get own queue for a date
+      operationId: getOwnAgentQueue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: date
+          in: query
+          required: false
+          type: string
+          format: date-time
+          description: ISO 8601 date. Defaults to today.
+      responses:
+        200:
+          description: Queue list
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Queue'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/queue/stats:
+    get:
+      tags: [agents]
+      summary: Get own queue statistics
+      operationId: getOwnAgentQueueStats
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Queue stats
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/queue/persons:
+    post:
+      tags: [agents]
+      summary: Add person to own queue
+      operationId: addPersonToOwnQueue
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AddToQueueDto'
+      responses:
+        201:
+          description: Person added to queue
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/queue/next:
+    post:
+      tags: [agents]
+      summary: Move queue to next person
+      operationId: nextInOwnQueue
+      description: Marks the current in-service person as completed and promotes the next waiting person.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Queue advanced
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  /v1/agents/me/queue/persons/{bookingId}:
+    patch:
+      tags: [agents]
+      summary: Update queue person status
+      operationId: updateOwnQueuePerson
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateQueuePersonDto'
+      responses:
+        200:
+          description: Queue person updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+        404:
+          description: Queue entry not found
+
+  /v1/agents/me/queue/persons/{bookingId}/reorder:
+    put:
+      tags: [agents]
+      summary: Reorder queue person position
+      operationId: reorderOwnQueuePerson
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ReorderQueuePersonDto'
+      responses:
+        200:
+          description: Queue reordered
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+        404:
+          description: Queue entry not found
+    delete:
+      tags: [agents]
+      summary: Remove person from own queue
+      operationId: removeFromOwnQueue
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: bookingId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Person removed from queue
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+        404:
+          description: Queue entry not found
+
+  # ----------------------------------------------------------------
+  # Lounge (agent self) - missing route
+  # ----------------------------------------------------------------
+  /v1/lounge/me/queue-booking:
+    patch:
+      tags: [lounges]
+      summary: Toggle own queue-booking acceptance (agent)
+      operationId: agentToggleQueueBooking
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ToggleAvailabilityDto'
+      responses:
+        200:
+          description: Queue-booking acceptance updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - agents only
+
+  # ----------------------------------------------------------------
+  # Current-user - missing DELETE reel
+  # ----------------------------------------------------------------
+  /v1/me/reels/{reelId}:
+    delete:
+      tags: [current-user]
+      summary: Delete own reel
+      operationId: deleteOwnReel
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: reelId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Reel deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not owner
+        404:
+          description: Reel not found
+
+  # ----------------------------------------------------------------
+  # Admin system routes (actual prefix: /v1/admin/system)
+  # NOTE: Legacy paths at /v1/admin-services/* may still exist for BC
+  # ----------------------------------------------------------------
+  /v1/admin/system/stats:
+    get:
+      tags: [admin-services]
+      summary: Get system stats
+      operationId: getSystemStats
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System statistics
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/admin/system/health:
+    get:
+      tags: [admin-services]
+      summary: Get system health
+      operationId: getSystemHealth
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: System health report
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/admin/system/activity-log:
+    get:
+      tags: [admin-services]
+      summary: Get activity log
+      operationId: getSystemActivityLog
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Activity log entries
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/admin/system/dashboard:
+    get:
+      tags: [admin-services]
+      summary: Get system dashboard data
+      operationId: getSystemDashboard
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Dashboard data
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/admin/system/users/{userId}/clear-sessions:
+    post:
+      tags: [admin-services]
+      summary: Clear all sessions for a user
+      operationId: clearUserSessions
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Sessions cleared
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: User not found
+
+  /v1/admin/system/users/{userId}/reset-password:
+    post:
+      tags: [admin-services]
+      summary: Reset password for a user (admin)
+      operationId: adminResetUserPassword
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Password reset
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: User not found
+
+  /v1/admin/system/users/{userId}/export:
+    get:
+      tags: [admin-services]
+      summary: Export user data
+      operationId: exportUserData
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: User data export
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: User not found
+
+  /v1/admin/system/audit-log:
+    post:
+      tags: [admin-services]
+      summary: Write audit log entry
+      operationId: writeAuditLog
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        201:
+          description: Audit log written
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  # ----------------------------------------------------------------
+  # Admin moderation
+  # ----------------------------------------------------------------
+  /v1/admin/moderation/posts/{postId}/hide:
+    put:
+      tags: [admin]
+      summary: Hide a post (admin)
+      operationId: adminHidePost
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Post hidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Post not found
+
+  /v1/admin/moderation/posts/{postId}/unhide:
+    put:
+      tags: [admin]
+      summary: Unhide a post (admin)
+      operationId: adminUnhidePost
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Post unhidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Post not found
+
+  /v1/admin/moderation/posts/{postId}:
+    delete:
+      tags: [admin]
+      summary: Delete a post (admin)
+      operationId: adminDeletePost
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Post deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Post not found
+
+  /v1/admin/moderation/reels/{reelId}/hide:
+    put:
+      tags: [admin]
+      summary: Hide a reel (admin)
+      operationId: adminHideReel
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: reelId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Reel hidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Reel not found
+
+  /v1/admin/moderation/reels/{reelId}/unhide:
+    put:
+      tags: [admin]
+      summary: Unhide a reel (admin)
+      operationId: adminUnhideReel
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: reelId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Reel unhidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Reel not found
+
+  /v1/admin/moderation/reels/{reelId}:
+    delete:
+      tags: [admin]
+      summary: Delete a reel (admin)
+      operationId: adminDeleteReel
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: reelId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Reel deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Reel not found
+
+  /v1/admin/moderation/comments/{commentId}/hide:
+    put:
+      tags: [admin]
+      summary: Hide a comment (admin)
+      operationId: adminHideComment
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Comment hidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Comment not found
+
+  /v1/admin/moderation/comments/{commentId}/unhide:
+    put:
+      tags: [admin]
+      summary: Unhide a comment (admin)
+      operationId: adminUnhideComment
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Comment unhidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Comment not found
+
+  /v1/admin/moderation/comments/{commentId}:
+    delete:
+      tags: [admin]
+      summary: Delete a comment (admin)
+      operationId: adminDeleteComment
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Comment deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Comment not found
+
+  /v1/admin/moderation/reports:
+    get:
+      tags: [admin]
+      summary: Get all content reports (admin)
+      operationId: adminGetReports
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+        - name: status
+          in: query
+          type: string
+      responses:
+        200:
+          description: Reports list
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Report'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/admin/moderation/reports/{reportId}:
+    put:
+      tags: [admin]
+      summary: Update report status (admin)
+      operationId: adminUpdateReport
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ReviewReportDto'
+      responses:
+        200:
+          description: Report updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Report not found
+
+  # ================================================================
+  #  CHAT SYSTEM
+  # ================================================================
+  /v1/chat/conversations:
+    post:
+      tags: [chat]
+      summary: Create or get existing conversation
+      operationId: createConversation
+      description: Creates a new 1-to-1 conversation with the given recipient, or returns the existing one (idempotent).
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateConversationDto'
+      responses:
+        200:
+          description: Conversation found or created
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/ConversationResponse'
+              message:
+                type: string
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+    get:
+      tags: [chat]
+      summary: List all conversations
+      operationId: getConversations
+      description: Returns paginated list of the authenticated user's conversations, sorted by latest message.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          default: 1
+        - name: limit
+          in: query
+          type: integer
+          default: 20
+          maximum: 50
+      responses:
+        200:
+          description: Conversation list
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ConversationResponse'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+
+  /v1/chat/conversations/{id}:
+    get:
+      tags: [chat]
+      summary: Get a single conversation
+      operationId: getConversation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+          description: Conversation ID
+      responses:
+        200:
+          description: Conversation details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/ConversationResponse'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Conversation not found
+    delete:
+      tags: [chat]
+      summary: Soft-delete conversation (own view)
+      operationId: deleteConversation
+      description: Hides the conversation for the requesting user only. The other participant is unaffected.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Conversation deleted for this user
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Conversation not found
+
+  /v1/chat/conversations/{id}/messages/read:
+    patch:
+      tags: [chat]
+      summary: Mark messages as read
+      operationId: markMessagesRead
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/MarkMessagesReadDto'
+      responses:
+        200:
+          description: Messages marked as read
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Conversation not found
+
+  /v1/chat/conversations/{id}/messages/search:
+    get:
+      tags: [chat]
+      summary: Search messages in a conversation
+      operationId: searchMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: q
+          in: query
+          required: true
+          type: string
+          maxLength: 200
+          description: Full-text search query
+        - name: limit
+          in: query
+          type: integer
+          default: 20
+          maximum: 50
+      responses:
+        200:
+          description: Matching messages
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/MessageResponse'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+
+  /v1/chat/conversations/{id}/messages:
+    get:
+      tags: [chat]
+      summary: Get messages in a conversation
+      operationId: getMessages
+      description: Returns cursor-paginated messages. Use `before` (message ID) for infinite scroll.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: page
+          in: query
+          type: integer
+          default: 1
+        - name: limit
+          in: query
+          type: integer
+          default: 30
+          maximum: 100
+        - name: before
+          in: query
+          type: string
+          description: Message ID cursor — return messages older than this ID
+      responses:
+        200:
+          description: Message list
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/MessageResponse'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Conversation not found
+    post:
+      tags: [chat]
+      summary: Send a message
+      operationId: sendMessage
+      description: Send a text or file message. For image/file/audio use multipart/form-data with the `file` field.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: contentType
+          in: formData
+          required: true
+          type: string
+          enum: [text, image, file, audio]
+        - name: text
+          in: formData
+          type: string
+          maxLength: 4000
+          description: Required when contentType is text
+        - name: replyTo
+          in: formData
+          type: string
+          description: Message ID being replied to
+        - name: file
+          in: formData
+          type: file
+          description: Attachment for image/file/audio content types
+      responses:
+        201:
+          description: Message sent
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/MessageResponse'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Conversation not found
+
+  /v1/chat/conversations/{id}/messages/{msgId}:
+    patch:
+      tags: [chat]
+      summary: Edit a text message
+      operationId: editMessage
+      description: Edit message text. Sender only. Sets `editedAt` timestamp.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: msgId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/EditMessageDto'
+      responses:
+        200:
+          description: Message edited
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/MessageResponse'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not sender
+        404:
+          description: Message not found
+    delete:
+      tags: [chat]
+      summary: Delete a message
+      operationId: deleteMessage
+      description: Soft-delete. If `recallForEveryone` is true, removes it for all participants (sender only, within time limit).
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: msgId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/DeleteMessageDto'
+      responses:
+        200:
+          description: Message deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Message not found
+
+  /v1/chat/conversations/{id}/messages/{msgId}/reactions:
+    post:
+      tags: [chat]
+      summary: React to a message (toggle)
+      operationId: reactToMessage
+      description: Adds or removes an emoji reaction. Sending the same emoji twice removes it.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: msgId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ReactToMessageDto'
+      responses:
+        200:
+          description: Reaction toggled
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/MessageResponse'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+        404:
+          description: Message not found
+
+  /v1/chat/conversations/{id}/typing:
+    post:
+      tags: [chat]
+      summary: Broadcast typing indicator
+      operationId: sendTypingIndicator
+      description: Emits a typing event via Socket.IO to the other participant. No persistent state stored.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Typing indicator sent
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not a participant
+
+  # ================================================================
+  #  MARKETPLACE SYSTEM
+  # ================================================================
+
+  # ----------------------------------------------------------------
+  # Marketplace — Analytics
+  # ----------------------------------------------------------------
+  /v1/marketplace/analytics/my-store:
+    get:
+      tags: [marketplace-analytics]
+      summary: Get own store analytics
+      operationId: getMyStoreAnalytics
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Store analytics (revenue, orders, views by period)
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owners only
+        404:
+          description: Store not found
+
+  /v1/marketplace/analytics/store/{storeId}:
+    get:
+      tags: [marketplace-analytics]
+      summary: Get analytics for a specific store
+      operationId: getStoreAnalytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Store analytics
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Store not found
+
+  /v1/marketplace/analytics/admin:
+    get:
+      tags: [marketplace-analytics]
+      summary: Get marketplace-wide analytics (admin)
+      operationId: getAdminAnalytics
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Platform-wide analytics
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  # ----------------------------------------------------------------
+  # Marketplace — Cart
+  # ----------------------------------------------------------------
+  /v1/marketplace/cart:
+    get:
+      tags: [marketplace]
+      summary: Get own cart
+      operationId: getCart
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Cart contents
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Cart'
+        401:
+          description: Unauthorized
+    delete:
+      tags: [marketplace]
+      summary: Clear entire cart
+      operationId: clearCart
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Cart cleared
+        401:
+          description: Unauthorized
+
+  /v1/marketplace/cart/items:
+    post:
+      tags: [marketplace]
+      summary: Add item to cart
+      operationId: addToCart
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AddToCartDto'
+      responses:
+        200:
+          description: Item added to cart
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Cart'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        404:
+          description: Product not found
+
+  /v1/marketplace/cart/items/{productId}:
+    put:
+      tags: [marketplace]
+      summary: Update cart item quantity
+      operationId: updateCartItem
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateCartItemDto'
+      responses:
+        200:
+          description: Cart item updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        404:
+          description: Cart item not found
+    delete:
+      tags: [marketplace]
+      summary: Remove item from cart
+      operationId: removeFromCart
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Item removed
+        401:
+          description: Unauthorized
+        404:
+          description: Cart item not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Orders
+  # ----------------------------------------------------------------
+  /v1/marketplace/orders:
+    post:
+      tags: [marketplace]
+      summary: Place an order
+      operationId: createOrder
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateOrderDto'
+      responses:
+        201:
+          description: Order placed
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Order'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        404:
+          description: Product or store not found
+
+  /v1/marketplace/orders/me:
+    get:
+      tags: [marketplace]
+      summary: Get own orders
+      operationId: getMyOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: Order list
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Order'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+
+  /v1/marketplace/orders/{id}:
+    get:
+      tags: [marketplace]
+      summary: Get order by ID
+      operationId: getOrder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Order details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Order'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - buyer or store owner only
+        404:
+          description: Order not found
+
+  /v1/marketplace/orders/store/{storeId}:
+    get:
+      tags: [marketplace]
+      summary: Get orders for a store
+      operationId: getStoreOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          type: string
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: Store orders
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Order'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owner only
+
+  /v1/marketplace/orders/{id}/status:
+    put:
+      tags: [marketplace]
+      summary: Update order status
+      operationId: updateOrderStatus
+      description: Store owner updates shipping/delivery status. Admin can use admin resolve endpoint.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateOrderStatusDto'
+      responses:
+        200:
+          description: Order status updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Order not found
+
+  /v1/marketplace/orders/admin/all:
+    get:
+      tags: [marketplace]
+      summary: Get all orders (admin)
+      operationId: adminGetAllOrders
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: All orders
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Order'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/marketplace/orders/admin/{id}/resolve:
+    put:
+      tags: [marketplace]
+      summary: Resolve order dispute (admin)
+      operationId: adminResolveOrderDispute
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/ResolveDisputeDto'
+      responses:
+        200:
+          description: Dispute resolved
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Order not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Products
+  # ----------------------------------------------------------------
+  /v1/marketplace/products/discover:
+    get:
+      tags: [marketplace]
+      summary: Discover products (public)
+      operationId: discoverProducts
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+        - name: category
+          in: query
+          type: string
+        - name: q
+          in: query
+          type: string
+      responses:
+        200:
+          description: Product listing
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Product'
+              pagination:
+                $ref: '#/definitions/Pagination'
+
+  /v1/marketplace/products/store/{storeId}:
+    get:
+      tags: [marketplace]
+      summary: Get products by store (public)
+      operationId: getProductsByStore
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          type: string
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: Store products
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Product'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        404:
+          description: Store not found
+
+  /v1/marketplace/products:
+    post:
+      tags: [marketplace]
+      summary: Create product
+      operationId: createProduct
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateProductDto'
+      responses:
+        201:
+          description: Product created
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Product'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owners only
+
+  /v1/marketplace/products/{id}:
+    get:
+      tags: [marketplace]
+      summary: Get product by ID (public)
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Product details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Product'
+        404:
+          description: Product not found
+    put:
+      tags: [marketplace]
+      summary: Update product
+      operationId: updateProduct
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateProductDto'
+      responses:
+        200:
+          description: Product updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owner only
+        404:
+          description: Product not found
+    delete:
+      tags: [marketplace]
+      summary: Delete product
+      operationId: deleteProduct
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Product deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owner only
+        404:
+          description: Product not found
+
+  /v1/marketplace/products/{id}/images:
+    post:
+      tags: [marketplace]
+      summary: Upload product images
+      operationId: uploadProductImages
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: images
+          in: formData
+          type: file
+          description: Product image file(s)
+      responses:
+        200:
+          description: Images uploaded
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owner only
+        404:
+          description: Product not found
+
+  /v1/marketplace/products/{id}/images/{publicId}:
+    delete:
+      tags: [marketplace]
+      summary: Delete product image
+      operationId: deleteProductImage
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: publicId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Image deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - store owner only
+        404:
+          description: Product or image not found
+
+  /v1/marketplace/products/admin/all:
+    get:
+      tags: [marketplace]
+      summary: Get all products (admin)
+      operationId: adminGetAllProducts
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: All products
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Product'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/marketplace/products/admin/{id}/status:
+    put:
+      tags: [marketplace]
+      summary: Update product status (admin)
+      operationId: adminUpdateProductStatus
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AdminUpdateProductStatusDto'
+      responses:
+        200:
+          description: Product status updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Product not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Product Categories
+  # ----------------------------------------------------------------
+  /v1/marketplace/product-categories:
+    get:
+      tags: [marketplace]
+      summary: List product categories
+      operationId: getProductCategories
+      responses:
+        200:
+          description: Product categories
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/ProductCategory'
+    post:
+      tags: [marketplace]
+      summary: Create product category (admin)
+      operationId: createProductCategory
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateProductCategoryDto'
+      responses:
+        201:
+          description: Category created
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/marketplace/product-categories/search:
+    get:
+      tags: [marketplace]
+      summary: Search product categories
+      operationId: searchProductCategories
+      parameters:
+        - name: q
+          in: query
+          type: string
+          required: true
+      responses:
+        200:
+          description: Matching categories
+
+  /v1/marketplace/product-categories/{categoryId}:
+    get:
+      tags: [marketplace]
+      summary: Get product category by ID
+      operationId: getProductCategory
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Category details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/ProductCategory'
+        404:
+          description: Category not found
+    put:
+      tags: [marketplace]
+      summary: Update product category (admin)
+      operationId: updateProductCategory
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateProductCategoryDto'
+      responses:
+        200:
+          description: Category updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Category not found
+    delete:
+      tags: [marketplace]
+      summary: Delete product category (admin)
+      operationId: deleteProductCategory
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: categoryId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Category deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Category not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Product Category Suggestions
+  # ----------------------------------------------------------------
+  /v1/marketplace/product-category-suggestions:
+    get:
+      tags: [marketplace]
+      summary: List own product category suggestions
+      operationId: getProductCategorySuggestions
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Suggestions list
+        401:
+          description: Unauthorized
+    post:
+      tags: [marketplace]
+      summary: Create product category suggestion
+      operationId: createProductCategorySuggestion
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateProductCategorySuggestionDto'
+      responses:
+        201:
+          description: Suggestion created
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+
+  /v1/marketplace/product-category-suggestions/stats:
+    get:
+      tags: [marketplace]
+      summary: Get product category suggestion stats (admin)
+      operationId: getProductCategorySuggestionStats
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Suggestion statistics
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/marketplace/product-category-suggestions/{suggestionId}:
+    get:
+      tags: [marketplace]
+      summary: Get product category suggestion by ID
+      operationId: getProductCategorySuggestion
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: suggestionId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Suggestion details
+        401:
+          description: Unauthorized
+        404:
+          description: Suggestion not found
+    put:
+      tags: [marketplace]
+      summary: Update product category suggestion
+      operationId: updateProductCategorySuggestion
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: suggestionId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateProductCategorySuggestionDto'
+      responses:
+        200:
+          description: Suggestion updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - suggestion owner only
+        404:
+          description: Suggestion not found
+    delete:
+      tags: [marketplace]
+      summary: Delete product category suggestion
+      operationId: deleteProductCategorySuggestion
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: suggestionId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Suggestion deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden
+        404:
+          description: Suggestion not found
+
+  /v1/marketplace/product-category-suggestions/{suggestionId}/status:
+    patch:
+      tags: [marketplace]
+      summary: Update suggestion status (admin)
+      operationId: updateProductCategorySuggestionStatus
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: suggestionId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateProductCategorySuggestionStatusDto'
+      responses:
+        200:
+          description: Status updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Suggestion not found
+
+  /v1/marketplace/product-category-suggestions/{suggestionId}/admin-approve:
+    patch:
+      tags: [marketplace]
+      summary: Approve and implement suggestion (admin)
+      operationId: adminApproveProductCategorySuggestion
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: suggestionId
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: false
+          schema:
+            $ref: '#/definitions/AdminApproveProductCategorySuggestionDto'
+      responses:
+        200:
+          description: Suggestion approved and category created
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Suggestion not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Reviews
+  # ----------------------------------------------------------------
+  /v1/marketplace/reviews/product/{productId}:
+    get:
+      tags: [marketplace]
+      summary: Get reviews for a product (public)
+      operationId: getProductReviews
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          type: string
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: Product reviews
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Review'
+              pagination:
+                $ref: '#/definitions/Pagination'
+
+  /v1/marketplace/reviews/store/{storeId}:
+    get:
+      tags: [marketplace]
+      summary: Get reviews for a store (public)
+      operationId: getStoreReviews
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          type: string
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: Store reviews
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Review'
+              pagination:
+                $ref: '#/definitions/Pagination'
+
+  /v1/marketplace/reviews:
+    post:
+      tags: [marketplace]
+      summary: Create a review
+      operationId: createReview
+      description: Submit a review for a purchased product. Requires a valid completed order.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateReviewDto'
+      responses:
+        201:
+          description: Review created
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Review'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Must have a completed order for this product
+
+  /v1/marketplace/reviews/{id}:
+    put:
+      tags: [marketplace]
+      summary: Update own review
+      operationId: updateReview
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateReviewDto'
+      responses:
+        200:
+          description: Review updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not reviewer
+        404:
+          description: Review not found
+    delete:
+      tags: [marketplace]
+      summary: Delete own review
+      operationId: deleteReview
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Review deleted
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not reviewer
+        404:
+          description: Review not found
+
+  /v1/marketplace/reviews/{id}/images:
+    post:
+      tags: [marketplace]
+      summary: Upload review images
+      operationId: uploadReviewImages
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: images
+          in: formData
+          type: file
+      responses:
+        200:
+          description: Images uploaded
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - not reviewer
+        404:
+          description: Review not found
+
+  /v1/marketplace/reviews/{id}/helpful:
+    post:
+      tags: [marketplace]
+      summary: Mark review as helpful (toggle)
+      operationId: markReviewHelpful
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Helpfulness toggled
+        401:
+          description: Unauthorized
+        404:
+          description: Review not found
+
+  /v1/marketplace/reviews/admin/{id}/hide:
+    put:
+      tags: [marketplace]
+      summary: Hide a review (admin)
+      operationId: adminHideReview
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Review hidden
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Review not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Stores
+  # ----------------------------------------------------------------
+  /v1/marketplace/stores/discover:
+    get:
+      tags: [marketplace]
+      summary: Discover stores (public)
+      operationId: discoverStores
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+        - name: category
+          in: query
+          type: string
+        - name: q
+          in: query
+          type: string
+      responses:
+        200:
+          description: Store listing
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Store'
+              pagination:
+                $ref: '#/definitions/Pagination'
+
+  /v1/marketplace/stores/slug/{slug}:
+    get:
+      tags: [marketplace]
+      summary: Get store by slug (public)
+      operationId: getStoreBySlug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Store details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Store'
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores/{id}:
+    get:
+      tags: [marketplace]
+      summary: Get store by ID (public)
+      operationId: getStore
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Store details
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Store'
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores:
+    post:
+      tags: [marketplace]
+      summary: Create a store
+      operationId: createStore
+      description: Any authenticated user (admin, lounge, client) can create a store.
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/CreateStoreDto'
+      responses:
+        201:
+          description: Store created
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Store'
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+
+  /v1/marketplace/stores/me/store:
+    get:
+      tags: [marketplace]
+      summary: Get own store
+      operationId: getMyStore
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Own store
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/definitions/Store'
+        401:
+          description: Unauthorized
+        404:
+          description: Store not found
+    put:
+      tags: [marketplace]
+      summary: Update own store
+      operationId: updateMyStore
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/UpdateStoreDto'
+      responses:
+        200:
+          description: Store updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        404:
+          description: Store not found
+    delete:
+      tags: [marketplace]
+      summary: Delete own store
+      operationId: deleteMyStore
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      responses:
+        200:
+          description: Store deleted
+        401:
+          description: Unauthorized
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores/me/store/logo:
+    put:
+      tags: [marketplace]
+      summary: Upload store logo
+      operationId: uploadStoreLogo
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: logo
+          in: formData
+          type: file
+      responses:
+        200:
+          description: Logo updated
+        401:
+          description: Unauthorized
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores/me/store/banner:
+    put:
+      tags: [marketplace]
+      summary: Upload store banner
+      operationId: uploadStoreBanner
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      consumes:
+        - multipart/form-data
+      parameters:
+        - name: banner
+          in: formData
+          type: file
+      responses:
+        200:
+          description: Banner updated
+        401:
+          description: Unauthorized
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores/admin/all:
+    get:
+      tags: [marketplace]
+      summary: Get all stores (admin)
+      operationId: adminGetAllStores
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+        - name: limit
+          in: query
+          type: integer
+      responses:
+        200:
+          description: All stores
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Store'
+              pagination:
+                $ref: '#/definitions/Pagination'
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+
+  /v1/marketplace/stores/admin/{id}/status:
+    put:
+      tags: [marketplace]
+      summary: Update store status (admin)
+      operationId: adminUpdateStoreStatus
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+        - name: body
+          in: body
+          required: true
+          schema:
+            $ref: '#/definitions/AdminUpdateStoreStatusDto'
+      responses:
+        200:
+          description: Store status updated
+        400:
+          description: Validation error
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Store not found
+
+  /v1/marketplace/stores/admin/{id}/verify:
+    put:
+      tags: [marketplace]
+      summary: Verify a store (admin)
+      operationId: adminVerifyStore
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Store verified
+        401:
+          description: Unauthorized
+        403:
+          description: Forbidden - admin only
+        404:
+          description: Store not found
+
+  # ----------------------------------------------------------------
+  # Marketplace — Wishlist
+  # ----------------------------------------------------------------
+  /v1/marketplace/wishlist:
+    get:
+      tags: [marketplace]
+      summary: Get own wishlist
+      operationId: getWishlist
+      security:
+        - bearerAuth: []
+      responses:
+        200:
+          description: Wishlist items
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '#/definitions/Product'
+        401:
+          description: Unauthorized
+
+  /v1/marketplace/wishlist/{productId}:
+    post:
+      tags: [marketplace]
+      summary: Add product to wishlist
+      operationId: addToWishlist
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Product added to wishlist
+        401:
+          description: Unauthorized
+        404:
+          description: Product not found
+    delete:
+      tags: [marketplace]
+      summary: Remove product from wishlist
+      operationId: removeFromWishlist
+      security:
+        - bearerAuth: []
+        - csrfToken: []
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          type: string
+      responses:
+        200:
+          description: Product removed from wishlist
+        401:
+          description: Unauthorized
+        404:
+          description: Product not found
+
+
 # =====================================================================
 #  DEFINITIONS
 # =====================================================================
@@ -7396,5 +10086,1027 @@ definitions:
         type: integer
         example: 142
       createdAt:
+        type: string
+        format: date-time
+
+  # ================================================================
+  #  AGENT SELF DTOs
+  # ================================================================
+  UpdateAgentSelfDto:
+    type: object
+    properties:
+      agentName:
+        type: string
+      firstName:
+        type: string
+      lastName:
+        type: string
+      phoneNumber:
+        type: string
+      bio:
+        type: string
+        maxLength: 500
+
+  ToggleAvailabilityDto:
+    type: object
+    required:
+      - acceptQueueBooking
+    properties:
+      acceptQueueBooking:
+        type: boolean
+        description: Whether the agent accepts new queue bookings
+
+  # ================================================================
+  #  CHAT DTOs & RESPONSES
+  # ================================================================
+  CreateConversationDto:
+    type: object
+    required:
+      - recipientId
+    properties:
+      recipientId:
+        type: string
+        description: MongoDB ObjectId of the conversation recipient
+
+  SendMessageDto:
+    type: object
+    required:
+      - contentType
+    properties:
+      contentType:
+        type: string
+        enum: [text, image, file, audio]
+      text:
+        type: string
+        maxLength: 4000
+        description: Required when contentType is text
+      replyTo:
+        type: string
+        description: Message ID being replied to
+
+  EditMessageDto:
+    type: object
+    required:
+      - text
+    properties:
+      text:
+        type: string
+        maxLength: 4000
+
+  ReactToMessageDto:
+    type: object
+    required:
+      - emoji
+    properties:
+      emoji:
+        type: string
+        minLength: 1
+        maxLength: 8
+        description: Emoji character(s) to react with
+
+  MarkMessagesReadDto:
+    type: object
+    properties:
+      messageIds:
+        type: array
+        items:
+          type: string
+        description: Specific message IDs to mark read. Omit to mark all unread messages as read.
+
+  DeleteMessageDto:
+    type: object
+    properties:
+      recallForEveryone:
+        type: boolean
+        description: If true, removes the message for all participants (sender only, within time limit)
+
+  SearchMessagesDto:
+    type: object
+    required:
+      - q
+    properties:
+      q:
+        type: string
+        maxLength: 200
+        description: Search query string
+      limit:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 20
+
+  ConversationResponse:
+    type: object
+    properties:
+      _id:
+        type: string
+      participants:
+        type: array
+        items:
+          $ref: '#/definitions/OnlineUserInfo'
+      lastMessage:
+        type: object
+        properties:
+          _id:
+            type: string
+          contentType:
+            type: string
+          text:
+            type: string
+          senderId:
+            type: string
+          createdAt:
+            type: string
+            format: date-time
+      unreadCount:
+        type: integer
+      deletedFor:
+        type: array
+        items:
+          type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  MessageResponse:
+    type: object
+    properties:
+      _id:
+        type: string
+      conversationId:
+        type: string
+      senderId:
+        type: string
+      contentType:
+        type: string
+        enum: [text, image, file, audio]
+      text:
+        type: string
+      attachment:
+        type: object
+        properties:
+          url:
+            type: string
+          publicId:
+            type: string
+          mimeType:
+            type: string
+          size:
+            type: integer
+          fileName:
+            type: string
+      replyTo:
+        type: string
+        description: ID of the message being replied to
+      reactions:
+        type: array
+        items:
+          type: object
+          properties:
+            emoji:
+              type: string
+            userId:
+              type: string
+      readBy:
+        type: array
+        items:
+          type: object
+          properties:
+            userId:
+              type: string
+            readAt:
+              type: string
+              format: date-time
+      isDeleted:
+        type: boolean
+      deletedFor:
+        type: array
+        items:
+          type: string
+      editedAt:
+        type: string
+        format: date-time
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  # ================================================================
+  #  MARKETPLACE DTOs
+  # ================================================================
+
+  # ---- Cart ----
+  AddToCartDto:
+    type: object
+    required:
+      - productId
+      - quantity
+    properties:
+      productId:
+        type: string
+        description: MongoDB ObjectId of the product
+      variantIndex:
+        type: integer
+        minimum: 0
+        description: Index of the product variant (0-based). Omit for default variant.
+      quantity:
+        type: integer
+        minimum: 1
+
+  UpdateCartItemDto:
+    type: object
+    required:
+      - quantity
+    properties:
+      quantity:
+        type: integer
+        minimum: 0
+        description: New quantity. Set to 0 to remove item.
+
+  Cart:
+    type: object
+    properties:
+      _id:
+        type: string
+      userId:
+        type: string
+      items:
+        type: array
+        items:
+          type: object
+          properties:
+            productId:
+              type: string
+            variantIndex:
+              type: integer
+            quantity:
+              type: integer
+            price:
+              type: number
+            product:
+              $ref: '#/definitions/Product'
+      subtotal:
+        type: number
+      updatedAt:
+        type: string
+        format: date-time
+
+  # ---- Order ----
+  CreateOrderDto:
+    type: object
+    required:
+      - storeId
+      - items
+      - paymentMethod
+      - shippingAddress
+    properties:
+      storeId:
+        type: string
+        description: MongoDB ObjectId of the store
+      items:
+        type: array
+        items:
+          type: object
+          required:
+            - productId
+            - quantity
+          properties:
+            productId:
+              type: string
+            variantIndex:
+              type: integer
+              minimum: 0
+            quantity:
+              type: integer
+              minimum: 1
+      paymentMethod:
+        type: string
+        description: Payment method enum value (e.g. cash_on_delivery, card)
+      shippingAddress:
+        type: object
+        required:
+          - fullName
+          - phone
+          - address
+          - city
+        properties:
+          fullName:
+            type: string
+          phone:
+            type: string
+          address:
+            type: string
+          city:
+            type: string
+          state:
+            type: string
+          zipCode:
+            type: string
+          notes:
+            type: string
+      notes:
+        type: string
+        maxLength: 500
+
+  UpdateOrderStatusDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        enum: [confirmed, processing, shipped, delivered, cancelled]
+      reason:
+        type: string
+        maxLength: 500
+        description: Required when cancelling
+      trackingNumber:
+        type: string
+        maxLength: 100
+      trackingUrl:
+        type: string
+        maxLength: 500
+
+  ResolveDisputeDto:
+    type: object
+    required:
+      - resolution
+    properties:
+      resolution:
+        type: string
+        enum: [refunded, delivered, cancelled]
+      notes:
+        type: string
+        maxLength: 1000
+      refundAmount:
+        type: number
+        minimum: 0
+
+  Order:
+    type: object
+    properties:
+      _id:
+        type: string
+      storeId:
+        type: string
+      buyerId:
+        type: string
+      items:
+        type: array
+        items:
+          type: object
+          properties:
+            productId:
+              type: string
+            variantIndex:
+              type: integer
+            quantity:
+              type: integer
+            unitPrice:
+              type: number
+            subtotal:
+              type: number
+      status:
+        type: string
+        enum: [pending, confirmed, processing, shipped, delivered, cancelled, disputed, resolved]
+      paymentMethod:
+        type: string
+      shippingAddress:
+        type: object
+        properties:
+          fullName:
+            type: string
+          phone:
+            type: string
+          address:
+            type: string
+          city:
+            type: string
+          state:
+            type: string
+          zipCode:
+            type: string
+      subtotal:
+        type: number
+      total:
+        type: number
+      notes:
+        type: string
+      trackingNumber:
+        type: string
+      trackingUrl:
+        type: string
+      disputeReason:
+        type: string
+      disputeResolution:
+        type: string
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  # ---- Product ----
+  CreateProductDto:
+    type: object
+    required:
+      - storeId
+      - name
+      - categoryId
+      - price
+    properties:
+      storeId:
+        type: string
+      name:
+        type: string
+        minLength: 2
+        maxLength: 200
+      description:
+        type: string
+        maxLength: 5000
+      categoryId:
+        type: string
+      tags:
+        type: array
+        items:
+          type: string
+        maxItems: 20
+      price:
+        type: number
+        minimum: 0
+      compareAtPrice:
+        type: number
+        minimum: 0
+      currency:
+        type: string
+        maxLength: 10
+      variants:
+        type: array
+        maxItems: 50
+        items:
+          type: object
+          required:
+            - name
+            - price
+            - stock
+          properties:
+            sku:
+              type: string
+            name:
+              type: string
+            price:
+              type: number
+            compareAtPrice:
+              type: number
+            stock:
+              type: integer
+            attributes:
+              type: object
+      stock:
+        type: integer
+        minimum: 0
+      sku:
+        type: string
+        maxLength: 50
+      condition:
+        type: string
+        description: ProductCondition enum (new, used, refurbished)
+      isDigital:
+        type: boolean
+      weight:
+        type: number
+        minimum: 0
+      dimensions:
+        type: object
+        properties:
+          length:
+            type: number
+          width:
+            type: number
+          height:
+            type: number
+
+  UpdateProductDto:
+    type: object
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 200
+      description:
+        type: string
+        maxLength: 5000
+      categoryId:
+        type: string
+      tags:
+        type: array
+        items:
+          type: string
+        maxItems: 20
+      price:
+        type: number
+        minimum: 0
+      compareAtPrice:
+        type: number
+        minimum: 0
+      currency:
+        type: string
+      variants:
+        type: array
+        items:
+          type: object
+      stock:
+        type: integer
+        minimum: 0
+      sku:
+        type: string
+      condition:
+        type: string
+      isDigital:
+        type: boolean
+      weight:
+        type: number
+      dimensions:
+        type: object
+      status:
+        type: string
+        enum: [draft, active, archived]
+
+  AdminUpdateProductStatusDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        enum: [active, hidden]
+      reason:
+        type: string
+        maxLength: 500
+
+  Product:
+    type: object
+    properties:
+      _id:
+        type: string
+      storeId:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      categoryId:
+        type: string
+      tags:
+        type: array
+        items:
+          type: string
+      price:
+        type: number
+      compareAtPrice:
+        type: number
+      currency:
+        type: string
+      variants:
+        type: array
+        items:
+          type: object
+          properties:
+            sku:
+              type: string
+            name:
+              type: string
+            price:
+              type: number
+            compareAtPrice:
+              type: number
+            stock:
+              type: integer
+            attributes:
+              type: object
+      stock:
+        type: integer
+      sku:
+        type: string
+      condition:
+        type: string
+      isDigital:
+        type: boolean
+      images:
+        type: array
+        items:
+          type: object
+          properties:
+            url:
+              type: string
+            publicId:
+              type: string
+      status:
+        type: string
+        enum: [draft, active, archived, hidden]
+      averageRating:
+        type: number
+      reviewCount:
+        type: integer
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  # ---- Product Category ----
+  CreateProductCategoryDto:
+    type: object
+    required:
+      - name
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        maxLength: 500
+      icon:
+        type: string
+        maxLength: 100
+      image:
+        type: object
+        properties:
+          url:
+            type: string
+          publicId:
+            type: string
+      isActive:
+        type: boolean
+      displayOrder:
+        type: integer
+        minimum: 0
+
+  UpdateProductCategoryDto:
+    type: object
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        maxLength: 500
+      icon:
+        type: string
+        maxLength: 100
+      image:
+        type: object
+      isActive:
+        type: boolean
+      displayOrder:
+        type: integer
+        minimum: 0
+
+  ProductCategory:
+    type: object
+    properties:
+      _id:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      image:
+        type: object
+        properties:
+          url:
+            type: string
+          publicId:
+            type: string
+      isActive:
+        type: boolean
+      displayOrder:
+        type: integer
+      createdAt:
+        type: string
+        format: date-time
+
+  # ---- Product Category Suggestion ----
+  CreateProductCategorySuggestionDto:
+    type: object
+    required:
+      - name
+      - description
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        minLength: 10
+        maxLength: 1000
+      exampleProducts:
+        type: array
+        items:
+          type: string
+        maxItems: 10
+      iconHint:
+        type: string
+        maxLength: 100
+
+  UpdateProductCategorySuggestionDto:
+    type: object
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        minLength: 10
+        maxLength: 1000
+      exampleProducts:
+        type: array
+        items:
+          type: string
+        maxItems: 10
+      iconHint:
+        type: string
+        maxLength: 100
+
+  UpdateProductCategorySuggestionStatusDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        description: ProductCategorySuggestionStatus enum
+      adminNote:
+        type: string
+        maxLength: 500
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        maxLength: 500
+      icon:
+        type: string
+        maxLength: 100
+      displayOrder:
+        type: integer
+        minimum: 0
+
+  AdminApproveProductCategorySuggestionDto:
+    type: object
+    properties:
+      status:
+        type: string
+      name:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      displayOrder:
+        type: integer
+      adminNote:
+        type: string
+
+  # ---- Review ----
+  CreateReviewDto:
+    type: object
+    required:
+      - productId
+      - orderId
+      - rating
+    properties:
+      productId:
+        type: string
+        description: MongoDB ObjectId of the product
+      orderId:
+        type: string
+        description: MongoDB ObjectId of the completed order
+      rating:
+        type: integer
+        minimum: 1
+        maximum: 5
+      title:
+        type: string
+        maxLength: 200
+      comment:
+        type: string
+        maxLength: 2000
+
+  UpdateReviewDto:
+    type: object
+    properties:
+      rating:
+        type: integer
+        minimum: 1
+        maximum: 5
+      title:
+        type: string
+        maxLength: 200
+      comment:
+        type: string
+        maxLength: 2000
+
+  Review:
+    type: object
+    properties:
+      _id:
+        type: string
+      productId:
+        type: string
+      storeId:
+        type: string
+      reviewerId:
+        type: string
+      orderId:
+        type: string
+      rating:
+        type: integer
+      title:
+        type: string
+      comment:
+        type: string
+      images:
+        type: array
+        items:
+          type: object
+          properties:
+            url:
+              type: string
+            publicId:
+              type: string
+      helpfulCount:
+        type: integer
+      isHidden:
+        type: boolean
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
+        type: string
+        format: date-time
+
+  # ---- Store ----
+  CreateStoreDto:
+    type: object
+    required:
+      - name
+      - category
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        maxLength: 1000
+      category:
+        type: string
+        description: StoreCategory enum
+      contactEmail:
+        type: string
+        format: email
+      contactPhone:
+        type: string
+        maxLength: 20
+      location:
+        type: object
+        properties:
+          latitude:
+            type: number
+          longitude:
+            type: number
+          address:
+            type: string
+            maxLength: 300
+          city:
+            type: string
+          state:
+            type: string
+      policies:
+        type: object
+        properties:
+          returnPolicy:
+            type: string
+            maxLength: 2000
+          shippingPolicy:
+            type: string
+            maxLength: 2000
+
+  UpdateStoreDto:
+    type: object
+    properties:
+      name:
+        type: string
+        minLength: 2
+        maxLength: 100
+      description:
+        type: string
+        maxLength: 1000
+      category:
+        type: string
+      contactEmail:
+        type: string
+        format: email
+      contactPhone:
+        type: string
+        maxLength: 20
+      location:
+        type: object
+      policies:
+        type: object
+
+  AdminUpdateStoreStatusDto:
+    type: object
+    required:
+      - status
+    properties:
+      status:
+        type: string
+        enum: [active, suspended, closed]
+      reason:
+        type: string
+        maxLength: 500
+
+  Store:
+    type: object
+    properties:
+      _id:
+        type: string
+      ownerId:
+        type: string
+      name:
+        type: string
+      slug:
+        type: string
+      description:
+        type: string
+      category:
+        type: string
+      logo:
+        type: object
+        properties:
+          url:
+            type: string
+          publicId:
+            type: string
+      banner:
+        type: object
+        properties:
+          url:
+            type: string
+          publicId:
+            type: string
+      contactEmail:
+        type: string
+      contactPhone:
+        type: string
+      location:
+        type: object
+        properties:
+          latitude:
+            type: number
+          longitude:
+            type: number
+          address:
+            type: string
+          city:
+            type: string
+          state:
+            type: string
+      policies:
+        type: object
+        properties:
+          returnPolicy:
+            type: string
+          shippingPolicy:
+            type: string
+      isVerified:
+        type: boolean
+      status:
+        type: string
+        enum: [active, suspended, closed]
+      averageRating:
+        type: number
+      reviewCount:
+        type: integer
+      createdAt:
+        type: string
+        format: date-time
+      updatedAt:
         type: string
         format: date-time

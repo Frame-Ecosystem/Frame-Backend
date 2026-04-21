@@ -1,9 +1,9 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import ClientController from '@systems/UserManager/controllers/client.controller';
 import ClientVisitorProfileController from '@systems/UserManager/controllers/clientVisitorProfile.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware } from '@middlewares/role.middleware';
 
 class ClientRoute implements Routes {
   public path = '/v1/client';
@@ -28,21 +28,21 @@ class ClientRoute implements Routes {
      * @query   sortOrder - Sort order (asc, desc) - only used when client has no location data
      * @note    When client location is available, lounges are automatically sorted by distance (nearest first)
      */
-    this.router.get('/lounges', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientController.getAllLounges);
+    this.router.get('/lounges', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.clientController.getAllLounges);
 
     /**
      * @route   GET /v1/client/lounges/:loungeId
      * @desc    Get lounge details by ID (for clients, admins, and lounges to view lounge profile)
      * @access  Private (Client, Admin, or Lounge)
      */
-    this.router.get('/lounges/:loungeId', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientController.getLoungeById);
+    this.router.get('/lounges/:loungeId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.clientController.getLoungeById);
 
     /**
      * @route   GET /v1/client/lounges/:loungeId/services
      * @desc    Get all services offered by a specific lounge (for clients, admins, and lounges to view available services)
      * @access  Private (Client, Admin, or Lounge)
      */
-    this.router.get('/lounges/:loungeId/services', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientController.getLoungeServicesById);
+    this.router.get('/lounges/:loungeId/services', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.clientController.getLoungeServicesById);
 
     /**
      * @route   GET /v1/client/services/:serviceId/lounges
@@ -57,7 +57,7 @@ class ClientRoute implements Routes {
      * @query   userLatitude - User's latitude for distance-based sorting
      * @query   userLongitude - User's longitude for distance-based sorting
      */
-    this.router.get('/services/:serviceId/lounges', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientController.getLoungesByService);
+    this.router.get('/services/:serviceId/lounges', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.clientController.getLoungesByService);
 
     /* ------------------------------------------------------------------ */
     /*  Client Profile routes (visitor profile)                           */
@@ -71,7 +71,7 @@ class ClientRoute implements Routes {
      *          - Client: minimal public profile (name, avatar, bio, gender)
      * @access  Private (Client, Admin, or Lounge)
      */
-    this.router.get('/profile/:clientId', authMiddleware, adminOrLoungeOrClientMiddleware, this.clientVisitorProfileController.getClientProfile);
+    this.router.get('/profile/:clientId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.clientVisitorProfileController.getClientProfile);
 
     /**
      * @route   GET /v1/client/profile/:clientId/bookings
@@ -87,7 +87,7 @@ class ClientRoute implements Routes {
     this.router.get(
       '/profile/:clientId/bookings',
       authMiddleware,
-      adminOrLoungeOrClientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       this.clientVisitorProfileController.getClientBookings,
     );
 
@@ -101,7 +101,7 @@ class ClientRoute implements Routes {
     this.router.get(
       '/profile/:clientId/likes',
       authMiddleware,
-      adminOrLoungeOrClientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       this.clientVisitorProfileController.getClientLikedLounges,
     );
 
@@ -115,7 +115,7 @@ class ClientRoute implements Routes {
     this.router.get(
       '/profile/:clientId/ratings',
       authMiddleware,
-      adminOrLoungeOrClientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       this.clientVisitorProfileController.getClientRatings,
     );
   }

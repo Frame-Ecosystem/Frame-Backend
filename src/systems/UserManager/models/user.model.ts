@@ -1,5 +1,5 @@
 ﻿import { model, Schema, Document } from 'mongoose';
-import { User, Client as IClient, Lounge as ILounge, Admin as IAdmin } from '@systems/UserManager/interfaces/user.interface';
+import { User, Client as IClient, Lounge as ILounge, Admin as IAdmin, Agent as IAgent } from '@systems/UserManager/interfaces/user.interface';
 
 // Base User Schema - shared by all user types
 const userSchema: Schema = new Schema(
@@ -15,7 +15,7 @@ const userSchema: Schema = new Schema(
     },
     type: {
       type: String,
-      enum: ['user', 'client', 'lounge', 'admin'],
+      enum: ['user', 'client', 'lounge', 'admin', 'agent'],
       default: 'user',
       required: true,
     },
@@ -235,6 +235,34 @@ const userSchema: Schema = new Schema(
         verified: { type: Boolean, default: false },
       },
     },
+
+    // ─── Agent-specific fields (only meaningful when type === 'agent') ───
+    /** Display name for the agent (e.g. "Sarah"). Optional, agent-only. */
+    agentName: {
+      type: String,
+      required: false,
+      trim: true,
+    },
+    /** Parent Lounge user this agent works for. Required when type === 'agent'. */
+    parentLounge: {
+      type: Schema.Types.ObjectId,
+      ref: 'User',
+      required: function (this: any) {
+        return this.type === 'agent';
+      },
+    },
+    /** Lounge services this agent is qualified to perform. */
+    services: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: 'LoungeService',
+      },
+    ],
+    /** Whether this agent currently accepts walk-in/queue bookings. */
+    acceptQueueBooking: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true, // Automatically adds createdAt and updatedAt fields
@@ -246,6 +274,12 @@ userSchema.index({ 'refreshTokens.jti': 1 });
 
 // Add index on refreshTokens.expiresAt for efficient cleanup of expired tokens
 userSchema.index({ 'refreshTokens.expiresAt': 1 });
+
+// Index on type for efficient role-scoped queries (e.g. find all agents)
+userSchema.index({ type: 1 });
+
+// Compound index for agent-by-lounge lookups (e.g. "all agents for this lounge")
+userSchema.index({ parentLounge: 1, type: 1 });
 
 // Base User Model
 const userModel = model<User & Document>('User', userSchema);
@@ -265,4 +299,9 @@ export function isClient(user: User & Document): user is IClient & Document {
 // Helper function to check if a user is a Lounge
 export function isLounge(user: User & Document): user is ILounge & Document {
   return (user as any).type === 'lounge';
+}
+
+// Helper function to check if a user is an Agent
+export function isAgent(user: User & Document): user is IAgent & Document {
+  return (user as any).type === 'agent';
 }

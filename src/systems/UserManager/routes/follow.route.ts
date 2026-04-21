@@ -1,7 +1,7 @@
-﻿import { Router } from 'express';
+import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware } from '@middlewares/role.middleware';
 import { followRateLimiter } from '@middlewares/rateLimit.middleware';
 import FollowController from '@systems/UserManager/controllers/follow.controller';
 
@@ -18,23 +18,23 @@ class FollowRoute implements Routes {
     /**
      * @route   POST /v1/follows/:targetId
      * @desc    Follow a user (client or lounge)
-     * @access  Private (Client or Lounge) — rate-limited
+     * @access  Private (Client or Lounge) � rate-limited
      */
-    this.router.post('/:targetId', authMiddleware, adminOrLoungeOrClientMiddleware, followRateLimiter, this.followController.follow);
+    this.router.post('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, followRateLimiter, this.followController.follow);
 
     /**
      * @route   DELETE /v1/follows/:targetId
      * @desc    Unfollow a user
      * @access  Private (Client or Lounge)
      */
-    this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientMiddleware, this.followController.unfollow);
+    this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.unfollow);
 
     /**
      * @route   GET /v1/follows/check/:targetId
      * @desc    Check if current user follows target
      * @access  Private (Client or Lounge)
      */
-    this.router.get('/check/:targetId', authMiddleware, adminOrLoungeOrClientMiddleware, this.followController.isFollowing);
+    this.router.get('/check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.isFollowing);
 
     /**
      * @route   GET /v1/follows/following/:userId
@@ -42,7 +42,7 @@ class FollowRoute implements Routes {
      * @access  Private (Client, Lounge, or Admin)
      * @query   page, limit, type (optional: 'client' | 'lounge')
      */
-    this.router.get('/following/:userId', authMiddleware, adminOrLoungeOrClientMiddleware, this.followController.getFollowing);
+    this.router.get('/following/:userId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.getFollowing);
 
     /**
      * @route   GET /v1/follows/followers/:userId
@@ -50,14 +50,14 @@ class FollowRoute implements Routes {
      * @access  Private (Client, Lounge, or Admin)
      * @query   page, limit, type (optional: 'client' | 'lounge')
      */
-    this.router.get('/followers/:userId', authMiddleware, adminOrLoungeOrClientMiddleware, this.followController.getFollowers);
+    this.router.get('/followers/:userId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.getFollowers);
 
     /**
      * @route   GET /v1/follows/counts/:userId
      * @desc    Get follower + following counts for a user
      * @access  Private (Client, Lounge, or Admin)
      */
-    this.router.get('/counts/:userId', authMiddleware, adminOrLoungeOrClientMiddleware, this.followController.getCounts);
+    this.router.get('/counts/:userId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.getCounts);
   }
 }
 

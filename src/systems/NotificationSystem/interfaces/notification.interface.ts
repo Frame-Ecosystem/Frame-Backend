@@ -9,6 +9,7 @@ export enum NotificationCategory {
   CONTENT = 'content',
   ADMIN = 'admin',
   SYSTEM = 'system',
+  CHAT = 'chat',
 }
 
 /* ------------------------------------------------------------------ */
@@ -54,6 +55,9 @@ export enum NotificationType {
   PRODUCT_CATEGORY_SUGGESTION_CREATED = 'admin:productCategorySuggestionCreated',
   PRODUCT_CATEGORY_SUGGESTION_APPROVED = 'admin:productCategorySuggestionApproved',
   PRODUCT_CATEGORY_SUGGESTION_REJECTED = 'admin:productCategorySuggestionRejected',
+
+  // ── Chat ────────────────────────────────────────────────────────
+  CHAT_MESSAGE = 'chat:message',
 }
 
 /* ------------------------------------------------------------------ */
@@ -93,6 +97,8 @@ export const NOTIFICATION_CATEGORY_MAP: Record<NotificationType, NotificationCat
   [NotificationType.PRODUCT_CATEGORY_SUGGESTION_CREATED]: NotificationCategory.ADMIN,
   [NotificationType.PRODUCT_CATEGORY_SUGGESTION_APPROVED]: NotificationCategory.ADMIN,
   [NotificationType.PRODUCT_CATEGORY_SUGGESTION_REJECTED]: NotificationCategory.ADMIN,
+  // Chat
+  [NotificationType.CHAT_MESSAGE]: NotificationCategory.CHAT,
 };
 
 /* ------------------------------------------------------------------ */
@@ -119,6 +125,10 @@ export interface NotificationMetadata {
   // Admin
   suggestionId?: string;
   reason?: string;
+
+  // Chat
+  conversationId?: string;
+  messageId?: string;
 }
 
 /* ------------------------------------------------------------------ */

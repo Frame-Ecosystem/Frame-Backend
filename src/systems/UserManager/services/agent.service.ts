@@ -1,298 +1,269 @@
-﻿import { Agent } from '@systems/UserManager/interfaces/agent.interface';
-import { CreateAgentDto, UpdateAgentDto } from '@systems/UserManager/dtos/agent.dto';
-import agentModel from '@systems/UserManager/models/agent.model';
+import { hash } from 'bcrypt';
+import mongoose from 'mongoose';
+import { Agent } from '@systems/UserManager/interfaces/user.interface';
+import { CreateAgentDto, UpdateAgentDto, UpdateAgentSelfDto } from '@systems/UserManager/dtos/agent.dto';
 import userModel from '@systems/UserManager/models/user.model';
 import loungeServiceModel from '@systems/ServiceCatalogSystem/models/loungeService.model';
-import { BadRequestException, NotFoundException, ConflictException } from '@exceptions/HttpException';
+import { BadRequestException, ConflictException, NotFoundException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
+import { BCRYPT_ROUNDS } from '@config/constants';
 import R2Service from '@shared/services/cloudflareR2.service';
 import QueueService from '@systems/BookingSystem/services/queue.service';
+
+/**
+ * AgentService manages the lifecycle of Agent users (User documents with
+ * `type === 'agent'`). Agents are created by Admins or Lounges, log in
+ * via the standard /v1/auth/login flow, and run their own daily queue.
+ */
 class AgentService {
-  public agents = agentModel;
   public users = userModel;
   public loungeServices = loungeServiceModel;
+  private queueService = new QueueService();
 
-  /**
-   * Verify that an agent belongs to the specified lounge.
-   * Throws NotFoundException if ownership check fails.
-   */
-  private verifyOwnership(agent: Agent, loungeId?: string): void {
-    if (loungeId && agent.loungeId?.toString() !== loungeId) {
+  /** Fields safe to send back to clients (never the password / refreshTokens). */
+  private static readonly PUBLIC_FIELDS =
+    '-password -refreshTokens -emailVerification -fcmTokens -failedLoginAttempts -lockUntil -oauth -__v';
+
+  // --- Internal helpers --------------------------------------------
+
+  private async findAgent(agentId: string): Promise<any> {
+    if (!mongoose.Types.ObjectId.isValid(agentId)) {
+      throw new BadRequestException('Invalid agent ID format', 'INVALID_AGENT_ID');
+    }
+    const agent = await this.users.findOne({ _id: agentId, type: 'agent' });
+    if (!agent) throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
+    return agent;
+  }
+
+  /** Throw if `loungeId` is supplied and the agent does not belong to it. */
+  private verifyOwnership(agent: any, loungeId?: string): void {
+    if (loungeId && agent.parentLounge?.toString() !== loungeId) {
       throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
     }
   }
-  private queueService = new QueueService();
+
+  /** Validate that all listed services exist, are active, and belong to the lounge. */
+  private async validateServicesForLounge(serviceIds: string[], loungeId: string): Promise<void> {
+    const services = await this.loungeServices.find({
+      _id: { $in: serviceIds },
+      loungeId,
+      isActive: true,
+      status: 'active',
+    });
+    if (services.length !== new Set(serviceIds).size) {
+      throw new BadRequestException('Some lounge services not found or do not belong to the specified lounge', 'INVALID_LOUNGE_SERVICES');
+    }
+  }
+
+  // --- CRUD (admin / lounge facing) --------------------------------
 
   /**
-   * Create a new agent
+   * Create a new Agent user.
+   *
+   * Caller contract (enforced by the controller):
+   *   - When the caller is a Lounge, `data.parentLounge` is overridden with the
+   *     authenticated lounge id.
+   *   - When the caller is an Admin, `data.parentLounge` MUST be supplied.
    */
   public async createAgent(data: CreateAgentDto, file?: Express.Multer.File): Promise<Agent> {
-    try {
-      if (isEmpty(data) || !data.agentName || !data.password || !data.loungeId || !data.idLoungeService || data.idLoungeService.length === 0) {
-        logger.warn('AgentService.createAgent: invalid data provided');
-        throw new BadRequestException('Agent name, password, lounge ID, and lounge services are required', 'MISSING_REQUIRED_FIELDS');
-      }
+    if (isEmpty(data) || !data.email || !data.password || !data.parentLounge || !data.services?.length) {
+      throw new BadRequestException('Email, password, parent lounge and services are required', 'MISSING_REQUIRED_FIELDS');
+    }
 
-      // Check if lounge exists and is of type 'lounge'
-      const lounge = await this.users.findOne({ _id: data.loungeId, type: 'lounge' });
-      if (!lounge) {
-        logger.error(`AgentService.createAgent: lounge not found or not a lounge: ${data.loungeId}`);
-        throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
-      }
+    const normalizedEmail = data.email.toLowerCase().trim();
 
-      // Validate that all lounge services exist and belong to the same lounge
-      const loungeServices = await this.loungeServices.find({
-        _id: { $in: data.idLoungeService },
-        loungeId: data.loungeId,
-        isActive: true,
-        status: 'active',
-      });
+    // Parent lounge must exist and be a Lounge
+    const lounge = await this.users.findOne({ _id: data.parentLounge, type: 'lounge' });
+    if (!lounge) throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
 
-      if (loungeServices.length !== data.idLoungeService.length) {
-        logger.error(`AgentService.createAgent: some lounge services not found or don't belong to lounge ${data.loungeId}`);
-        throw new BadRequestException('Some lounge services not found or do not belong to the specified lounge', 'INVALID_LOUNGE_SERVICES');
-      }
+    // Email & phone uniqueness across the whole User collection
+    if (await this.users.findOne({ email: normalizedEmail })) {
+      throw new ConflictException('Email already registered', 'EMAIL_EXISTS');
+    }
+    if (data.phoneNumber && (await this.users.findOne({ phoneNumber: data.phoneNumber }))) {
+      throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+    }
 
-      // Check if agent name already exists
-      const existingAgent = await this.agents.findOne({ agentName: data.agentName });
-      if (existingAgent) {
-        logger.error(`AgentService.createAgent: agent name already exists: ${data.agentName}`);
-        throw new ConflictException('An agent with this name already exists', 'AGENT_NAME_EXISTS');
-      }
+    await this.validateServicesForLounge(data.services, data.parentLounge);
 
-      const agent = await this.agents.create(data);
+    const hashedPassword = await hash(data.password, BCRYPT_ROUNDS);
 
-      // Handle image upload (either from file or base64)
-      let imageUploaded = false;
-      if (file || data.profileImage) {
-        try {
-          let imageBuffer: Buffer;
-          const fileName = agent._id;
+    const created = await this.users.create({
+      email: normalizedEmail,
+      password: hashedPassword,
+      type: 'agent',
+      agentName: data.agentName,
+      firstName: data.firstName,
+      lastName: data.lastName,
+      phoneNumber: data.phoneNumber,
+      parentLounge: data.parentLounge,
+      services: data.services,
+      acceptQueueBooking: data.acceptQueueBooking ?? false,
+      isBlocked: data.isBlocked ?? false,
+      // Agents are created by trusted parties; mark email already verified so
+      // they can log in immediately without needing the magic-link flow.
+      emailVerification: [{ isVerified: true }],
+    });
 
-          if (data.profileImage) {
-            // Handle base64 image
-            const base64Data = data.profileImage.replace(/^data:image\/\w+;base64,/, '');
-            imageBuffer = Buffer.from(base64Data, 'base64');
-          } else if (file) {
-            // Handle file upload
-            imageBuffer = file.buffer;
-          }
-
-          if (imageBuffer) {
-            const { url, publicId } = await R2Service.uploadProfileImage(imageBuffer, fileName);
-
-            // Update agent with image
-            await this.agents.findByIdAndUpdate(agent._id, {
-              profileImage: {
-                url,
-                publicId,
-              },
-            });
-
-            imageUploaded = true;
-          }
-        } catch (imageError) {
-          logger.warn(`AgentService.createAgent: agent created but image upload failed: ${imageError.message}`);
-          // Agent is created successfully, just log the image upload failure
-        }
-      }
-
-      // Fetch updated agent
-      const finalAgent = await this.agents.findById(agent._id).populate('loungeId', 'loungeTitle email').populate('idLoungeService', 'serviceId');
-      logger.info(`AgentService.createAgent: agent created ${imageUploaded ? 'with' : 'without'} image successfully: ${agent._id}`);
-
-      // Auto-create today's queue for the new agent
+    // Optional avatar upload (file or base64 string)
+    if (file || data.profileImage) {
       try {
-        await this.queueService.createQueue(agent._id.toString());
-        logger.info(`AgentService.createAgent: queue auto-created for agent ${agent._id}`);
-      } catch (queueError) {
-        logger.warn(`AgentService.createAgent: agent created but queue creation failed: ${queueError.message}`);
+        const buffer = file ? file.buffer : Buffer.from(data.profileImage.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+        const { url, publicId } = await R2Service.uploadProfileImage(buffer, created._id.toString());
+        await this.users.findByIdAndUpdate(created._id, { profileImage: { url, publicId } });
+      } catch (err) {
+        logger.warn(`AgentService.createAgent: avatar upload failed for ${created._id}: ${err.message}`);
       }
-
-      return finalAgent;
-    } catch (error) {
-      logger.error('AgentService.createAgent: error creating agent', error);
-      throw error;
     }
+
+    // Auto-create today's queue so the agent can immediately receive bookings
+    try {
+      await this.queueService.createQueue(created._id.toString());
+    } catch (err) {
+      logger.warn(`AgentService.createAgent: queue auto-creation failed for ${created._id}: ${err.message}`);
+    }
+
+    logger.info(`AgentService.createAgent: agent created ${created._id} for lounge ${data.parentLounge}`);
+    return this.getAgentById(created._id.toString());
   }
 
-  /**
-   * Get all agents for a lounge
-   */
+  /** Get all agents belonging to a lounge. */
   public async getAgentsByLounge(loungeId: string): Promise<Agent[]> {
-    try {
-      if (isEmpty(loungeId)) {
-        throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
-      }
-
-      const agents = await this.agents.find({ loungeId }).populate('loungeId', 'loungeTitle email').populate('idLoungeService', 'serviceId');
-      return agents;
-    } catch (error) {
-      logger.error('AgentService.getAgentsByLounge: error getting agents', error);
-      throw error;
-    }
+    if (isEmpty(loungeId)) throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
+    return this.users
+      .find({ type: 'agent', parentLounge: loungeId })
+      .select(AgentService.PUBLIC_FIELDS)
+      .populate('parentLounge', 'loungeTitle email')
+      .populate('services', 'serviceId price duration');
   }
 
-  /**
-   * Get agent by ID (with lounge ownership check)
-   */
+  /** Get a single agent by id, optionally enforcing lounge ownership. */
   public async getAgentById(agentId: string, loungeId?: string): Promise<Agent> {
-    try {
-      if (isEmpty(agentId)) {
-        throw new BadRequestException('Agent ID is required', 'MISSING_AGENT_ID');
-      }
-
-      const agent = await this.agents.findById(agentId).populate('loungeId', 'loungeTitle email');
-      if (!agent) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
-
-      this.verifyOwnership(agent, loungeId);
-
-      return agent;
-    } catch (error) {
-      logger.error('AgentService.getAgentById: error getting agent', error);
-      throw error;
-    }
+    const agent = await this.findAgent(agentId);
+    this.verifyOwnership(agent, loungeId);
+    return this.users
+      .findById(agent._id)
+      .select(AgentService.PUBLIC_FIELDS)
+      .populate('parentLounge', 'loungeTitle email')
+      .populate('services', 'serviceId price duration');
   }
 
-  /**
-   * Update agent
-   */
+  /** Update an agent (admin or owning lounge). */
   public async updateAgent(agentId: string, data: UpdateAgentDto, loungeId?: string): Promise<Agent> {
-    try {
-      if (isEmpty(agentId)) {
-        throw new BadRequestException('Agent ID is required', 'MISSING_AGENT_ID');
+    if (isEmpty(data)) throw new BadRequestException('Update data is required', 'MISSING_UPDATE_DATA');
+    const agent = await this.findAgent(agentId);
+    this.verifyOwnership(agent, loungeId);
+
+    const update: any = {};
+    if (data.agentName !== undefined) update.agentName = data.agentName;
+    if (data.firstName !== undefined) update.firstName = data.firstName;
+    if (data.lastName !== undefined) update.lastName = data.lastName;
+    if (data.phoneNumber !== undefined) {
+      if (data.phoneNumber !== agent.phoneNumber) {
+        const dup = await this.users.findOne({ phoneNumber: data.phoneNumber, _id: { $ne: agent._id } });
+        if (dup) throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
       }
-
-      if (isEmpty(data)) {
-        throw new BadRequestException('Update data is required', 'MISSING_UPDATE_DATA');
-      }
-
-      // Check if agent exists
-      const existingAgent = await this.agents.findById(agentId);
-      if (!existingAgent) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
-
-      this.verifyOwnership(existingAgent, loungeId);
-
-      // Check if agent name is being updated and if it already exists
-      if (data.agentName && data.agentName !== existingAgent.agentName) {
-        const nameExists = await this.agents.findOne({ agentName: data.agentName });
-        if (nameExists) {
-          throw new ConflictException('An agent with this name already exists', 'AGENT_NAME_EXISTS');
-        }
-      }
-
-      const updatedAgent = await this.agents.findByIdAndUpdate(agentId, data, { new: true }).populate('loungeId', 'loungeTitle email');
-      logger.info(`AgentService.updateAgent: agent updated successfully: ${agentId}`);
-      return updatedAgent;
-    } catch (error) {
-      logger.error('AgentService.updateAgent: error updating agent', error);
-      throw error;
+      update.phoneNumber = data.phoneNumber;
     }
+    if (data.password !== undefined) {
+      update.password = await hash(data.password, BCRYPT_ROUNDS);
+      update.passwordChangedAt = new Date();
+    }
+    if (data.isBlocked !== undefined) update.isBlocked = data.isBlocked;
+    if (data.acceptQueueBooking !== undefined) update.acceptQueueBooking = data.acceptQueueBooking;
+    if (data.services !== undefined) {
+      await this.validateServicesForLounge(data.services, agent.parentLounge.toString());
+      update.services = data.services;
+    }
+
+    await this.users.findByIdAndUpdate(agent._id, update, { runValidators: true });
+    logger.info(`AgentService.updateAgent: ${agentId} updated`);
+    return this.getAgentById(agentId);
   }
 
-  /**
-   * Delete agent
-   */
+  /** Delete an agent (admin or owning lounge). */
   public async deleteAgent(agentId: string, loungeId?: string): Promise<void> {
-    try {
-      if (isEmpty(agentId)) {
-        throw new BadRequestException('Agent ID is required', 'MISSING_AGENT_ID');
-      }
-
-      const agent = await this.agents.findById(agentId);
-      if (!agent) {
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
-
-      this.verifyOwnership(agent, loungeId);
-
-      await this.agents.findByIdAndDelete(agentId);
-      logger.info(`AgentService.deleteAgent: agent deleted successfully: ${agentId}`);
-    } catch (error) {
-      logger.error('AgentService.deleteAgent: error deleting agent', error);
-      throw error;
-    }
+    const agent = await this.findAgent(agentId);
+    this.verifyOwnership(agent, loungeId);
+    await this.users.findByIdAndDelete(agent._id);
+    logger.info(`AgentService.deleteAgent: ${agentId} deleted`);
   }
 
   /**
-   * Get all agents (filtered by user type)
+   * Get all agents visible to the caller.
+   *   - admin ? every agent
+   *   - lounge ? agents bound to that lounge
+   *   - any other role (e.g. client) ? all agents (read-only listing)
    */
   public async getAllAgents(user?: any): Promise<Agent[]> {
-    try {
-      let query = {};
-
-      // If user is a lounge, only return their agents
-      if (user && user.type === 'lounge') {
-        query = { loungeId: user._id };
-      }
-      // If user is admin, return all agents
-
-      const agents = await this.agents.find(query).populate('loungeId', 'loungeTitle email');
-      return agents;
-    } catch (error) {
-      logger.error('AgentService.getAllAgents: error getting all agents', error);
-      throw error;
-    }
+    const query: any = { type: 'agent' };
+    if (user?.type === 'lounge') query.parentLounge = user._id;
+    return this.users
+      .find(query)
+      .select(AgentService.PUBLIC_FIELDS)
+      .populate('parentLounge', 'loungeTitle email')
+      .populate('services', 'serviceId price duration');
   }
 
-  /**
-   * Upload profile image for agent
-   */
+  /** Replace an agent's profile image. */
   public async uploadProfileImage(agentId: string, file: Express.Multer.File, loungeId?: string): Promise<Agent> {
-    try {
-      if (isEmpty(agentId) || !file) {
-        logger.warn('AgentService.uploadProfileImage: empty agentId or file provided');
-        throw new BadRequestException('Agent ID and image file are required', 'MISSING_REQUIRED_FIELDS');
+    if (!file) throw new BadRequestException('Image file is required', 'MISSING_FILE');
+    const agent = await this.findAgent(agentId);
+    this.verifyOwnership(agent, loungeId);
+
+    if (agent.profileImage?.publicId) {
+      try {
+        await R2Service.deleteImage(agent.profileImage.publicId);
+      } catch (err) {
+        logger.warn(`AgentService.uploadProfileImage: old image delete failed for ${agentId}: ${err.message}`);
       }
-
-      // Check if agent exists
-      const agent = await this.agents.findById(agentId);
-      if (!agent) {
-        logger.error(`AgentService.uploadProfileImage: agent not found: ${agentId}`);
-        throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
-      }
-
-      this.verifyOwnership(agent, loungeId);
-
-      // Delete existing image if it exists
-      if (agent.profileImage?.publicId) {
-        try {
-          await R2Service.deleteImage(agent.profileImage.publicId);
-        } catch (deleteError) {
-          logger.warn(`AgentService.uploadProfileImage: failed to delete old image: ${deleteError.message}`);
-          // Continue with upload even if delete fails
-        }
-      }
-
-      // Upload new image
-      const { url, publicId } = await R2Service.uploadProfileImage(file.buffer, agentId);
-
-      // Update agent with new image
-      const updatedAgent = await this.agents
-        .findByIdAndUpdate(
-          agentId,
-          {
-            profileImage: {
-              url,
-              publicId,
-            },
-          },
-          { new: true },
-        )
-        .populate('loungeId', 'loungeTitle email');
-
-      logger.info(`AgentService.uploadProfileImage: profile image uploaded successfully for agent: ${agentId}`);
-      return updatedAgent;
-    } catch (error) {
-      logger.error(`AgentService.uploadProfileImage error: ${error.message}`, { agentId, stack: error.stack });
-      throw error;
     }
+    const { url, publicId } = await R2Service.uploadProfileImage(file.buffer, agentId);
+    await this.users.findByIdAndUpdate(agent._id, { profileImage: { url, publicId } });
+    return this.getAgentById(agentId);
+  }
+
+  // --- Self-service (the authenticated agent acting on themselves) -
+
+  /** Get the authenticated agent's own profile. */
+  public async getOwnProfile(agentId: string): Promise<Agent> {
+    return this.getAgentById(agentId);
+  }
+
+  /** Update the authenticated agent's own editable profile fields. */
+  public async updateOwnProfile(agentId: string, data: UpdateAgentSelfDto): Promise<Agent> {
+    if (isEmpty(data)) throw new BadRequestException('Update data is required', 'MISSING_UPDATE_DATA');
+    const agent = await this.findAgent(agentId);
+    const update: any = {};
+    if (data.agentName !== undefined) update.agentName = data.agentName;
+    if (data.firstName !== undefined) update.firstName = data.firstName;
+    if (data.lastName !== undefined) update.lastName = data.lastName;
+    if (data.bio !== undefined) update.bio = data.bio;
+    if (data.phoneNumber !== undefined && data.phoneNumber !== agent.phoneNumber) {
+      const dup = await this.users.findOne({ phoneNumber: data.phoneNumber, _id: { $ne: agent._id } });
+      if (dup) throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
+      update.phoneNumber = data.phoneNumber;
+    }
+    await this.users.findByIdAndUpdate(agent._id, update, { runValidators: true });
+    return this.getAgentById(agentId);
+  }
+
+  /** Toggle the `acceptQueueBooking` availability flag from the agent's perspective. */
+  public async setOwnAvailability(agentId: string, accept: boolean): Promise<Agent> {
+    const agent = await this.findAgent(agentId);
+    agent.acceptQueueBooking = accept;
+    await agent.save();
+    logger.info(`AgentService.setOwnAvailability: agent ${agentId} acceptQueueBooking=${accept}`);
+    return this.getAgentById(agentId);
+  }
+
+  /** Replace the authenticated agent's own profile image. */
+  public async uploadOwnProfileImage(agentId: string, file: Express.Multer.File): Promise<Agent> {
+    return this.uploadProfileImage(agentId, file);
   }
 }
 
+
 export default AgentService;
+

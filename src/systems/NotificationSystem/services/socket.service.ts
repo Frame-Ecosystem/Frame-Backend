@@ -1,6 +1,7 @@
 import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { logger } from '@utils/logger';
+import { ChatSocketHandler } from '@systems/ChatSystem/socket/chat.socket';
 
 /**
  * Socket.IO event names for real-time updates.
@@ -18,6 +19,15 @@ export const SocketEvents = {
 
   // Notification events
   NOTIFICATION_NEW: 'notification:new',
+
+  // Chat events
+  CHAT_MESSAGE: 'chat:message',               // New message received in a conversation
+  CHAT_MESSAGE_DELETED: 'chat:message:deleted', // Message recalled / hidden
+  CHAT_READ: 'chat:read',                     // Messages marked as read
+  CHAT_TYPING: 'chat:typing',                 // Typing indicator (start/stop)
+  CHAT_CONVERSATION_UPDATED: 'chat:conversation:updated', // lastMessage preview update
+  CHAT_MESSAGE_EDITED: 'chat:message:edited',             // Message text updated
+  CHAT_REACTION: 'chat:reaction',                         // Emoji reaction toggled
 } as const;
 
 /**
@@ -29,6 +39,7 @@ export const SocketEvents = {
  * - bookings:lounge:{loungeId}   → lounge's bookings list
  * - bookings:admin               → admin bookings list (all)
  * - notifications:{userId}        → user's notification feed
+ * - chat:{conversationId}         → conversation participants
  */
 
 class SocketService {
@@ -72,10 +83,12 @@ class SocketService {
       pingInterval: 25000,
     });
 
+    const chatHandler = new ChatSocketHandler(this.io);
+
     this.io.on('connection', (socket: Socket) => {
       logger.info(`Socket connected: ${socket.id}`);
 
-      // Join rooms based on client requests
+      // General room join / leave (non-chat rooms: queues, bookings, notifications)
       socket.on('join', (rooms: string | string[]) => {
         const roomList = Array.isArray(rooms) ? rooms : [rooms];
         roomList.forEach(room => {
@@ -84,7 +97,6 @@ class SocketService {
         });
       });
 
-      // Leave rooms
       socket.on('leave', (rooms: string | string[]) => {
         const roomList = Array.isArray(rooms) ? rooms : [rooms];
         roomList.forEach(room => {
@@ -92,6 +104,9 @@ class SocketService {
           logger.info(`Socket ${socket.id} left room: ${room}`);
         });
       });
+
+      // Delegate all chat-related socket events to ChatSocketHandler
+      chatHandler.register(socket);
 
       socket.on('disconnect', reason => {
         logger.info(`Socket disconnected: ${socket.id} (${reason})`);
@@ -173,6 +188,77 @@ class SocketService {
 
   public emitNotification(userId: string, notification: any): void {
     this.emit([`notifications:${userId}`], SocketEvents.NOTIFICATION_NEW, { data: notification });
+  }
+
+  // ─── Chat Emissions ───────────────────────────────────────────────
+
+  /**
+   * Emit a new message to all participants in a conversation room.
+   * Room: chat:{conversationId}
+   */
+  public emitChatMessage(conversationId: string, message: any): void {
+    this.emit([`chat:${conversationId}`], SocketEvents.CHAT_MESSAGE, { data: message });
+  }
+
+  /**
+   * Emit a message deletion / recall event to the conversation room.
+   */
+  public emitChatMessageDeleted(conversationId: string, messageId: string, recalledForAll: boolean): void {
+    this.emit([`chat:${conversationId}`], SocketEvents.CHAT_MESSAGE_DELETED, { messageId, recalledForAll });
+  }
+
+  /**
+   * Emit read-receipt updates to the conversation room.
+   */
+  public emitChatRead(conversationId: string, readBy: string, messageIds: string[]): void {
+    this.emit([`chat:${conversationId}`], SocketEvents.CHAT_READ, { readBy, messageIds });
+  }
+
+  /**
+   * Broadcast a typing indicator to everyone else in the conversation room.
+   * The frontend should debounce this — typically every ~2 s while typing.
+   *
+   * @param excludeSocketId – the sender's socket ID so they don't receive their own indicator
+   */
+  public emitChatTyping(conversationId: string, userId: string, isTyping: boolean, excludeSocketId?: string): void {
+    if (!this.io) return;
+    const room = `chat:${conversationId}`;
+    const data = { userId, isTyping, timestamp: new Date().toISOString() };
+    if (excludeSocketId) {
+      this.io.to(room).except(excludeSocketId).emit(SocketEvents.CHAT_TYPING, data);
+    } else {
+      this.io.to(room).emit(SocketEvents.CHAT_TYPING, data);
+    }
+  }
+
+  /**
+   * Emit a conversation-list update so the recipient's inbox refreshes its
+   * last-message preview and unread badge without a full re-fetch.
+   */
+  public emitConversationUpdated(userId: string, conversation: any): void {
+    this.emit([`notifications:${userId}`], SocketEvents.CHAT_CONVERSATION_UPDATED, { data: conversation });
+  }
+
+  /**
+   * Broadcast a message-edited event to the conversation room.
+   * The updated message document is included so clients can patch their local cache.
+   */
+  public emitChatMessageEdited(conversationId: string, message: any): void {
+    this.emit([`chat:${conversationId}`], SocketEvents.CHAT_MESSAGE_EDITED, { data: message });
+  }
+
+  /**
+   * Broadcast a reaction-toggle event to the conversation room.
+   * The full updated reactions array is included for optimistic reconciliation.
+   */
+  public emitChatReaction(
+    conversationId: string,
+    messageId: string,
+    userId: string,
+    emoji: string,
+    reactions: any[],
+  ): void {
+    this.emit([`chat:${conversationId}`], SocketEvents.CHAT_REACTION, { messageId, userId, emoji, reactions });
   }
 }
 

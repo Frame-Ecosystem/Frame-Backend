@@ -142,6 +142,45 @@ class CloudflareR2Service {
     return this.upload(fileBuffer, `reviews/${reviewId}`, 'img');
   }
 
+  /**
+   * Generic upload helper for contexts that manage their own folder structure.
+   * @param fileBuffer  Raw bytes
+   * @param fileName    Original filename (used as key prefix)
+   * @param mimeType    Used to override content-type detection
+   * @param folder      Virtual folder path (e.g. `chat/conversationId`)
+   */
+  public async uploadFile(
+    fileBuffer: Buffer,
+    fileName: string,
+    mimeType: string,
+    folder: string,
+  ): Promise<{ url: string; key: string }> {
+    const client = this.ensureClient();
+
+    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const safeName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    const key = `${folder}/${uniqueSuffix}-${safeName}`;
+
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: key,
+          Body: fileBuffer,
+          ContentType: mimeType || this.detectContentType(fileBuffer),
+          CacheControl: 'public, max-age=31536000, immutable',
+        }),
+      );
+
+      const url = `${R2_PUBLIC_URL.replace(/\/+$/, '')}/${key}`;
+      logger.info(`[CloudflareR2Service] Uploaded: ${url}`);
+      return { url, key };
+    } catch (error) {
+      logger.error(`[CloudflareR2Service] Upload failed: ${error.message}`);
+      throw new HttpException(500, `Failed to upload file: ${error.message}`);
+    }
+  }
+
   /* ───────── Utils ───────── */
 
   /** Best-effort content-type detection from magic bytes. */

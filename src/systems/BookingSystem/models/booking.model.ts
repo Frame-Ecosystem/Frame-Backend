@@ -21,7 +21,7 @@ const bookingSchema: Schema = new Schema(
     agentIds: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'Agent',
+        ref: 'User',
         required: false,
       },
     ],

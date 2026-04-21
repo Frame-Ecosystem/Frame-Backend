@@ -414,6 +414,92 @@ sequenceDiagram
 
     API->>AS: adminUpdateServiceSuggestionStatus(id, {status: approved, categoryId, ...})
     AS->>DB: Update suggestion status → approved
+    AS->>DB: Service.create({...suggestion fields})
+    AS->>NS: notifySuggestionApproved(lounge)
+    AS-->>Admin: 200 Suggestion approved + Service created
+```
+
+### Rating Upsert Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant RC as RatingController
+    participant RS as RatingService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    C->>RC: POST /v1/ratings {loungeId, rating, review?}
+    RC->>RS: upsertRating(clientId, data)
+    RS->>DB: Rating.findOneAndUpdate({clientId, loungeId}, data, {upsert:true, new:true})
+    RS->>DB: Aggregate AVG(rating) for loungeId
+    RS->>DB: User.findByIdAndUpdate(loungeId, {rating: avg, ratingsCount})
+    RS->>NS: notifyLoungRated(loungeId, clientId, rating)
+    RS-->>C: 200/201 { data: rating }
+```
+
+### LoungeService Assignment Flow
+
+```mermaid
+sequenceDiagram
+    participant L as Lounge
+    participant LSC as LoungeServiceController
+    participant LSS as LoungeServicesService
+    participant DB as MongoDB
+
+    L->>LSC: POST /v1/lounge-services {serviceId, agentIds, price, duration}
+    LSC->>LSS: createLoungeService(loungeId, data)
+    LSS->>DB: Validate Service exists
+    LSS->>DB: Validate each agentId belongs to lounge
+    LSS->>DB: LoungeService.create({loungeId, serviceId, agentIds, price, duration})
+    LSS-->>L: 201 { data: loungeService }
+
+    L->>LSC: PATCH /v1/lounge-services/:id/agents {agentIds}
+    LSC->>LSS: updateLoungeServiceAgents(id, loungeId, agentIds)
+    LSS->>DB: LoungeService.findOneAndUpdate({_id, loungeId}, {agentIds})
+    LSS-->>L: 200 Updated
+```
+
+---
+
+## Directory Structure
+
+```
+src/systems/ServiceCatalogSystem/
+├── interfaces/
+│   └── catalog.interface.ts    # ServiceCategoryType, SuggestionStatus enums
+├── models/
+│   ├── service.model.ts
+│   ├── serviceCategory.model.ts
+│   ├── loungeService.model.ts
+│   ├── serviceSuggestion.model.ts
+│   └── rating.model.ts
+├── dtos/
+│   ├── services.dto.ts
+│   ├── serviceCategories.dto.ts
+│   ├── loungeServices.dto.ts
+│   ├── serviceSuggestions.dto.ts
+│   └── rating.dto.ts
+├── services/
+│   ├── services.service.ts
+│   ├── serviceCategories.service.ts
+│   ├── loungeServices.service.ts
+│   ├── serviceSuggestions.service.ts
+│   └── rating.service.ts
+├── controllers/
+│   ├── services.controller.ts
+│   ├── serviceCategories.controller.ts
+│   ├── loungeServices.controller.ts
+│   ├── serviceSuggestions.controller.ts
+│   └── rating.controller.ts
+├── routes/
+│   ├── services.route.ts
+│   ├── serviceCategories.route.ts
+│   ├── loungeServices.route.ts
+│   ├── serviceSuggestions.route.ts
+│   └── rating.route.ts
+└── README.md
+```
     AS->>DB: Create new Service {name, categoryId}
     AS->>DB: Optionally create LoungeService for the suggesting lounge
     AS->>DB: Update suggestion status → implemented

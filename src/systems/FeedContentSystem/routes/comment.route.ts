@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import CommentController from '@systems/FeedContentSystem/controllers/comment.controller';
 import { Routes } from '@interfaces/routes.interface';
-import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import { commentRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateCommentDto } from '@systems/FeedContentSystem/dtos/comment.dto';
@@ -31,7 +31,7 @@ class CommentRoute implements Routes {
      * @desc    Like or unlike a comment
      * @access  Private
      */
-    this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, likeRateLimiter, this.controller.toggleLike);
 
     /**
      * @route   PUT /v1/comments/:commentId/hide
@@ -59,7 +59,7 @@ class CommentRoute implements Routes {
      * @desc    Delete own comment
      * @access  Private (owner only)
      */
-    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientMiddleware, this.controller.deleteComment);
+    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.controller.deleteComment);
 
     /* ───────── Generic two-param routes LAST ───────── */
 
@@ -72,7 +72,7 @@ class CommentRoute implements Routes {
     this.router.post(
       '/:targetType/:targetId',
       authMiddleware,
-      adminOrLoungeOrClientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       commentRateLimiter,
       validationMiddleware(CreateCommentDto, 'body'),
       this.controller.addComment,

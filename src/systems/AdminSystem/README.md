@@ -247,6 +247,97 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    participant A as Admin Client
+    participant SSC as SystemServicesController
+    participant SSS as SystemServicesService
+    participant DB as MongoDB
+
+    A->>SSC: GET /v1/admin/system/dashboard
+    SSC->>SSS: getDashboardStats()
+    SSS->>DB: countDocuments({type:'client'})
+    SSS->>DB: countDocuments({type:'lounge'})
+    SSS->>DB: countDocuments({type:'agent'})
+    SSS->>DB: aggregate bookings by status
+    SSS->>DB: sum totalPrice for completed bookings
+    SSS-->>SSC: { userCounts, bookingCounts, revenue }
+    SSC-->>A: 200 { data: { ... } }
+
+    A->>SSC: GET /v1/admin/system/health
+    SSC->>SSS: getSystemHealth()
+    SSS->>SSS: mongoose.connection.readyState
+    SSS->>SSS: process.memoryUsage()
+    SSS->>SSS: process.uptime()
+    SSS->>SSS: process.version
+    SSS-->>A: 200 { dbStatus, memory, uptime, nodeVersion }
+```
+
+### User Block / Unblock Flow
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant IC as IndexController
+    participant UMS as UserManagementService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    A->>IC: PATCH /v1/admin/users/:id/block
+    IC->>UMS: toggleBlockUser(userId)
+    UMS->>DB: findById + toggle isBlocked
+    alt Blocking
+        UMS->>DB: Clear refreshTokens (force logout)
+        UMS->>NS: notifyAccountBlocked(userId)
+    else Unblocking
+        UMS->>NS: notifyAccountUnblocked(userId)
+    end
+    UMS-->>A: 200 { data: updatedUser }
+```
+
+---
+
+## Security Model
+
+All AdminSystem endpoints enforce **double middleware protection**:
+
+```
+authMiddleware   → valid JWT required
+    ↓
+adminMiddleware  → user.type === 'admin' required
+    ↓
+Controller method
+```
+
+Any request without a valid admin JWT returns `401 Unauthorized`. Any authenticated non-admin user gets `403 Forbidden`.
+
+> **Principle of Least Privilege**: Admin credentials are never created through a public API endpoint. Initial admin seeding is done via the `initAdmin` utility (`src/utils/initAdmin.ts`) which runs once at startup if no admin exists.
+
+---
+
+## Directory Structure
+
+```
+src/systems/AdminSystem/
+├── controllers/
+│   ├── index.controller.ts          # GET /v1/admin → health/info
+│   ├── catalogManagement.controller.ts  # CRUD for services, categories, suggestions
+│   ├── contentModeration.controller.ts  # Hide/delete posts, reels, comments; reports
+│   └── systemServices.controller.ts     # Stats, health, dashboard, audit log
+├── routes/
+│   ├── index.route.ts               # Registers all admin sub-routers
+│   ├── admin.route.ts               # User mgmt: GET/POST/PUT/DELETE /users, /session-info
+│   ├── catalog.route.ts             # Services, categories, suggestions
+│   ├── moderation.route.ts          # Content moderation endpoints
+│   └── system.route.ts              # System health, stats, audit log
+├── services/
+│   └── systemServices.service.ts    # Dashboard, health, export, audit log
+└── README.md
+```
+
+> **No models owned**: AdminSystem is a pure facade — it imports and uses models from UserManager, BookingSystem, ServiceCatalogSystem, FeedContentSystem, and NotificationSystem.
+
+
+```mermaid
+sequenceDiagram
     participant Admin as Admin Client
     participant API as AdminSystem
     participant DB as MongoDB

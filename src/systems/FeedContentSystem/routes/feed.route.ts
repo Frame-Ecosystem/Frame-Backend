@@ -2,7 +2,7 @@ import { Router } from 'express';
 import FeedController from '@systems/FeedContentSystem/controllers/feed.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import { adminOrLoungeOrClientMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware } from '@middlewares/role.middleware';
 import { generalRateLimiter } from '@middlewares/rateLimit.middleware';
 
 class FeedRoute implements Routes {
@@ -20,35 +20,35 @@ class FeedRoute implements Routes {
      * @desc    Following-based feed (posts + reels from followed users)
      * @access  Private
      */
-    this.router.get('/', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.getFollowingFeed);
+    this.router.get('/', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getFollowingFeed);
 
     /**
      * @route   GET /v1/feed/explore
      * @desc    Global explore feed sorted by engagement
      * @access  Private
      */
-    this.router.get('/explore', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.getExploreFeed);
+    this.router.get('/explore', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getExploreFeed);
 
     /**
      * @route   GET /v1/feed/saved
      * @desc    Get user's saved/bookmarked content
      * @access  Private
      */
-    this.router.get('/saved', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.getSavedContent);
+    this.router.get('/saved', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getSavedContent);
 
     /**
      * @route   GET /v1/feed/hashtag/:tag
      * @desc    Feed filtered by hashtag
      * @access  Private
      */
-    this.router.get('/hashtag/:tag', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.getHashtagFeed);
+    this.router.get('/hashtag/:tag', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getHashtagFeed);
 
     /**
      * @route   GET /v1/feed/hashtags/trending
      * @desc    Trending hashtags
      * @access  Private
      */
-    this.router.get('/hashtags/trending', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.getTrendingHashtags);
+    this.router.get('/hashtags/trending', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getTrendingHashtags);
 
     /**
      * @route   GET /v1/feed/hashtags/search
@@ -56,7 +56,7 @@ class FeedRoute implements Routes {
      * @access  Private
      * @query   q - search term
      */
-    this.router.get('/hashtags/search', authMiddleware, adminOrLoungeOrClientMiddleware, generalRateLimiter, this.controller.searchHashtags);
+    this.router.get('/hashtags/search', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.searchHashtags);
   }
 }
 

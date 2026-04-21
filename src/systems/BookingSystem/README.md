@@ -331,6 +331,86 @@ sequenceDiagram
     BS->>DB: Validate services, compute price/duration
     BS->>DB: Create Booking (status: pending)
     BS->>NS: notifyBookingCreated(lounge)
+    NS->>DB: Create Notification for lounge
+    NS->>SS: emitBookingCreated(booking)
+    SS-->>Lounge: Socket event "bookingCreated"
+
+    Note over C: Lounge receives push notification
+
+    Lounge->>API: PATCH /v1/bookings/:id/confirm
+    API->>BS: confirmBooking(bookingId)
+    BS->>DB: Update status → confirmed
+    BS->>NS: notifyBookingConfirmed(booking)
+    NS-->>C: Push: "Your booking is confirmed"
+
+    Lounge->>API: POST /v1/queues/add {agentId, bookingId}
+    API->>QS: addToQueue(data)
+    QS->>DB: Find or create Queue for agent+date
+    QS->>DB: Push QueuePerson (status: waiting)
+    QS->>DB: Update Booking status → inQueue
+    QS->>SS: emitQueueUpdated(agentId, queue)
+    SS-->>Lounge: Socket event "queueUpdated"
+    QS->>NS: notifyQueueAdded(queue, person)
+    NS-->>C: Push: "You've been added to queue"
+
+    Agent->>API: PATCH /v1/queues/status {status: "inService"}
+    API->>QS: updatePersonStatus(data)
+    QS->>DB: Update QueuePerson status
+    QS->>NS: notifyQueueTurn(queue, person)
+    QS->>SS: emitQueueUpdated(agentId, queue)
+    QS->>DB: Update Booking status → completed
+    QS->>NS: notifyBookingCompleted(booking)
+    NS-->>C: Push: "Service completed!"
+```
+
+### Queue Reorder Flow
+
+```mermaid
+sequenceDiagram
+    participant A as Agent
+    participant API as QueueController
+    participant QS as QueueService
+    participant SS as SocketService
+    participant DB as MongoDB
+
+    A->>API: PUT /v1/agents/me/queue/persons/:bookingId/reorder {newPosition: 2}
+    API->>QS: reorderQueuePerson(agentId, bookingId, newPosition)
+    QS->>DB: Find Queue for agent
+    QS->>QS: Remove person from current position
+    QS->>QS: Insert at newPosition
+    QS->>QS: Recalculate all positions sequentially
+    QS->>DB: Save updated Queue
+    QS->>SS: emitQueueUpdated(agentId, updatedQueue)
+    SS-->>Lounge: Socket event "queueUpdated" with new order
+    QS-->>A: 200 { data: updatedQueue }
+```
+
+---
+
+## Directory Structure
+
+```
+src/systems/BookingSystem/
+├── interfaces/
+│   └── booking.interface.ts    # BookingStatus, QueuePersonStatus enums
+├── models/
+│   ├── booking.model.ts        # Mongoose Booking schema
+│   └── queue.model.ts          # Mongoose Queue schema (with QueuePerson subdoc)
+├── dtos/
+│   ├── booking.dto.ts          # CreateBookingDto, UpdateBookingDto, etc.
+│   └── queue.dto.ts            # AddToQueueDto, UpdateQueuePersonDto, etc.
+├── services/
+│   ├── booking.service.ts      # Booking lifecycle, stats, filters
+│   └── queue.service.ts        # Queue CRUD, Socket.IO emissions, cron registration
+├── controllers/
+│   ├── booking.controller.ts
+│   └── queue.controller.ts
+├── routes/
+│   ├── booking.route.ts
+│   └── queue.route.ts
+└── README.md
+```
+
     BS->>SS: emitBookingCreated(booking)
     BS-->>C: 201 Booking created
 

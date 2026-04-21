@@ -1,7 +1,6 @@
 import { BadRequestException, InternalServerException, NotFoundException } from '@exceptions/HttpException';
 import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { logger } from '@utils/logger';
 import mongoose from 'mongoose';
@@ -10,7 +9,6 @@ import SocketService from '@systems/NotificationSystem/services/socket.service';
 class BookingAnalyticsService {
   private bookings = bookingModel;
   private users = userModel;
-  private agents = agentModel;
   private socketService = SocketService.getInstance();
 
   // ─── Stats ──────────────────────────────────────────────────────
@@ -98,7 +96,7 @@ class BookingAnalyticsService {
         }
       }
 
-      const agents = await this.agents.find({ _id: { $in: uniqueAgentIds } }).populate('loungeId');
+      const agents = await this.users.find({ _id: { $in: uniqueAgentIds }, type: 'agent' }).populate('parentLounge');
       if (agents.length === 0) {
         throw new NotFoundException('No agents found with the provided IDs');
       }
@@ -106,12 +104,12 @@ class BookingAnalyticsService {
         throw new NotFoundException('Some agent IDs do not exist');
       }
 
-      const agentsWithoutLounge = agents.filter(a => !a.loungeId);
+      const agentsWithoutLounge = agents.filter(a => !a.parentLounge);
       if (agentsWithoutLounge.length > 0) {
         throw new BadRequestException('Some agents do not have an associated lounge');
       }
 
-      const loungeIds = [...new Set(agents.map(a => (a.loungeId as any)._id.toString()))];
+      const loungeIds = [...new Set(agents.map(a => (a.parentLounge as any)._id.toString()))];
       if (loungeIds.length > 1) {
         throw new BadRequestException('All agents must be from the same lounge');
       }

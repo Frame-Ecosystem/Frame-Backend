@@ -1,5 +1,5 @@
 import loungeServiceModel from '@systems/ServiceCatalogSystem/models/loungeService.model';
-import agentModel from '@systems/UserManager/models/agent.model';
+import userModel from '@systems/UserManager/models/user.model';
 import { BadRequestException } from '@exceptions/HttpException';
 
 /**
@@ -17,15 +17,16 @@ export async function validateLoungeServices(serviceIds: string[], loungeId: str
 }
 
 /**
- * Validate that all agent IDs exist and belong to the specified lounge.
+ * Validate that all agent IDs exist (as User documents with type='agent') and
+ * belong to the specified lounge via the `parentLounge` field.
  */
 export async function validateAgents(agentIds: string[], loungeId: string): Promise<void> {
   const uniqueAgentIds = [...new Set(agentIds)];
-  const found = await agentModel.find({ _id: { $in: uniqueAgentIds } });
+  const found = await userModel.find({ _id: { $in: uniqueAgentIds }, type: 'agent' });
   if (found.length !== uniqueAgentIds.length) {
     throw new BadRequestException('One or more agents not found', 'INVALID_AGENTS');
   }
-  const invalidAgents = found.filter(a => a.loungeId?.toString() !== loungeId);
+  const invalidAgents = found.filter(a => (a as any).parentLounge?.toString() !== loungeId);
   if (invalidAgents.length > 0) {
     throw new BadRequestException('All agents must belong to the specified lounge', 'AGENT_LOUNGE_MISMATCH');
   }
