@@ -86,10 +86,8 @@ tests/
 
 # Build tools
 Makefile
-tsconfig.json
 tsconfig.test.json
 jest.config.js
-.swcrc
 .prettierrc
 .eslintrc
 .eslintignore

@@ -13,6 +13,23 @@ COPY .swcrc tsconfig.json ./
 COPY src ./src
 RUN npm run build
 
+# ── Development stage ─────────────────────────────────────
+FROM node:20-alpine AS development
+
+RUN apk add --no-cache dumb-init curl
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+ENV NODE_ENV=development
+EXPOSE 3000
+
+CMD ["dumb-init", "npm", "run", "dev"]
+
 # ── Production stage ──────────────────────────────────────
 FROM node:20-alpine AS production
 
@@ -40,20 +57,3 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
   CMD curl -f http://localhost:3000/health || exit 1
 
 CMD ["dumb-init", "node", "dist/server.js"]
-
-# ── Development stage ─────────────────────────────────────
-FROM node:20-alpine AS development
-
-RUN apk add --no-cache dumb-init curl
-
-WORKDIR /app
-
-COPY package*.json ./
-RUN npm install
-
-COPY . .
-
-ENV NODE_ENV=development
-EXPOSE 3000
-
-CMD ["dumb-init", "npm", "run", "dev"]
