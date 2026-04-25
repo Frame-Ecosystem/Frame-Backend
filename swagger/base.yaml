@@ -32,7 +32,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local development
-  - url: https://api.framebeauty.com
+  - url: https://backend-server-dob4.onrender.com
     description: Production
 
 tags:
