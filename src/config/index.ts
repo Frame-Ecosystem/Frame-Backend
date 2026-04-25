@@ -19,9 +19,7 @@ export const CREDENTIALS = process.env.CREDENTIALS === 'true';
 export const {
   NODE_ENV,
   PORT,
-  DB_HOST,
-  DB_PORT,
-  DB_DATABASE,
+  MONGO_URI,
   SECRET_KEY,
   REFRESH_TOKEN_SECRET,
   LOG_FORMAT,
@@ -43,3 +41,11 @@ export const GOOGLE_REDIRECT_URI = NODE_ENV === 'production' ? process.env.GOOGL
 
 /** Base URL for frontend links (emails, OAuth redirects). */
 export const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || `http://${LOCAL_IP}:3001`;
+
+/**
+ * Base URL used specifically for links sent via email (magic link, password reset).
+ * Always prefers the machine's LAN IP in development so a link tapped on a phone
+ * on the same Wi-Fi network resolves to this server instead of the phone's own
+ * localhost. In production, falls back to FRONTEND_BASE_URL.
+ */
+export const MAGIC_LINK_BASE_URL = process.env.MAGIC_LINK_BASE_URL || (NODE_ENV === 'production' ? FRONTEND_BASE_URL : `http://${LOCAL_IP}:2111`);

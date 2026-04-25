@@ -174,9 +174,12 @@ const conversationSchema = new Schema<ConversationDocument>(
 conversationSchema.index({ participants: 1, updatedAt: -1 });
 
 /**
- * Compound membership + soft-delete check used by sendMessage and getConversationById.
+ * NOTE: We intentionally do NOT create a compound index on
+ * { participants: 1, deletedFor: 1 } because MongoDB rejects
+ * compound indexes on two array fields ("cannot index parallel arrays").
+ * Soft-delete filtering is handled in-query and is cheap because
+ * `deletedFor` is small (max 2 users per conversation).
  */
-conversationSchema.index({ participants: 1, deletedFor: 1 });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
