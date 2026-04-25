@@ -1,7 +1,6 @@
 import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import { QueuePersonStatus } from '@systems/BookingSystem/interfaces/queue.interface';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { logger } from '@utils/logger';
 import SocketService from '@systems/NotificationSystem/services/socket.service';
@@ -140,10 +139,11 @@ export async function finalizeQueuePerson(person: any, loungeInfo: { loungeId: s
 export async function resolveLoungeInfo(agentId: any): Promise<{ loungeId: string; loungeTitle: string }> {
   const DEFAULT_INFO = { loungeId: '', loungeTitle: 'Lounge' };
   try {
-    const agent = await agentModel.findById(agentId);
-    if (!agent?.loungeId) return DEFAULT_INFO;
+    // Agents are User documents with type='agent'; their parent lounge is `parentLounge`.
+    const agent = await userModel.findOne({ _id: agentId, type: 'agent' });
+    if (!agent?.parentLounge) return DEFAULT_INFO;
 
-    const lounge = await userModel.findById(agent.loungeId);
+    const lounge = await userModel.findById(agent.parentLounge);
     if (!lounge) return DEFAULT_INFO;
 
     return { loungeId: lounge._id.toString(), loungeTitle: lounge.loungeTitle || 'Lounge' };

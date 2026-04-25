@@ -41,6 +41,7 @@ const main = async () => {
   const { default: WishlistRoute } = await import('@systems/MarketplaceSystem/routes/wishlist.route');
   const { default: MarketplaceAnalyticsRoute } = await import('@systems/MarketplaceSystem/routes/analytics.route');
   const { default: IndexRoute } = await import('@systems/AdminSystem/routes/index.route');
+  const { default: ChatRoute } = await import('@systems/ChatSystem/routes/chat.route');
 
   const app = new App([
     new IndexRoute(),
@@ -74,6 +75,7 @@ const main = async () => {
     new ReviewRoute(),
     new WishlistRoute(),
     new MarketplaceAnalyticsRoute(),
+    new ChatRoute(),
   ]);
 
   app.listen();

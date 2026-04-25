@@ -482,6 +482,100 @@ sequenceDiagram
     participant FS as FeedService
     participant DB as MongoDB
 
+    C->>API: GET /v1/feed?page=1&limit=20
+    API->>FS: getFeed(userId, page, limit)
+    FS->>DB: Get IDs the user follows
+    FS->>DB: Get IDs the user likes
+    FS->>DB: Aggregate Posts + Reels from followed users/lounges
+    FS->>DB: Sort by createdAt DESC
+    FS->>DB: Annotate isLiked, isSaved per item (from follows/likes)
+    FS-->>C: 200 { data: [ {type:"post",...}, {type:"reel",...}, ... ] }
+```
+
+### Content Report → Moderation Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant API as ReportController
+    participant RS as ReportService
+    participant NS as NotificationService
+    participant Admin as Admin
+    participant AM as AdminSystem
+    participant DB as MongoDB
+
+    U->>API: POST /v1/reports {contentType, contentId, reason}
+    API->>RS: createReport(reporterId, data)
+    RS->>DB: Create Report (status: pending)
+    RS->>NS: notifyAdminsOfNewReport(report)
+    NS->>DB: Create Notification for all admins
+    RS-->>U: 201 Report submitted
+
+    Admin->>AM: GET /v1/admin/moderation/reports
+    AM-->>Admin: [ {report, content} ]
+
+    Admin->>AM: PUT /v1/admin/moderation/posts/:id/hide
+    AM->>DB: Post.findByIdAndUpdate(id, {isHidden: true})
+    Admin->>AM: PUT /v1/admin/moderation/reports/:id {status: reviewed}
+    AM->>DB: Report.findByIdAndUpdate(id, {status: reviewed})
+```
+
+---
+
+## Directory Structure
+
+```
+src/systems/FeedContentSystem/
+├── interfaces/
+│   └── content.interface.ts    # ContentType, ReportStatus, ReportReason enums
+├── models/
+│   ├── post.model.ts
+│   ├── reel.model.ts
+│   ├── comment.model.ts
+│   ├── contentLike.model.ts    # Polymorphic likes (post/reel/comment)
+│   ├── like.model.ts           # Lounge likes (deprecated; kept for profile)
+│   ├── contentSave.model.ts
+│   ├── hashtag.model.ts
+│   └── report.model.ts
+├── dtos/
+│   ├── post.dto.ts
+│   ├── reel.dto.ts
+│   ├── comment.dto.ts
+│   └── report.dto.ts
+├── services/
+│   ├── post.service.ts
+│   ├── reel.service.ts
+│   ├── comment.service.ts
+│   ├── contentLike.service.ts
+│   ├── like.service.ts
+│   ├── save.service.ts
+│   ├── hashtag.service.ts
+│   ├── feed.service.ts
+│   └── report.service.ts
+├── controllers/
+│   ├── post.controller.ts
+│   ├── reel.controller.ts
+│   ├── comment.controller.ts
+│   ├── like.controller.ts
+│   ├── feed.controller.ts
+│   └── report.controller.ts
+├── routes/
+│   ├── post.route.ts
+│   ├── reel.route.ts
+│   ├── comment.route.ts
+│   ├── like.route.ts
+│   ├── feed.route.ts
+│   └── report.route.ts
+└── README.md
+```
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as FeedController
+    participant FS as FeedService
+    participant DB as MongoDB
+
     C->>API: GET /v1/feed/following?page=1&limit=20
     API->>FS: getFollowingFeed(userId, 1, 20)
     FS->>DB: Follow.find({followerId: userId}) → get followingIds

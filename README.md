@@ -105,7 +105,7 @@ graph TB
     
     Express --> Systems
 
-    subgraph Systems[8 Backend Systems]
+    subgraph Systems[9 Backend Systems]
         AS[AuthSystem]
         AD[AdminSystem]
         UM[UserManager]
@@ -114,6 +114,7 @@ graph TB
         NS[NotificationSystem]
         FC[FeedContentSystem]
         MP[MarketplaceSystem]
+        CS[ChatSystem]
     end
 
     Systems --> DB[(MongoDB)]
@@ -153,8 +154,9 @@ HTTP Request
 | 6 | [**NotificationSystem**](src/systems/NotificationSystem/README.md) | `/v1/notifications` | In-app notifications, push (FCM), real-time (Socket.IO) | Notification |
 | 7 | [**FeedContentSystem**](src/systems/FeedContentSystem/README.md) | `/v1/posts`, `/v1/reels`, `/v1/comments`, `/v1/likes`, `/v1/feed`, `/v1/reports` | Social feed — posts, reels, comments, likes, saves, hashtags, reports | Post, Reel, Comment, Like, ContentLike, ContentSave, Hashtag, Report |
 | 8 | [**MarketplaceSystem**](src/systems/MarketplaceSystem/README.md) | `/v1/marketplace/*` | E-commerce — stores, products, orders, cart, reviews, wishlists, analytics | Store, Product, Order, Cart, Review, Wishlist, ProductCategory, ProductCategorySuggestion |
+| 9 | [**ChatSystem**](src/systems/ChatSystem/) | `/v1/chat` | Real-time 1-to-1 messaging between clients, lounges, and admins — conversations, messages (text/image/file), typing indicators, read receipts, soft-delete | Conversation, Message |
 
-**Totals:** 28 models · 180+ endpoints · 50+ service classes · 22 DTO groups
+**Totals:** 30 models · 190+ endpoints · 55+ service classes · 23 DTO groups
 
 ---
 
@@ -196,7 +198,8 @@ Frame Back/
 │       ├── BookingSystem/
 │       ├── NotificationSystem/
 │       ├── FeedContentSystem/
-│       └── MarketplaceSystem/
+│       ├── MarketplaceSystem/
+│       └── ChatSystem/          # Real-time 1-to-1 messaging
 ├── docker-compose.yml
 ├── Dockerfile
 ├── nginx.conf
@@ -312,6 +315,42 @@ OAuth  → Google Redirect → Callback → JWT Access + Refresh Tokens
 | Signup | 3 requests / 1 hr |
 | Content creation | 20 requests / 1 hr |
 | Likes / Follows / Comments | 30 requests / 15 min |
+
+---
+
+### Chat System (Real-time Messaging)
+
+Documented in full in [`src/systems/ChatSystem/README.md`](src/systems/ChatSystem/README.md).
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/v1/chat/conversations` | POST | Start or resume a 1-to-1 conversation |
+| `/v1/chat/conversations` | GET | List all conversations for the current user |
+| `/v1/chat/conversations/:id` | GET | Get single conversation details |
+| `/v1/chat/conversations/:id` | DELETE | Soft-delete conversation (your view only) |
+| `/v1/chat/conversations/:id/messages` | GET | Paginated message history |
+| `/v1/chat/conversations/:id/messages` | POST | Send a text, image, or file message |
+| `/v1/chat/conversations/:id/messages/read` | PATCH | Mark messages as read |
+| `/v1/chat/conversations/:id/messages/:msgId` | DELETE | Delete / recall a message |
+| `/v1/chat/conversations/:id/typing` | POST | Typing indicator fallback (REST) |
+
+**Socket.IO events (server → client):**
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `chat:message` | `{ conversationId, message }` | New message received |
+| `chat:message:deleted` | `{ conversationId, messageId, recalledForAll }` | Message deleted/recalled |
+| `chat:read` | `{ conversationId, readBy, messageIds }` | Messages marked as read |
+| `chat:typing` | `{ conversationId, userId, isTyping }` | Typing status update |
+| `chat:conversation:updated` | `{ conversation }` | Conversation metadata changed |
+
+**Socket.IO events (client → server):**
+
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `chat:join` | `{ conversationId, token }` + ACK callback | Join conversation room (validated) |
+| `chat:leave` | `{ conversationId }` | Leave conversation room |
+| `chat:typing` | `{ conversationId, isTyping }` | Broadcast typing status |
 
 ---
 

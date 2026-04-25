@@ -1,7 +1,6 @@
 import { NotFoundException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
 import { Booking, BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -30,7 +29,6 @@ const POPULATE_FIELDS = {
 class BookingService {
   private bookings = bookingModel;
   private users = userModel;
-  private agents = agentModel;
   private queueService = new QueueService();
   private socketService = SocketService.getInstance();
   private notificationService = NotificationService.getInstance();
@@ -148,7 +146,7 @@ class BookingService {
       await validateAgents([bookingData.agentId], bookingData.loungeId);
 
       // Check if agent accepts queue bookings
-      const agent = await this.agents.findById(bookingData.agentId);
+      const agent = await this.users.findOne({ _id: bookingData.agentId, type: 'agent' });
       if (!agent.acceptQueueBooking) {
         throw new BadRequestException('This agent does not accept queue bookings', 'QUEUE_BOOKING_DISABLED');
       }
@@ -245,7 +243,7 @@ class BookingService {
       await validateAgents([bookingData.agentId], bookingData.loungeId);
 
       // Check if agent accepts queue bookings
-      const agent = await this.agents.findById(bookingData.agentId);
+      const agent = await this.users.findOne({ _id: bookingData.agentId, type: 'agent' });
       if (!agent.acceptQueueBooking) {
         throw new BadRequestException('This agent does not accept queue bookings', 'QUEUE_BOOKING_DISABLED');
       }

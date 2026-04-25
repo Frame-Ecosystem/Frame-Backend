@@ -43,7 +43,7 @@ const notificationSchema: Schema = new Schema(
       bookingId: { type: Schema.Types.ObjectId, ref: 'Booking', required: false },
       loungeId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
       clientId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
-      agentId: { type: Schema.Types.ObjectId, ref: 'Agent', required: false },
+      agentId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
       // Content
       postId: { type: Schema.Types.ObjectId, ref: 'Post', required: false },
       reelId: { type: Schema.Types.ObjectId, ref: 'Reel', required: false },

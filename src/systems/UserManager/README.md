@@ -407,6 +407,105 @@ Social graph follow/unfollow.
 
 ## Flows
 
+### Client Follow a Lounge
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant FC as FollowController
+    participant FS as FollowService
+    participant NS as NotificationService
+    participant DB as MongoDB
+
+    C->>FC: POST /v1/follows/lounges/:loungeId
+    FC->>FS: follow(clientId, "client", loungeId)
+    FS->>DB: findOne({followerId, followingId}) → null (not already following)
+    FS->>DB: Follow.create({followerId, followerType, followingId})
+    FS->>DB: User.updateOne(clientId, $inc: {followingCount: 1})
+    FS->>DB: User.updateOne(loungeId, $inc: {followersCount: 1})
+    FS->>NS: notifyNewFollower(loungeId, client)
+    NS->>DB: Create Notification
+    NS->>SS: emitNotification(loungeId, notification)
+    FS-->>C: 201 { message: "Followed" }
+```
+
+### Agent Availability Toggle
+
+```mermaid
+sequenceDiagram
+    participant L as Lounge
+    participant AC as AgentController
+    participant AS as AgentService
+    participant SS as SocketService
+    participant DB as MongoDB
+
+    L->>AC: PATCH /v1/lounge/me/queue-booking {agentId, acceptQueueBooking}
+    AC->>AS: toggleAcceptQueueBooking(agentId, loungeId, value)
+    AS->>DB: Agent.findOneAndUpdate({_id, loungeId}, {acceptQueueBooking}, {new:true})
+    AS->>SS: emitQueueUpdated(agentId, [])   (clear queue display if disabled)
+    AS-->>L: 200 { data: agent }
+```
+
+### Profile Image Upload
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant MC as meController
+    participant R2S as r2Service
+    participant DB as MongoDB
+
+    U->>MC: PUT /v1/me/image (multipart: profileImage file)
+    MC->>R2S: uploadFile("users/{userId}/profile/", file)
+    R2S->>R2: PutObjectCommand
+    R2-->>R2S: ETag
+    R2S-->>MC: publicUrl
+    MC->>DB: User.findByIdAndUpdate(userId, {profileImage: publicUrl})
+    alt Old image exists
+        MC->>R2S: deleteFile(oldImageKey)
+        R2S->>R2: DeleteObjectCommand
+    end
+    MC-->>U: 200 { data: { profileImage: publicUrl } }
+```
+
+---
+
+## Directory Structure
+
+```
+src/systems/UserManager/
+├── interfaces/
+│   ├── user.interface.ts       # UserType, Theme, Language, DayOpeningHours
+│   └── follow.interface.ts     # FollowerType enum
+├── models/
+│   ├── user.model.ts           # Mongoose User schema (discriminator base)
+│   ├── agent.model.ts          # Mongoose Agent schema
+│   └── follow.model.ts         # Mongoose Follow schema
+├── dtos/
+│   ├── user.dto.ts             # CreateUserDto, UpdateUserDto, ChangePasswordDto, etc.
+│   └── agent.dto.ts            # CreateAgentDto, UpdateAgentDto, UpdateAgentSelfDto, etc.
+├── services/
+│   ├── userProfile.service.ts  # Current user self-management
+│   ├── userManagement.service.ts # Admin CRUD for all users
+│   ├── agent.service.ts        # Agent CRUD (lounge + admin)
+│   └── follow.service.ts       # Social follow/unfollow graph
+├── controllers/
+│   ├── currentUser.controller.ts
+│   ├── client.controller.ts
+│   ├── admin.controller.ts
+│   ├── adminServices.controller.ts
+│   └── agent.controller.ts
+├── routes/
+│   ├── currentUser.route.ts
+│   ├── client.route.ts
+│   ├── admin.route.ts
+│   └── agent.route.ts
+└── README.md
+```
+
+
+## Flows
+
 ### Lounge Discovery Flow
 
 ```mermaid

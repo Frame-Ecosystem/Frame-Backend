@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
 import { sendPasswordResetEmail } from '@utils/email';
 import verificationTokenModel from '@systems/AuthSystem/models/verificationToken.model';
-import { FRONTEND_BASE_URL } from '@config';
+import { MAGIC_LINK_BASE_URL } from '@config';
 
 class AuthTokenService {
   private users = userModel;
@@ -309,7 +309,7 @@ class AuthTokenService {
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
 
-      const resetLink = `${FRONTEND_BASE_URL}/auth/reset-password?token=${resetToken}`;
+      const resetLink = `${MAGIC_LINK_BASE_URL}/auth/reset-password?token=${resetToken}`;
 
       try {
         await sendPasswordResetEmail(normalizedEmail, resetLink);

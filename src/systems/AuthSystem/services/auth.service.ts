@@ -20,7 +20,7 @@ import { logSecurityEvent, logger } from '@utils/logger';
 import { sendMagicLinkEmail, isDisposableEmail } from '@utils/email';
 import AuthTokenService from '@systems/AuthSystem/services/authToken.service';
 import AuthSessionService from '@systems/AuthSystem/services/authSession.service';
-import { FRONTEND_BASE_URL } from '@config';
+import { MAGIC_LINK_BASE_URL } from '@config';
 
 class AuthService {
   private users = userModel;
@@ -89,8 +89,8 @@ class AuthService {
 
       await verificationTokenModel.create(tokenData);
 
-      // Generate magic link
-      const magicLink = `${FRONTEND_BASE_URL}/auth/verify?token=${verificationToken}`;
+      // Generate magic link (uses LAN IP in dev so phones on same Wi-Fi can reach it)
+      const magicLink = `${MAGIC_LINK_BASE_URL}/auth/verify?token=${verificationToken}`;
 
       // Send magic link email
       try {

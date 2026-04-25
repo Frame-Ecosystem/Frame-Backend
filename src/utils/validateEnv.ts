@@ -9,9 +9,7 @@ const validateEnv = () => {
   const env = cleanEnv(process.env, {
     NODE_ENV: str({ choices: ['development', 'test', 'production'] }),
     PORT: port({ default: 3000 }),
-    DB_HOST: str({ default: 'localhost' }),
-    DB_PORT: str({ default: '27017' }),
-    DB_DATABASE: str(),
+    MONGO_URI: str({ desc: 'MongoDB connection URI (supports mongodb:// and mongodb+srv://)' }),
     SECRET_KEY: str({ desc: 'JWT secret key for access tokens' }),
     REFRESH_TOKEN_SECRET: str({ desc: 'JWT secret key for refresh tokens (must be different from SECRET_KEY)' }),
     ADMIN_EMAIL: str({ default: 'admin@admin.com' }),

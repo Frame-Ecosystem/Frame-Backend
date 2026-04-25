@@ -24,6 +24,7 @@ export enum UserType {
   USER = 'user',
   CLIENT = 'client',
   LOUNGE = 'lounge',
+  AGENT = 'agent',
 }
 
 export enum UserGender {

@@ -624,6 +624,35 @@ class NotificationService {
   }
 
   // ═══════════════════════════════════════════════════════════════════
+  //  CHAT NOTIFICATIONS
+  // ═══════════════════════════════════════════════════════════════════
+
+  /**
+   * Notify a user that they received a new chat message.
+   * Only called when the recipient is NOT currently in the conversation Socket.IO room.
+   */
+  public async notifyChatMessage(
+    recipientId: string,
+    senderId: string,
+    senderName: string,
+    conversationId: string,
+    messageId: string,
+    preview?: string,
+  ): Promise<void> {
+    const body = preview ? `${senderName}: ${preview}` : `${senderName} sent you a message`;
+
+    await this.create({
+      userId: recipientId,
+      actorId: senderId,
+      title: 'New Message',
+      body,
+      type: NotificationType.CHAT_MESSAGE,
+      metadata: { conversationId, messageId },
+      actionUrl: `/chat/${conversationId}`,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
   //  HELPERS
   // ═══════════════════════════════════════════════════════════════════
 

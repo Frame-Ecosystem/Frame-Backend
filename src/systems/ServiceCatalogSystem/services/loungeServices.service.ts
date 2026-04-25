@@ -5,11 +5,10 @@ import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { CreateLoungeServiceDto } from '@systems/ServiceCatalogSystem/dtos/loungeServices.dto';
 import userModel from '@systems/UserManager/models/user.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 
 class LoungeServicesAdminService {
   private loungeServices = loungeServiceModel;
-  private agents = agentModel;
+  private users = userModel;
 
   /**
    * Get services with pagination
@@ -331,7 +330,7 @@ class LoungeServicesAdminService {
       if (!lounge) {
         throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
       }
-      const agents = await this.agents.find({ loungeId });
+      const agents = await this.users.find({ type: 'agent', parentLounge: loungeId });
       logger.info(`LoungeServicesAdminService.getAgentsPerLounge: retrieved ${agents.length} agents for lounge ${loungeId}`);
       return { agents, total: agents.length };
     } catch (error) {

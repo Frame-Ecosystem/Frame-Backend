@@ -46,7 +46,7 @@ const loungeServiceSchema: Schema = new Schema(
     agentIds: [
       {
         type: Schema.Types.ObjectId,
-        ref: 'Agent',
+        ref: 'User',
       },
     ],
     price: {

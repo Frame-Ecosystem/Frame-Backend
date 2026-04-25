@@ -1,7 +1,7 @@
 import { NextFunction, Response } from 'express';
 import { HttpException } from '@exceptions/HttpException';
 import { RequestWithUser } from '@systems/AuthSystem/interfaces/auth.interface';
-import { isAdmin, isLounge, isClient } from '@systems/UserManager/models/user.model';
+import { isAdmin, isLounge, isClient, isAgent } from '@systems/UserManager/models/user.model';
 import { logSecurityEvent, SecurityEventType } from '@utils/logger';
 
 type RoleChecker = (user: any) => boolean;
@@ -16,6 +16,7 @@ const ROLE_MAP: Record<string, RoleChecker> = {
   admin: isAdmin,
   lounge: isLounge,
   client: isClient,
+  agent: isAgent,
 };
 
 /** Map of role-combo key to its typed security event name */
@@ -23,8 +24,11 @@ const EVENT_MAP: Record<string, SecurityEventType> = {
   ADMIN: 'ADMIN_ACCESS_DENIED',
   LOUNGE: 'LOUNGE_ACCESS_DENIED',
   CLIENT: 'CLIENT_ACCESS_DENIED',
+  AGENT: 'AGENT_ACCESS_DENIED',
   ADMIN_LOUNGE: 'ADMIN_LOUNGE_ACCESS_DENIED',
   ADMIN_LOUNGE_CLIENT: 'ADMIN_LOUNGE_CLIENT_ACCESS_DENIED',
+  ADMIN_LOUNGE_AGENT: 'ADMIN_LOUNGE_AGENT_ACCESS_DENIED',
+  ADMIN_LOUNGE_CLIENT_AGENT: 'ADMIN_LOUNGE_CLIENT_AGENT_ACCESS_DENIED',
   CLIENT_ADMIN: 'CLIENT_ADMIN_ACCESS_DENIED',
 };
 
@@ -109,8 +113,21 @@ function buildRoleConfig(roles: string[]): RoleConfig {
 const adminMiddleware = requireRoles('admin');
 const loungeMiddleware = requireRoles('lounge');
 const clientMiddleware = requireRoles('client');
+const agentMiddleware = requireRoles('agent');
 const adminOrLoungeMiddleware = requireRoles('admin', 'lounge');
 const adminOrLoungeOrClientMiddleware = requireRoles('admin', 'lounge', 'client');
+const adminOrLoungeOrAgentMiddleware = requireRoles('admin', 'lounge', 'agent');
+const adminOrLoungeOrClientOrAgentMiddleware = requireRoles('admin', 'lounge', 'client', 'agent');
 const clientOrAdminMiddleware = requireRoles('client', 'admin');
 
-export { adminMiddleware, loungeMiddleware, clientMiddleware, adminOrLoungeMiddleware, adminOrLoungeOrClientMiddleware, clientOrAdminMiddleware };
+export {
+  adminMiddleware,
+  loungeMiddleware,
+  clientMiddleware,
+  agentMiddleware,
+  adminOrLoungeMiddleware,
+  adminOrLoungeOrClientMiddleware,
+  adminOrLoungeOrAgentMiddleware,
+  adminOrLoungeOrClientOrAgentMiddleware,
+  clientOrAdminMiddleware,
+};

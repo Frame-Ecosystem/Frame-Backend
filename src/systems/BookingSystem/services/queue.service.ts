@@ -2,7 +2,7 @@ import { Queue, QueuePersonStatus } from '@systems/BookingSystem/interfaces/queu
 import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import queueModel from '@systems/BookingSystem/models/queue.model';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
+import userModel from '@systems/UserManager/models/user.model';
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -28,10 +28,20 @@ const QUEUE_POPULATE = {
 class QueueService {
   private queues = queueModel;
   private bookings = bookingModel;
-  private agents = agentModel;
+  /**
+   * Agents are User documents with `type === 'agent'` since the User-Backed
+   * Agent refactor. All queries against `this.agents` MUST include the type
+   * filter — the helper `findAgent` enforces that contract.
+   */
+  private users = userModel;
   private socketService = SocketService.getInstance();
   private notificationService = NotificationService.getInstance();
   private cronService = new QueueCronService();
+
+  /** Find an agent (User with type='agent') by id, returning null if missing. */
+  private findAgent(agentId: any) {
+    return this.users.findOne({ _id: agentId, type: 'agent' });
+  }
 
   // ─── Shared internal helpers ──────────────────────────────────────
 
@@ -73,9 +83,9 @@ class QueueService {
   private async emitQueueUpdate(agentId: string, queue: any): Promise<void> {
     try {
       this.socketService.emitQueueUpdated(agentId, queue);
-      const agent = await this.agents.findById(agentId);
-      if (agent?.loungeId) {
-        this.socketService.emitLoungeQueuesUpdated(agent.loungeId.toString(), queue);
+      const agent = await this.findAgent(agentId);
+      if (agent?.parentLounge) {
+        this.socketService.emitLoungeQueuesUpdated(agent.parentLounge.toString(), queue);
       }
     } catch (err: any) {
       logger.warn(`Failed to emit queue WebSocket update: ${err.message}`);
@@ -87,7 +97,7 @@ class QueueService {
   public async createQueue(agentId: string, date?: Date): Promise<Queue> {
     if (isEmpty(agentId)) throw new BadRequestException('Agent ID is required', 'MISSING_AGENT_ID');
 
-    const agent = await this.agents.findById(agentId);
+    const agent = await this.findAgent(agentId);
     if (!agent) throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
 
     const queueDate = date || getStartOfToday();
@@ -113,7 +123,7 @@ class QueueService {
   public async getQueuesByLounge(loungeId: string, date?: Date): Promise<Queue[]> {
     if (isEmpty(loungeId)) throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
 
-    const agents = await this.agents.find({ loungeId, isBlocked: false });
+    const agents = await this.users.find({ type: 'agent', parentLounge: loungeId, isBlocked: false });
     const agentIds = agents.map(a => a._id);
 
     return this.populateQueue(this.queues.find({ agentId: { $in: agentIds }, date: date || getStartOfToday() }));

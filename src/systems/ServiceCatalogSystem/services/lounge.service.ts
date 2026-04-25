@@ -1,7 +1,6 @@
 ﻿import { NotFoundException, BadRequestException, HttpException, InternalServerException } from '@exceptions/HttpException';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import userModel from '@systems/UserManager/models/user.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 import mongoose from 'mongoose';
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -10,7 +9,6 @@ const CLIENT_PUBLIC_FIELDS = 'firstName lastName email profileImage coverImage l
 
 class LoungeService {
   private users = userModel;
-  private agents = agentModel;
 
   public async getClientById(clientId: string): Promise<any> {
     try {
@@ -37,7 +35,8 @@ class LoungeService {
         throw new BadRequestException('Invalid agent ID format', 'INVALID_AGENT_ID');
       }
 
-      const agent = await this.agents.findOne({ _id: agentId, loungeId });
+      // Agent is a User document with type='agent' and parentLounge=this lounge
+      const agent = await this.users.findOne({ _id: agentId, type: 'agent', parentLounge: loungeId });
       if (!agent) {
         throw new NotFoundException('Agent not found or does not belong to this lounge', 'AGENT_NOT_FOUND');
       }
@@ -150,7 +149,7 @@ class LoungeService {
         throw new BadRequestException('You can only view your own agents');
       }
 
-      const agents = await this.agents.find({ loungeId }).select('-password').lean();
+      const agents = await this.users.find({ type: 'agent', parentLounge: loungeId }).select('-password').lean();
 
       logger.info(`LoungeService.getAgentsPerLounge: retrieved ${agents.length} agents for lounge ${loungeId}`);
       return {

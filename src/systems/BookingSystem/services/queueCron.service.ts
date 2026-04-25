@@ -2,7 +2,6 @@ import { QueuePersonStatus } from '@systems/BookingSystem/interfaces/queue.inter
 import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import queueModel from '@systems/BookingSystem/models/queue.model';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
-import agentModel from '@systems/UserManager/models/agent.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { logger } from '@utils/logger';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
@@ -141,8 +140,8 @@ class QueueCronService {
         const closingTime = await this.getLoungeClosingTime(queue.agentId, todayDay, today);
         if (!closingTime || now < closingTime) continue;
 
-        const agent = await agentModel.findById(queue.agentId);
-        const lounge = agent?.loungeId ? await userModel.findById(agent.loungeId) : null;
+        const agent = await userModel.findOne({ _id: queue.agentId, type: 'agent' });
+        const lounge = agent?.parentLounge ? await userModel.findById(agent.parentLounge) : null;
         const loungeInfo = {
           loungeId: lounge?._id?.toString() ?? '',
           loungeTitle: lounge?.loungeTitle || 'the lounge',
@@ -247,10 +246,10 @@ class QueueCronService {
 
   /** Get the lounge closing time for a given agent and day, or null if not determinable. */
   private async getLoungeClosingTime(agentId: any, day: string, today: Date): Promise<Date | null> {
-    const agent = await agentModel.findById(agentId);
-    if (!agent?.loungeId) return null;
+    const agent = await userModel.findOne({ _id: agentId, type: 'agent' });
+    if (!agent?.parentLounge) return null;
 
-    const lounge = await userModel.findById(agent.loungeId);
+    const lounge = await userModel.findById(agent.parentLounge);
     const hours = (lounge?.openingHours as any)?.[day];
     if (!hours?.to) return null;
 

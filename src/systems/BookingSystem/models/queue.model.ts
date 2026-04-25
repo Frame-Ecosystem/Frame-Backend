@@ -48,7 +48,7 @@ const queueSchema: Schema = new Schema(
   {
     agentId: {
       type: Schema.Types.ObjectId,
-      ref: 'Agent',
+      ref: 'User',
       required: true,
     },
     date: {

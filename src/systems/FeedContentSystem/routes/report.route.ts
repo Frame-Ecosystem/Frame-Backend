@@ -2,7 +2,7 @@ import { Router } from 'express';
 import ReportController from '@systems/FeedContentSystem/controllers/report.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import { adminOrLoungeOrClientMiddleware, adminMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import { reportRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateReportDto, ReviewReportDto } from '@systems/FeedContentSystem/dtos/report.dto';
@@ -26,7 +26,7 @@ class ReportRoute implements Routes {
     this.router.post(
       '/:targetType/:targetId',
       authMiddleware,
-      adminOrLoungeOrClientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       reportRateLimiter,
       validationMiddleware(CreateReportDto, 'body'),
       this.controller.createReport,
