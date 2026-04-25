@@ -16,6 +16,8 @@ const validateEnv = () => {
     ADMIN_PASSWORD: str({ default: 'Admin@123' }),
     // Image upload feature flag
     ENABLE_IMAGE_UPLOAD: bool({ default: false, desc: 'Enable image upload feature (requires Cloudflare R2 config)' }),
+    // Enable Swagger UI in production when explicitly requested
+    ENABLE_SWAGGER: bool({ default: false, desc: 'Expose Swagger UI at /api-docs when true (use with caution in production)' }),
     // Cloudflare R2 configuration (required if ENABLE_IMAGE_UPLOAD is true)
     R2_ACCOUNT_ID: str({ default: '' }),
     R2_ACCESS_KEY_ID: str({ default: '' }),

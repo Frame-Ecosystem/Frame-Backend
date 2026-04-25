@@ -40,6 +40,9 @@ RUN addgroup -g 1001 -S framebeauty && \
 
 WORKDIR /app
 
+# Copy swagger spec files into the production image so runtime can load them
+COPY swagger ./swagger
+
 # Production deps only
 COPY package*.json ./
 RUN npm install --omit=dev && npm cache clean --force
