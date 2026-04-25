@@ -7,8 +7,7 @@ WORKDIR /app
 
 # Install ALL deps (dev included) so SWC can compile
 COPY package*.json ./
-RUN npm ci
-
+RUN npm install
 # Copy source & config, then build
 COPY .swcrc tsconfig.json ./
 COPY src ./src
@@ -50,7 +49,7 @@ RUN apk add --no-cache dumb-init curl
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
