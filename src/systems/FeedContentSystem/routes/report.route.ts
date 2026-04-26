@@ -2,6 +2,7 @@ import { Router } from 'express';
 import ReportController from '@systems/FeedContentSystem/controllers/report.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import { adminOrLoungeOrClientOrAgentMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import { reportRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
@@ -27,6 +28,7 @@ class ReportRoute implements Routes {
       '/:targetType/:targetId',
       authMiddleware,
       adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
       reportRateLimiter,
       validationMiddleware(CreateReportDto, 'body'),
       this.controller.createReport,
@@ -47,7 +49,7 @@ class ReportRoute implements Routes {
      * @desc    Review a report (mark reviewed/dismissed with optional note)
      * @access  Admin only
      */
-    this.router.put('/:reportId', authMiddleware, adminMiddleware, validationMiddleware(ReviewReportDto, 'body'), this.controller.reviewReport);
+    this.router.put('/:reportId', authMiddleware, adminMiddleware, csrfMiddleware, validationMiddleware(ReviewReportDto, 'body'), this.controller.reviewReport);
   }
 }
 

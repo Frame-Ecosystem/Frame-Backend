@@ -3,6 +3,7 @@ import BookingController from '@systems/BookingSystem/controllers/booking.contro
 import { CreateBookingDto, CreateQueueBookingDto, CreateLoungeQueueBookingDto, UpdateBookingDto } from '@systems/BookingSystem/dtos/booking.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 
 class BookingRoute implements Routes {
@@ -19,9 +20,9 @@ class BookingRoute implements Routes {
     this.router.use(authMiddleware);
 
     // Booking CRUD
-    this.router.post('/', validationMiddleware(CreateBookingDto, 'body'), this.bookingController.createBooking);
-    this.router.post('/queue', validationMiddleware(CreateQueueBookingDto, 'body'), this.bookingController.createQueueBooking);
-    this.router.post('/queue/lounge', validationMiddleware(CreateLoungeQueueBookingDto, 'body'), this.bookingController.createLoungeQueueBooking);
+    this.router.post('/', csrfMiddleware, validationMiddleware(CreateBookingDto, 'body'), this.bookingController.createBooking);
+    this.router.post('/queue', csrfMiddleware, validationMiddleware(CreateQueueBookingDto, 'body'), this.bookingController.createQueueBooking);
+    this.router.post('/queue/lounge', csrfMiddleware, validationMiddleware(CreateLoungeQueueBookingDto, 'body'), this.bookingController.createLoungeQueueBooking);
     this.router.get('/', this.bookingController.getAllBookings);
 
     // Availability (must come before /:id to avoid route conflict)
@@ -31,8 +32,8 @@ class BookingRoute implements Routes {
     this.router.get('/history', this.bookingController.getBookingHistory);
 
     this.router.get('/:id', this.bookingController.getBookingById);
-    this.router.put('/:id', validationMiddleware(UpdateBookingDto, 'body'), this.bookingController.updateBooking);
-    this.router.delete('/:id', this.bookingController.deleteBooking);
+    this.router.put('/:id', csrfMiddleware, validationMiddleware(UpdateBookingDto, 'body'), this.bookingController.updateBooking);
+    this.router.delete('/:id', csrfMiddleware, this.bookingController.deleteBooking);
 
     // Stats
     this.router.get('/stats/client/:clientId', this.bookingController.getClientBookingStats);

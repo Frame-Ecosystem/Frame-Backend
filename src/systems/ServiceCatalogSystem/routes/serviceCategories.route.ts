@@ -4,6 +4,7 @@ import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@systems/Ser
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import { adminMiddleware } from '@middlewares/role.middleware';
 
 class ServiceCategoriesRoute implements Routes {
@@ -32,6 +33,7 @@ class ServiceCategoriesRoute implements Routes {
     this.router.post(
       '/',
       adminMiddleware,
+      csrfMiddleware,
       validationMiddleware(CreateServiceCategoryDto, 'body'),
       this.serviceCategoriesController.createServiceCategory,
     );
@@ -40,12 +42,13 @@ class ServiceCategoriesRoute implements Routes {
     this.router.put(
       '/:categoryId',
       adminMiddleware,
+      csrfMiddleware,
       validationMiddleware(UpdateServiceCategoryDto, 'body'),
       this.serviceCategoriesController.updateServiceCategory,
     );
 
     // Delete service category (admin only)
-    this.router.delete('/:categoryId', adminMiddleware, this.serviceCategoriesController.deleteServiceCategory);
+    this.router.delete('/:categoryId', adminMiddleware, csrfMiddleware, this.serviceCategoriesController.deleteServiceCategory);
   }
 }
 

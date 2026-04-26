@@ -120,6 +120,10 @@ class App {
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
           logger.error('❌ All MongoDB connection attempts failed.');
+          if (this.env === 'production') {
+            logger.error('❌ Production startup aborted: MongoDB is unavailable after all retries.');
+            process.exit(1);
+          }
           logger.warn('⚠️ App starting without database connection. API will be unavailable until MongoDB connects.');
         }
       }
@@ -129,6 +133,15 @@ class App {
   private initializeMiddlewares() {
     this.app.use(morgan(LOG_FORMAT, { stream }));
 
+    const configuredOrigins = new Set<string>();
+    if (FRONTEND_BASE_URL) configuredOrigins.add(FRONTEND_BASE_URL.trim());
+    if (ORIGIN) {
+      ORIGIN.split(',')
+        .map(value => value.trim())
+        .filter(Boolean)
+        .forEach(value => configuredOrigins.add(value));
+    }
+
     // CORS configuration for WiFi access
     const corsOptions = {
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -136,8 +149,7 @@ class App {
         if (!origin) return callback(null, true);
 
         // Allow configured frontend origin(s)
-        if (FRONTEND_BASE_URL && origin === FRONTEND_BASE_URL) return callback(null, true);
-        if (ORIGIN && origin === ORIGIN) return callback(null, true);
+        if (configuredOrigins.has(origin)) return callback(null, true);
 
         // Allow localhost for development (http and https)
         if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) return callback(null, true);

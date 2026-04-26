@@ -3,6 +3,7 @@ import NotificationController from '@systems/NotificationSystem/controllers/noti
 import { MarkNotificationsReadDto, RegisterDeviceTokenDto, UnregisterDeviceTokenDto } from '@systems/NotificationSystem/dtos/notification.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 
 class NotificationRoute implements Routes {
@@ -25,19 +26,24 @@ class NotificationRoute implements Routes {
     this.router.get('/unread-count', this.notificationController.getUnreadCount);
 
     // Mark notifications as read (specific IDs or all)
-    this.router.patch('/read', validationMiddleware(MarkNotificationsReadDto, 'body', true), this.notificationController.markAsRead);
+    this.router.patch('/read', csrfMiddleware, validationMiddleware(MarkNotificationsReadDto, 'body', true), this.notificationController.markAsRead);
 
     // Register device token for push notifications
-    this.router.post('/device-token', validationMiddleware(RegisterDeviceTokenDto, 'body'), this.notificationController.registerDeviceToken);
+    this.router.post('/device-token', csrfMiddleware, validationMiddleware(RegisterDeviceTokenDto, 'body'), this.notificationController.registerDeviceToken);
 
     // Unregister device token
-    this.router.delete('/device-token', validationMiddleware(UnregisterDeviceTokenDto, 'body'), this.notificationController.unregisterDeviceToken);
+    this.router.delete(
+      '/device-token',
+      csrfMiddleware,
+      validationMiddleware(UnregisterDeviceTokenDto, 'body'),
+      this.notificationController.unregisterDeviceToken,
+    );
 
     // Delete all notifications
-    this.router.delete('/', this.notificationController.deleteAllNotifications);
+    this.router.delete('/', csrfMiddleware, this.notificationController.deleteAllNotifications);
 
     // Delete single notification
-    this.router.delete('/:id', this.notificationController.deleteNotification);
+    this.router.delete('/:id', csrfMiddleware, this.notificationController.deleteNotification);
   }
 }
 

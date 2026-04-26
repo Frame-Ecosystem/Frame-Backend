@@ -2,6 +2,7 @@ import { Router } from 'express';
 import PostController from '@systems/FeedContentSystem/controllers/post.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import { adminOrLoungeOrClientOrAgentMiddleware, adminMiddleware } from '@middlewares/role.middleware';
 import { uploadPostMedia } from '@middlewares/contentUpload.middleware';
 import { contentCreateRateLimiter, likeRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
@@ -21,7 +22,15 @@ class PostRoute implements Routes {
      * @desc    Create a new post (images + text)
      * @access  Private (Client or Lounge)
      */
-    this.router.post('/', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, contentCreateRateLimiter, uploadPostMedia, this.controller.createPost);
+    this.router.post(
+      '/',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      contentCreateRateLimiter,
+      uploadPostMedia,
+      this.controller.createPost,
+    );
 
     /**
      * @route   GET /v1/posts/user/:userId
@@ -42,28 +51,28 @@ class PostRoute implements Routes {
      * @desc    Update a post (text, hashtags)
      * @access  Private (owner only)
      */
-    this.router.put('/:postId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.updatePost);
+    this.router.put('/:postId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, generalRateLimiter, this.controller.updatePost);
 
     /**
      * @route   DELETE /v1/posts/:postId
      * @desc    Delete own post
      * @access  Private (owner only)
      */
-    this.router.delete('/:postId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.controller.deletePost);
+    this.router.delete('/:postId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, this.controller.deletePost);
 
     /**
      * @route   POST /v1/posts/:postId/like
      * @desc    Like or unlike a post
      * @access  Private
      */
-    this.router.post('/:postId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post('/:postId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleLike);
 
     /**
      * @route   POST /v1/posts/:postId/save
      * @desc    Save or unsave a post
      * @access  Private
      */
-    this.router.post('/:postId/save', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, likeRateLimiter, this.controller.toggleSave);
+    this.router.post('/:postId/save', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleSave);
 
     /* ───────── Admin routes ───────── */
 
@@ -72,21 +81,21 @@ class PostRoute implements Routes {
      * @desc    Hide a post (admin moderation)
      * @access  Admin only
      */
-    this.router.put('/:postId/hide', authMiddleware, adminMiddleware, this.controller.hidePost);
+    this.router.put('/:postId/hide', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.hidePost);
 
     /**
      * @route   PUT /v1/posts/:postId/unhide
      * @desc    Unhide a post (admin moderation)
      * @access  Admin only
      */
-    this.router.put('/:postId/unhide', authMiddleware, adminMiddleware, this.controller.unhidePost);
+    this.router.put('/:postId/unhide', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.unhidePost);
 
     /**
      * @route   DELETE /v1/posts/:postId/admin
      * @desc    Admin force delete a post
      * @access  Admin only
      */
-    this.router.delete('/:postId/admin', authMiddleware, adminMiddleware, this.controller.adminDeletePost);
+    this.router.delete('/:postId/admin', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.adminDeletePost);
   }
 }
 

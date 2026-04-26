@@ -12,8 +12,12 @@ const validateEnv = () => {
     MONGO_URI: str({ desc: 'MongoDB connection URI (supports mongodb:// and mongodb+srv://)' }),
     SECRET_KEY: str({ desc: 'JWT secret key for access tokens' }),
     REFRESH_TOKEN_SECRET: str({ desc: 'JWT secret key for refresh tokens (must be different from SECRET_KEY)' }),
-    ADMIN_EMAIL: str({ default: 'admin@admin.com' }),
-    ADMIN_PASSWORD: str({ default: 'Admin@123' }),
+    REFRESH_TOKEN_COOKIE_DOMAIN: str({ default: '', desc: 'Optional domain for refresh token cookie, e.g. .framebeauty.tn' }),
+    REFRESH_TOKEN_COOKIE_SAMESITE: str({ default: 'auto', choices: ['auto', 'strict', 'lax', 'none'] }),
+    REFRESH_TOKEN_COOKIE_SECURE: str({ default: 'auto', choices: ['auto', 'true', 'false'] }),
+    ENABLE_ADMIN_BOOTSTRAP: bool({ default: false, desc: 'Create default admin user at startup when missing' }),
+    ADMIN_EMAIL: str({ default: '' }),
+    ADMIN_PASSWORD: str({ default: '' }),
     // Image upload feature flag
     ENABLE_IMAGE_UPLOAD: bool({ default: false, desc: 'Enable image upload feature (requires Cloudflare R2 config)' }),
     // Cloudflare R2 configuration (required if ENABLE_IMAGE_UPLOAD is true)
@@ -45,6 +49,18 @@ const validateEnv = () => {
   if (env.SECRET_KEY === env.REFRESH_TOKEN_SECRET) {
     logger.error('❌ SECRET_KEY and REFRESH_TOKEN_SECRET must be different!');
     throw new Error('SECRET_KEY and REFRESH_TOKEN_SECRET must be distinct to prevent token confusion attacks');
+  }
+
+  if (env.ENABLE_ADMIN_BOOTSTRAP) {
+    if (!env.ADMIN_EMAIL || !env.ADMIN_PASSWORD) {
+      logger.error('❌ ENABLE_ADMIN_BOOTSTRAP is true but ADMIN_EMAIL or ADMIN_PASSWORD is missing');
+      throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD are required when ENABLE_ADMIN_BOOTSTRAP is enabled');
+    }
+
+    if (env.ADMIN_PASSWORD.length < 12) {
+      logger.error('❌ ADMIN_PASSWORD must be at least 12 characters when ENABLE_ADMIN_BOOTSTRAP is enabled');
+      throw new Error('ADMIN_PASSWORD is too weak for bootstrap admin account');
+    }
   }
 
   return env;

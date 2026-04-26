@@ -1,6 +1,7 @@
 ﻿import { Router } from 'express';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import { clientMiddleware } from '@middlewares/role.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
@@ -23,10 +24,10 @@ class RatingRoute implements Routes {
     this.router.get('/me/:loungeId', authMiddleware, clientMiddleware, this.ratingController.getMyRating);
 
     // Client-only — create or update
-    this.router.put('/', authMiddleware, clientMiddleware, validationMiddleware(UpsertRatingDto, 'body'), this.ratingController.upsertRating);
+    this.router.put('/', authMiddleware, clientMiddleware, csrfMiddleware, validationMiddleware(UpsertRatingDto, 'body'), this.ratingController.upsertRating);
 
     // Client-only — delete own rating
-    this.router.delete('/:loungeId', authMiddleware, clientMiddleware, this.ratingController.deleteRating);
+    this.router.delete('/:loungeId', authMiddleware, clientMiddleware, csrfMiddleware, this.ratingController.deleteRating);
   }
 }
 

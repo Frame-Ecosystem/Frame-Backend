@@ -4,8 +4,15 @@ import { CreateUserDto } from '@systems/UserManager/dtos/user.dto';
 import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
-import { loginRateLimiter, signupRateLimiter, forgotPasswordRateLimiter, generalRateLimiter } from '@middlewares/rateLimit.middleware';
+import {
+  loginRateLimiter,
+  signupRateLimiter,
+  forgotPasswordRateLimiter,
+  generalRateLimiter,
+  refreshTokenRateLimiter,
+} from '@middlewares/rateLimit.middleware';
 import passport from 'passport';
 import { FRONTEND_BASE_URL } from '@config';
 import { logger } from '@utils/logger';
@@ -24,10 +31,10 @@ class AuthRoute implements Routes {
     this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
     this.router.get('/verify', generalRateLimiter, this.authController.verifyMagicLink);
     this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
-    this.router.post('/logout', authMiddleware, this.authController.logOut);
-    this.router.post('/logout-all', authMiddleware, this.authController.logOutAllDevices);
+    this.router.post('/logout', authMiddleware, csrfMiddleware, this.authController.logOut);
+    this.router.post('/logout-all', authMiddleware, csrfMiddleware, this.authController.logOutAllDevices);
     // Refresh token endpoint (no CSRF needed - refresh token cookie provides security)
-    this.router.post('/refresh-token', this.authController.refreshToken);
+    this.router.post('/refresh-token', refreshTokenRateLimiter, this.authController.refreshToken);
     this.router.post(
       '/forgot-password',
       forgotPasswordRateLimiter,
