@@ -10,7 +10,7 @@ import { connect, set, disconnect, connection } from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
 import { createServer, Server as HTTPServer } from 'http';
 import { buildSwaggerDocument } from '@utils/swagger';
-import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP } from '@config';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP, FRONTEND_BASE_URL } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
 import errorMiddleware from '@middlewares/error.middleware';
@@ -135,22 +135,21 @@ class App {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
 
-        // Allow localhost for development
-        if (origin.startsWith('http://localhost')) return callback(null, true);
-
-        // Allow 127.0.0.1 for local access
-        if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
-        if (origin.startsWith('http://0.0.0.0')) return callback(null, true);
-
-        // Allow WiFi network IPs (192.168.x.x range)
-        if (origin.match(/^http:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
-
-        // Allow 172.x.x.x range (common for mobile hotspots and some networks)
-        if (origin.match(/^http:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
-        if (origin.match(/^http:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
-
-        // Allow specific configured origin
+        // Allow configured frontend origin(s)
+        if (FRONTEND_BASE_URL && origin === FRONTEND_BASE_URL) return callback(null, true);
         if (ORIGIN && origin === ORIGIN) return callback(null, true);
+
+        // Allow localhost for development (http and https)
+        if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) return callback(null, true);
+
+        // Allow 127.0.0.1 and 0.0.0.0 for local access (http and https)
+        if (origin.startsWith('http://127.0.0.1') || origin.startsWith('https://127.0.0.1')) return callback(null, true);
+        if (origin.startsWith('http://0.0.0.0') || origin.startsWith('https://0.0.0.0')) return callback(null, true);
+
+        // Allow LAN IPs (192.168.x.x, 172.x.x.x, 10.x.x.x) for development (http and https)
+        if (origin.match(/^https?:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
+        if (origin.match(/^https?:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
+        if (origin.match(/^https?:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
 
         return callback(new Error('Not allowed by CORS'));
       },
