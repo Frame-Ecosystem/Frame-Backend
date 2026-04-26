@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { randomBytes } from 'crypto';
 import { BadRequestException, NotFoundException, ForbiddenException } from '@exceptions/HttpException';
 import orderModel from '@systems/MarketplaceSystem/models/order.model';
 import productModel from '@systems/MarketplaceSystem/models/product.model';
@@ -18,115 +19,141 @@ class OrderService {
   private async generateOrderNumber(): Promise<string> {
     const date = new Date();
     const prefix = `FR${date.getFullYear().toString().slice(2)}${String(date.getMonth() + 1).padStart(2, '0')}`;
-    const count = await this.orders.countDocuments({
-      createdAt: { $gte: new Date(date.getFullYear(), date.getMonth(), 1) },
-    });
-    return `${prefix}-${String(count + 1).padStart(5, '0')}`;
+    const nonce = randomBytes(3).toString('hex').toUpperCase();
+    return `${prefix}-${Date.now().toString().slice(-6)}-${nonce}`;
   }
 
   /* ───────── Create ───────── */
 
   public async createOrder(buyerId: string, dto: CreateOrderDto): Promise<Order> {
     if (!mongoose.Types.ObjectId.isValid(dto.storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
+    if (!dto.items?.length) throw new BadRequestException('At least one order item is required', 'EMPTY_ORDER_ITEMS');
 
-    // Verify store exists and is active
-    const store = await this.stores.findById(dto.storeId);
-    if (!store) throw new NotFoundException('Store not found', 'STORE_NOT_FOUND');
-    if (store.status !== StoreStatus.ACTIVE) throw new BadRequestException('Store is not active', 'STORE_NOT_ACTIVE');
+    const session = await mongoose.startSession();
+    let createdOrder: Order | null = null;
 
-    // Prevent buying from own store
-    if (store.ownerId.toString() === buyerId) throw new BadRequestException('Cannot buy from your own store', 'SELF_PURCHASE');
+    try {
+      await session.withTransaction(async () => {
+        const store = await this.stores.findById(dto.storeId).session(session);
+        if (!store) throw new NotFoundException('Store not found', 'STORE_NOT_FOUND');
+        if (store.status !== StoreStatus.ACTIVE) throw new BadRequestException('Store is not active', 'STORE_NOT_ACTIVE');
+        if (store.ownerId.toString() === buyerId) throw new BadRequestException('Cannot buy from your own store', 'SELF_PURCHASE');
 
-    // Validate and build order items
-    const orderItems: any[] = [];
-    let subtotal = 0;
+        const orderItems: any[] = [];
+        let subtotal = 0;
 
-    for (const item of dto.items) {
-      if (!mongoose.Types.ObjectId.isValid(item.productId)) {
-        throw new BadRequestException(`Invalid product ID: ${item.productId}`, 'INVALID_PRODUCT_ID');
-      }
+        for (const item of dto.items) {
+          if (!mongoose.Types.ObjectId.isValid(item.productId)) {
+            throw new BadRequestException(`Invalid product ID: ${item.productId}`, 'INVALID_PRODUCT_ID');
+          }
 
-      const product = await this.products.findById(item.productId);
-      if (!product) throw new NotFoundException(`Product not found: ${item.productId}`, 'PRODUCT_NOT_FOUND');
-      if (product.storeId.toString() !== dto.storeId) throw new BadRequestException('Product does not belong to this store', 'PRODUCT_STORE_MISMATCH');
-      if (product.status !== ProductStatus.ACTIVE) throw new BadRequestException(`Product is not available: ${product.name}`, 'PRODUCT_NOT_ACTIVE');
+          const product = await this.products.findById(item.productId).session(session);
+          if (!product) throw new NotFoundException(`Product not found: ${item.productId}`, 'PRODUCT_NOT_FOUND');
+          if (product.storeId.toString() !== dto.storeId) throw new BadRequestException('Product does not belong to this store', 'PRODUCT_STORE_MISMATCH');
+          if (product.status !== ProductStatus.ACTIVE) throw new BadRequestException(`Product is not available: ${product.name}`, 'PRODUCT_NOT_ACTIVE');
 
-      let price = product.price;
-      let availableStock = product.stock;
+          let price = product.price;
+          let availableStock = product.stock;
 
-      // Handle variant
-      if (item.variantIndex !== undefined) {
-        if (item.variantIndex < 0 || item.variantIndex >= product.variants.length) {
-          throw new BadRequestException('Invalid variant index', 'INVALID_VARIANT');
+          if (item.variantIndex !== undefined) {
+            if (item.variantIndex < 0 || item.variantIndex >= product.variants.length) {
+              throw new BadRequestException('Invalid variant index', 'INVALID_VARIANT');
+            }
+            const variant = product.variants[item.variantIndex];
+            price = variant.price;
+            availableStock = variant.stock;
+          }
+
+          if (availableStock < item.quantity) {
+            throw new BadRequestException(`Insufficient stock for ${product.name}`, 'INSUFFICIENT_STOCK');
+          }
+
+          const primaryImage = product.images.find((img: any) => img.isPrimary) || product.images[0];
+          orderItems.push({
+            productId: product._id,
+            variantIndex: item.variantIndex,
+            name: product.name,
+            price,
+            quantity: item.quantity,
+            image: primaryImage?.url || '',
+          });
+          subtotal += price * item.quantity;
         }
-        const variant = product.variants[item.variantIndex];
-        price = variant.price;
-        availableStock = variant.stock;
-      }
 
-      if (availableStock < item.quantity) {
-        throw new BadRequestException(`Insufficient stock for ${product.name}`, 'INSUFFICIENT_STOCK');
-      }
+        // Reserve stock atomically to avoid race conditions.
+        for (const item of dto.items) {
+          let updateResult;
+          if (item.variantIndex !== undefined) {
+            updateResult = await this.products.updateOne(
+              {
+                _id: item.productId,
+                stock: { $gte: item.quantity },
+                [`variants.${item.variantIndex}.stock`]: { $gte: item.quantity },
+              },
+              {
+                $inc: {
+                  stock: -item.quantity,
+                  [`variants.${item.variantIndex}.stock`]: -item.quantity,
+                },
+              },
+              { session },
+            );
+          } else {
+            updateResult = await this.products.updateOne(
+              { _id: item.productId, stock: { $gte: item.quantity } },
+              { $inc: { stock: -item.quantity } },
+              { session },
+            );
+          }
 
-      const primaryImage = product.images.find((img: any) => img.isPrimary) || product.images[0];
+          if (!updateResult.modifiedCount) {
+            throw new BadRequestException('Stock changed during checkout. Please refresh and retry.', 'STOCK_RACE_CONDITION');
+          }
+        }
 
-      orderItems.push({
-        productId: product._id,
-        variantIndex: item.variantIndex,
-        name: product.name,
-        price,
-        quantity: item.quantity,
-        image: primaryImage?.url || '',
+        const shippingCost = 0;
+        const total = subtotal + shippingCost;
+
+        const [order] = await this.orders.create(
+          [
+            {
+              orderNumber: await this.generateOrderNumber(),
+              buyerId,
+              storeId: dto.storeId,
+              items: orderItems,
+              subtotal,
+              shippingCost,
+              total,
+              paymentMethod: dto.paymentMethod,
+              shippingAddress: dto.shippingAddress,
+              notes: dto.notes || '',
+            },
+          ],
+          { session },
+        );
+
+        createdOrder = order as unknown as Order;
+
+        await this.stores.findByIdAndUpdate(
+          dto.storeId,
+          { $inc: { 'stats.totalOrders': 1 } },
+          { session },
+        );
+
+        await this.carts.findOneAndUpdate(
+          { userId: buyerId },
+          { $pull: { items: { storeId: dto.storeId } } },
+          { session },
+        );
       });
-
-      subtotal += price * item.quantity;
+    } finally {
+      await session.endSession();
     }
 
-    const orderNumber = await this.generateOrderNumber();
-    const shippingCost = 0; // Can be calculated based on location/weight later
-    const total = subtotal + shippingCost;
-
-    const order = await this.orders.create({
-      orderNumber,
-      buyerId,
-      storeId: dto.storeId,
-      items: orderItems,
-      subtotal,
-      shippingCost,
-      total,
-      paymentMethod: dto.paymentMethod,
-      shippingAddress: dto.shippingAddress,
-      notes: dto.notes || '',
-    });
-
-    // Deduct stock
-    for (const item of dto.items) {
-      if (item.variantIndex !== undefined) {
-        await this.products.findByIdAndUpdate(item.productId, {
-          $inc: {
-            [`variants.${item.variantIndex}.stock`]: -item.quantity,
-            stock: -item.quantity,
-          },
-        });
-      } else {
-        await this.products.findByIdAndUpdate(item.productId, {
-          $inc: { stock: -item.quantity },
-        });
-      }
+    if (!createdOrder) {
+      throw new BadRequestException('Failed to create order', 'ORDER_CREATE_FAILED');
     }
-
-    // Update store stats
-    await this.stores.findByIdAndUpdate(dto.storeId, {
-      $inc: { 'stats.totalOrders': 1 },
-    });
-
-    // Clear these items from buyer's cart
-    await this.carts.findOneAndUpdate(
-      { userId: buyerId },
-      { $pull: { items: { storeId: dto.storeId } } },
-    );
-
-    return order;
+    return createdOrder;
   }
 
   /* ───────── Read ───────── */

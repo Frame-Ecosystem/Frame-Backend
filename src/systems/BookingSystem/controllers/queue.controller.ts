@@ -49,9 +49,10 @@ class QueueController {
   /**
    * Add a person (booking) to an agent's queue
    */
-  public addPersonToQueue = async (req: Request, res: Response, next: NextFunction) => {
+  public addPersonToQueue = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { agentId } = req.params;
+      await this.queueService.assertQueueMutationAccess(req.user._id.toString(), req.user.type, agentId);
       const data: AddToQueueDto = {
         bookingId: req.body.bookingId,
         position: req.body.position,
@@ -70,9 +71,10 @@ class QueueController {
   /**
    * Update a person's status in the queue
    */
-  public updatePersonStatus = async (req: Request, res: Response, next: NextFunction) => {
+  public updatePersonStatus = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { agentId, bookingId } = req.params;
+      await this.queueService.assertQueueMutationAccess(req.user._id.toString(), req.user.type, agentId);
       const data: UpdateQueuePersonDto = {
         status: req.body.status,
       };
@@ -90,9 +92,10 @@ class QueueController {
   /**
    * Remove a person from an agent's queue
    */
-  public removePersonFromQueue = async (req: Request, res: Response, next: NextFunction) => {
+  public removePersonFromQueue = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { agentId, bookingId } = req.params;
+      await this.queueService.assertQueueMutationAccess(req.user._id.toString(), req.user.type, agentId);
       const markAbsent = req.query.markAbsent === 'true';
 
       const queue = await this.queueService.removePersonFromQueue(agentId, bookingId, markAbsent);
@@ -108,9 +111,10 @@ class QueueController {
   /**
    * Reorder a person's position in the queue
    */
-  public reorderPerson = async (req: Request, res: Response, next: NextFunction) => {
+  public reorderPerson = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { agentId, bookingId } = req.params;
+      await this.queueService.assertQueueMutationAccess(req.user._id.toString(), req.user.type, agentId);
       const data: ReorderQueuePersonDto = {
         newPosition: req.body.newPosition,
       };

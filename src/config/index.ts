@@ -49,6 +49,3 @@ export const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || process.env.GO
  * localhost. In production, falls back to FRONTEND_BASE_URL.
  */
 export const MAGIC_LINK_BASE_URL = process.env.MAGIC_LINK_BASE_URL || (NODE_ENV === 'production' ? FRONTEND_BASE_URL : `http://${LOCAL_IP}:2111`);
-
-/** Feature flags */
-export const ENABLE_SWAGGER = process.env.ENABLE_SWAGGER === 'true';

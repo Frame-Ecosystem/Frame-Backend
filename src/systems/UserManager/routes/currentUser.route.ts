@@ -56,9 +56,9 @@ class CurrentUserRoute implements Routes {
     // PUT - Update current user language preference
     this.router.put('/language', authMiddleware, validationMiddleware(UpdateLanguageDto, 'body'), this.currentUserController.updateLanguage);
     // POST - Send email verification code
-    this.router.post('/send-verification-code', this.currentUserController.sendVerificationCode);
+    this.router.post('/send-verification-code', authMiddleware, strictRateLimiter, this.currentUserController.sendVerificationCode);
     // POST - Verify email code
-    this.router.post('/verify-email', this.currentUserController.verifyEmailCode);
+    this.router.post('/verify-email', authMiddleware, strictRateLimiter, this.currentUserController.verifyEmailCode);
   }
 }
 

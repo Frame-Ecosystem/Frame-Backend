@@ -32,7 +32,7 @@ info:
 servers:
   - url: http://localhost:3000
     description: Local development
-  - url: https://backend-server-dob4.onrender.com
+  - url: https://frame-backend-apis.onrender.com
     description: Production
 
 tags:

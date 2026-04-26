@@ -10,7 +10,7 @@ import { connect, set, disconnect, connection } from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
 import { createServer, Server as HTTPServer } from 'http';
 import { buildSwaggerDocument } from '@utils/swagger';
-import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP, ENABLE_SWAGGER } from '@config';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
 import errorMiddleware from '@middlewares/error.middleware';
@@ -235,8 +235,8 @@ class App {
   }
 
   private initializeSwagger() {
-    // Enable Swagger in non-production OR when explicitly enabled via env flag
-    if (this.env !== 'production' || ENABLE_SWAGGER) {
+    // Only enable Swagger in development and staging environments
+    if (this.env !== 'production') {
       const swaggerDocument = buildSwaggerDocument();
       this.app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
     }

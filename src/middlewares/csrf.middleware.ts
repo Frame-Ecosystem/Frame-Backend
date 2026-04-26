@@ -32,7 +32,8 @@ export const setCsrfToken = (res: Response): string => {
   res.cookie(CSRF_COOKIE_NAME, csrfToken, {
     httpOnly: false, // Must be readable by JavaScript
     secure: NODE_ENV === 'production',
-    sameSite: 'strict',
+    // Allow cross-site JS access in production (frontend may be on a different origin)
+    sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     path: '/',
   });
@@ -63,12 +64,10 @@ const csrfMiddleware = (req: Request, res: Response, next: NextFunction) => {
     return next();
   }
 
-  // Skip CSRF check for authenticated requests (JWT provides sufficient protection)
-  const authHeader = req.headers.authorization;
-  const hasBearerToken = authHeader && authHeader.startsWith('Bearer ');
-  const isAuthenticated = (req as any).user !== undefined;
-
-  if (hasBearerToken || isAuthenticated) {
+  // CSRF primarily applies to browser requests that include cookies automatically.
+  // If the request has no Cookie header, treat it as token-based API traffic.
+  const hasCookieHeader = Boolean(req.headers.cookie);
+  if (!hasCookieHeader) {
     return next();
   }
 

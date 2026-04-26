@@ -33,11 +33,13 @@ class AuthController {
   /**
    * Set the refresh token HttpOnly cookie on the response.
    */
-  private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite: 'strict' | 'lax' = 'strict'): void {
+  private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
+    const site = sameSite ?? (NODE_ENV === 'production' ? 'none' : 'lax');
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
       secure: NODE_ENV === 'production',
-      sameSite,
+      // Cast to any because some @types may not include 'none' in the union
+      sameSite: site as any,
       maxAge: REFRESH_TOKEN_MAX_AGE,
       path: '/',
     });
