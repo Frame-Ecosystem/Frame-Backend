@@ -30,7 +30,7 @@ services:
     env_file:
       - .env.production
     ports:
-      - '3000:3000'
+      - '2000:2000'
     restart: 'unless-stopped'
     networks:
       - backend
@@ -39,11 +39,12 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=production
+      - PORT=2000
       - DB_HOST=mongo
       - DB_PORT=27017
       - DB_DATABASE=prod
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:2000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

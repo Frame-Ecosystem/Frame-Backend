@@ -26,6 +26,8 @@ cp .env.example .env
 
 3) Fill required values (`MONGO_URI`, `SECRET_KEY`, `REFRESH_TOKEN_SECRET`, OAuth/email if used).
 
+Local frontend/backend/email links automatically use your LAN IP. Local frontend starts from `http://0.0.0.0:2111`, local backend starts from `http://0.0.0.0:2000`, and the app rewrites those hosts to `http://<LAN_IP>:<port>` for phone/Wi-Fi testing.
+
 4) Run in development:
 
 ```bash
@@ -35,6 +37,7 @@ npm run dev
 ## Production Run
 
 Production/deployment mode reads `.env.production` when `NODE_ENV=production`.
+Production frontend, magic-link, and password-reset URLs point to `https://framebeautydemo.vercel.app`; production backend URLs point to `https://frame-backend-apis.onrender.com`.
 
 ```bash
 cp .env.production.example .env.production

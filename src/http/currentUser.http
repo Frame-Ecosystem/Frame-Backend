@@ -6,7 +6,7 @@
 # Click "Send Request" above each request to execute
 # ============================================
 
-@baseURL = http://localhost:3000/v1/me
+@baseURL = http://0.0.0.0:2000/v1/me
 @accessToken = your_access_token_here
 
 # ============================================

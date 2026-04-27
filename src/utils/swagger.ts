@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import YAML from 'yamljs';
+import { BACKEND_BASE_URL, NODE_ENV } from '@config';
 
 // Resolve to project root's swagger/ dir (works from both src/ and dist/)
 const SWAGGER_DIR = path.join(__dirname, '..', '..', 'swagger');
@@ -38,6 +39,12 @@ const PATH_FILES = [
  */
 export function buildSwaggerDocument(): Record<string, any> {
   const base = YAML.load(path.join(SWAGGER_DIR, 'base.yaml'));
+  base.servers = [
+    {
+      url: BACKEND_BASE_URL,
+      description: NODE_ENV === 'production' ? 'Production' : 'Local development',
+    },
+  ];
 
   for (const name of PATH_FILES) {
     const filePath = path.join(SWAGGER_DIR, `${name}.yaml`);

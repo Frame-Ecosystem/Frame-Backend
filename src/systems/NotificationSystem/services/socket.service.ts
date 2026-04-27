@@ -2,6 +2,7 @@ import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { logger } from '@utils/logger';
 import { ChatSocketHandler } from '@systems/ChatSystem/socket/chat.socket';
+import { FRONTEND_BASE_URL, ORIGIN, NODE_ENV } from '@config';
 
 /**
  * Socket.IO event names for real-time updates.
@@ -64,18 +65,22 @@ class SocketService {
    * Initialize Socket.IO with the HTTP server.
    */
   public initialize(httpServer: HTTPServer): Server {
+    const allowedOrigins = new Set<string>();
+    if (FRONTEND_BASE_URL) allowedOrigins.add(FRONTEND_BASE_URL);
+    if (ORIGIN) {
+      ORIGIN.split(',')
+        .map(origin => origin.trim())
+        .filter(Boolean)
+        .forEach(origin => allowedOrigins.add(origin));
+    }
+
     this.io = new Server(httpServer, {
       cors: {
         origin: (origin, callback) => {
-          // Allow same origins as Express CORS config
           if (!origin) return callback(null, true);
-          if (origin.startsWith('http://localhost')) return callback(null, true);
-          if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
-          if (origin.startsWith('http://0.0.0.0')) return callback(null, true);
-          if (origin.match(/^http:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
-          if (origin.match(/^http:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
-          if (origin.match(/^http:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
-          return callback(null, true); // Allow all in dev; tighten in production
+          if (allowedOrigins.has(origin)) return callback(null, true);
+          if (NODE_ENV !== 'production') return callback(null, true);
+          return callback(new Error('Not allowed by Socket.IO CORS'));
         },
         credentials: true,
       },

@@ -88,9 +88,10 @@ deploy() {
     if docker-compose ps | grep -q "Up"; then
         print_status "✅ Deployment successful!"
         print_status "Application is running at:"
-        print_status "  - API: http://localhost"
-        print_status "  - Health Check: http://localhost/health"
-        print_status "  - Readiness Check: http://localhost/ready"
+        APP_URL="${BACKEND_BASE_URL:-https://frame-backend-apis.onrender.com}"
+        print_status "  - API: $APP_URL"
+        print_status "  - Health Check: $APP_URL/health"
+        print_status "  - Readiness Check: $APP_URL/ready"
     else
         print_error "❌ Deployment failed! Check logs with: docker-compose logs"
         exit 1
@@ -105,14 +106,15 @@ health_check() {
     sleep 10
 
     # Check health endpoint
-    if curl -f -s http://localhost/health > /dev/null; then
+    APP_URL="${BACKEND_BASE_URL:-https://frame-backend-apis.onrender.com}"
+    if curl -f -s "$APP_URL/health" > /dev/null; then
         print_status "✅ Health check passed"
     else
         print_warning "⚠️ Health check failed - app might still be starting"
     fi
 
     # Check readiness endpoint
-    if curl -f -s http://localhost/ready > /dev/null; then
+    if curl -f -s "$APP_URL/ready" > /dev/null; then
         print_status "✅ Readiness check passed"
     else
         print_warning "⚠️ Readiness check failed - database might not be ready"

@@ -362,7 +362,7 @@ On lounge agent connect:
 ### Client-Side Integration Example
 
 ```javascript
-const socket = io('wss://api.framebeauty.tn', {
+const socket = io(process.env.BACKEND_BASE_URL || 'https://frame-backend-apis.onrender.com', {
   auth: { token: `Bearer ${accessToken}` }
 });
 

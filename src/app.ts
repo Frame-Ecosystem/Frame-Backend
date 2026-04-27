@@ -10,7 +10,7 @@ import { connect, set, disconnect, connection } from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
 import { createServer, Server as HTTPServer } from 'http';
 import { buildSwaggerDocument } from '@utils/swagger';
-import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP, FRONTEND_BASE_URL } from '@config';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP, FRONTEND_BASE_URL, BACKEND_BASE_URL } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
 import errorMiddleware from '@middlewares/error.middleware';
@@ -53,12 +53,13 @@ class App {
   public listen() {
     this.httpServer.listen(Number(this.port), '0.0.0.0', () => {
       const localIP = LOCAL_IP || 'localhost';
+      const backendUrl = BACKEND_BASE_URL || `http://${localIP}:${this.port}`;
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on ${localIP}:${this.port}`);
-      logger.info(`📱 WiFi Access: http://${localIP}:${this.port}`);
-      logger.info(`📚 Swagger API Docs: http://${localIP}:${this.port}/api-docs`);
-      logger.info(`🔌 WebSocket: ws://${localIP}:${this.port}`);
+      logger.info(`🚀 App listening on ${backendUrl}`);
+      logger.info(`📱 WiFi Access: ${backendUrl}`);
+      logger.info(`📚 Swagger API Docs: ${backendUrl}/api-docs`);
+      logger.info(`🔌 WebSocket: ${backendUrl.replace(/^http/, 'ws')}`);
       logger.info(`=================================`);
     });
   }

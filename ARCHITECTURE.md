@@ -813,7 +813,7 @@ app.use((err: HttpException, req, res, next) => {
 All API routes are prefixed with `/v1`:
 
 ```
-https://api.framebeauty.tn/v1/{system}/{resource}
+https://frame-backend-apis.onrender.com/v1/{system}/{resource}
 ```
 
 ### Complete Route Groups
@@ -848,7 +848,7 @@ https://api.framebeauty.tn/v1/{system}/{resource}
 ### Swagger / OpenAPI
 
 Interactive API documentation is available at:
-- **Local:** `http://localhost:{PORT}/api-docs`
+- **Local:** `http://0.0.0.0:2000/api-docs`
 - **File:** [`swagger.yaml`](swagger.yaml) (OpenAPI 2.0 / Swagger, ~11,000 lines)
 
 ---
