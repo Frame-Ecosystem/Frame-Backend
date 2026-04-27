@@ -21,7 +21,7 @@ npm install
 2) Create local env file from template:
 
 ```bash
-cp .env.production.example .env.development.local
+cp .env.example .env
 ```
 
 3) Fill required values (`MONGO_URI`, `SECRET_KEY`, `REFRESH_TOKEN_SECRET`, OAuth/email if used).
@@ -34,7 +34,10 @@ npm run dev
 
 ## Production Run
 
+Production/deployment mode reads `.env.production` when `NODE_ENV=production`.
+
 ```bash
+cp .env.production.example .env.production
 npm run build
 npm start
 ```
@@ -55,6 +58,13 @@ npm run deploy:prod
 
 - `GET /health` - basic service health
 - `GET /ready` - readiness probe (database and websocket status)
+
+## CSRF For Web Clients
+
+- Call `GET /v1/auth/csrf-token` with credentials enabled.
+- Read `csrfToken` from the response body (or the `csrf-token` cookie).
+- Send it on mutating browser requests as `x-csrf-token`.
+- Login and refresh responses also return and set a fresh CSRF token.
 
 ## Scripts
 

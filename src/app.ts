@@ -76,22 +76,32 @@ class App {
     return this.app;
   }
 
+  private getDatabaseName(uri: string): string {
+    try {
+      const parsed = new URL(uri);
+      return parsed.pathname.replace(/^\//, '') || 'default';
+    } catch {
+      return 'unknown';
+    }
+  }
+
   private async connectToDatabase(retries = 5, delay = 5000) {
     // Suppress Mongoose 7 strictQuery deprecation warning
     set('strictQuery', false);
 
-    if (this.env !== 'production') {
+    if (process.env.ENABLE_MONGOOSE_DEBUG === 'true') {
       set('debug', true);
     }
 
+    const dbName = this.getDatabaseName(dbConnection.url);
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        logger.info(`🔄 Connecting to MongoDB at ${dbConnection.url}... (attempt ${attempt}/${retries})`);
+        logger.info(`🔄 Connecting to MongoDB database "${dbName}" (attempt ${attempt}/${retries})`);
         await connect(dbConnection.url, dbConnection.options);
         logger.info(`✅ Successfully connected to MongoDB`);
 
         // Log the actual database name for verification in Compass
-        const dbName = dbConnection.url.split('/').pop() || 'unknown';
         logger.info(`📊 Using database: ${dbName}`);
 
         // Ensure the collection and indexes exist

@@ -1,8 +1,10 @@
 import { config } from 'dotenv';
 import { networkInterfaces } from 'os';
 
-config();
-config({ path: `.env.${process.env.NODE_ENV || 'development'}.local` });
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
+
+config({ path: envFile });
 
 /** First non-internal IPv4 address on the local network, or 'localhost'. */
 export const LOCAL_IP = ((): string => {

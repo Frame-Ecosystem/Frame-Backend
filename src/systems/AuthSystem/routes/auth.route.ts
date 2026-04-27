@@ -29,6 +29,7 @@ class AuthRoute implements Routes {
   private initializeRoutes() {
     // Auth endpoints with rate limiting
     this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
+    this.router.get('/csrf-token', generalRateLimiter, this.authController.getCsrfToken);
     this.router.get('/verify', generalRateLimiter, this.authController.verifyMagicLink);
     this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
     this.router.post('/logout', authMiddleware, csrfMiddleware, this.authController.logOut);

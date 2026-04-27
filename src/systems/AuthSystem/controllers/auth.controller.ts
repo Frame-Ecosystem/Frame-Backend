@@ -88,12 +88,13 @@ class AuthController {
       });
     } else {
       this.setRefreshTokenCookie(res, refreshToken);
-      setCsrfToken(res);
+      const csrfToken = setCsrfToken(res);
       res.status(200).json({
         data: stripSensitiveFields(userData),
         token: tokenData.token,
         expiresIn: tokenData.expiresIn,
         message,
+        csrfToken,
       });
     }
   }
@@ -105,6 +106,19 @@ class AuthController {
       const { message } = await this.authService.signup(userData, deviceInfo);
 
       res.status(200).json({ message, success: true });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public getCsrfToken = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const csrfToken = setCsrfToken(res);
+      res.status(200).json({
+        csrfToken,
+        headerName: 'x-csrf-token',
+        cookieName: 'csrf-token',
+      });
     } catch (error) {
       next(error);
     }
@@ -223,10 +237,12 @@ class AuthController {
         });
       } else {
         this.setRefreshTokenCookie(res, newRefreshToken);
+        const csrfToken = setCsrfToken(res);
         res.status(200).json({
           token: tokenData.token,
           expiresIn: tokenData.expiresIn,
           message: 'Token refreshed',
+          csrfToken,
         });
       }
     } catch (error) {
@@ -255,8 +271,10 @@ class AuthController {
         });
       } else {
         this.setRefreshTokenCookie(res, refreshToken, 'lax');
-        setCsrfToken(res);
-        return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google`);
+        const csrfToken = setCsrfToken(res);
+        return res.redirect(
+          `${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google#csrf=${encodeURIComponent(csrfToken)}`,
+        );
       }
     } catch (error) {
       next(error);
