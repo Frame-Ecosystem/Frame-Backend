@@ -5,7 +5,7 @@
 # Click "Send Request" above each request to execute
 # ============================================
 
-@baseURL = http://localhost:3000/v1/auth
+@baseURL = http://0.0.0.0:2000/v1/auth
 
 # Variables - Update these after login
 @accessToken = your_access_token_here

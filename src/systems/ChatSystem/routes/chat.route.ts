@@ -2,6 +2,7 @@ import { Router } from 'express';
 import ChatController from '@systems/ChatSystem/controllers/chat.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { optionalUpload } from '@middlewares/imageUpload.middleware';
 import { generalRateLimiter } from '@middlewares/rateLimit.middleware';
@@ -64,6 +65,7 @@ class ChatRoute implements Routes {
     // ── Conversations ───────────────────────────────────────────────
     this.router.post(
       '/conversations',
+      csrfMiddleware,
       validationMiddleware(CreateConversationDto),
       this.chatController.startConversation,
     );
@@ -76,7 +78,7 @@ class ChatRoute implements Routes {
 
     this.router.get('/conversations/:id', this.chatController.getConversation);
 
-    this.router.delete('/conversations/:id', this.chatController.deleteConversation);
+    this.router.delete('/conversations/:id', csrfMiddleware, this.chatController.deleteConversation);
 
     // ── Messages ────────────────────────────────────────────────────
     //
@@ -86,6 +88,7 @@ class ChatRoute implements Routes {
 
     this.router.patch(
       '/conversations/:id/messages/read',
+      csrfMiddleware,
       validationMiddleware(MarkMessagesReadDto, 'body', true),
       this.chatController.markMessagesRead,
     );
@@ -104,6 +107,7 @@ class ChatRoute implements Routes {
 
     this.router.post(
       '/conversations/:id/messages',
+      csrfMiddleware,
       generalRateLimiter,                              // 100 req / 15 min per IP
       optionalUpload('file'),                          // handles multipart for image/file/audio uploads
       validationMiddleware(SendMessageDto, 'body', true),
@@ -112,24 +116,27 @@ class ChatRoute implements Routes {
 
     this.router.patch(
       '/conversations/:id/messages/:msgId',
+      csrfMiddleware,
       validationMiddleware(EditMessageDto),
       this.chatController.editMessage,
     );
 
     this.router.post(
       '/conversations/:id/messages/:msgId/reactions',
+      csrfMiddleware,
       validationMiddleware(ReactToMessageDto),
       this.chatController.reactToMessage,
     );
 
     this.router.delete(
       '/conversations/:id/messages/:msgId',
+      csrfMiddleware,
       validationMiddleware(DeleteMessageDto, 'body', true),
       this.chatController.deleteMessage,
     );
 
     // ── Typing indicator (REST proxy) ───────────────────────────────
-    this.router.post('/conversations/:id/typing', this.chatController.broadcastTyping);
+    this.router.post('/conversations/:id/typing', csrfMiddleware, this.chatController.broadcastTyping);
   }
 }
 

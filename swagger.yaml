@@ -50,7 +50,7 @@ info:
     | EMAIL_EXISTS | Email already registered |
     | INVALID_TOKEN | Expired or invalid token |
     | VALIDATION_ERROR | Request body failed validation |
-  termsOfService: https://framebeauty.com/terms
+  termsOfService: https://framebeautydemo.vercel.app/terms
   contact:
     name: Frame Beauty Team
     url: https://github.com/Frame-Ecosystem
@@ -59,7 +59,7 @@ info:
     name: ISC
     url: https://opensource.org/licenses/ISC
 
-host: api.framebeauty.com
+host: frame-backend-apis.onrender.com
 basePath: /
 schemes:
   - https

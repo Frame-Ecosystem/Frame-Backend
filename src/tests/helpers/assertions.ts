@@ -34,10 +34,10 @@
  *
  * Accepted statuses cover:
  *   2xx success, 4xx client errors (validation, auth, not found),
- *   500 controller errors (the request still routed correctly).
+ * Unexpected server errors are never accepted here; they should fail smoke tests.
  */
 export const expectRouteOk = (status: number) =>
-  expect([200, 201, 202, 204, 400, 401, 403, 404, 409, 422, 500]).toContain(status);
+  expect([200, 201, 202, 204, 400, 401, 403, 404, 409, 422]).toContain(status);
 
 /** Assert that an authentication-protected route rejected an unauthenticated request. */
 export const expectUnauthorized = (status: number) => expect(status).toBe(401);

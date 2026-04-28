@@ -74,7 +74,7 @@ export class ChatSocketHandler {
         return ack?.({ error: 'Invalid or expired token' });
       }
 
-      const userId = decoded?.id || decoded?.userId;
+      const userId = decoded?._id || decoded?.id || decoded?.userId;
       if (!userId) return ack?.({ error: 'Invalid token payload' });
 
       // 2. DB membership check (lazy import avoids circular dependency at module load)

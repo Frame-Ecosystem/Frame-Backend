@@ -3,7 +3,7 @@ import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interfa
 import queueModel from '@systems/BookingSystem/models/queue.model';
 import bookingModel from '@systems/BookingSystem/models/booking.model';
 import userModel from '@systems/UserManager/models/user.model';
-import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
+import { BadRequestException, NotFoundException, ForbiddenException } from '@exceptions/HttpException';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@systems/BookingSystem/dtos/queue.dto';
@@ -41,6 +41,27 @@ class QueueService {
   /** Find an agent (User with type='agent') by id, returning null if missing. */
   private findAgent(agentId: any) {
     return this.users.findOne({ _id: agentId, type: 'agent' });
+  }
+
+  /**
+   * Enforce queue mutation ownership.
+   * - admins can manage any queue
+   * - lounges can only manage queues for their own agents
+   */
+  public async assertQueueMutationAccess(actorId: string, actorType: string, agentId: string): Promise<void> {
+    if (actorType === 'admin') return;
+    if (actorType !== 'lounge') {
+      throw new ForbiddenException('Only admin or lounge can manage queues');
+    }
+
+    const agent = await this.findAgent(agentId);
+    if (!agent) {
+      throw new NotFoundException('Agent not found', 'AGENT_NOT_FOUND');
+    }
+
+    if (!agent.parentLounge || agent.parentLounge.toString() !== actorId) {
+      throw new ForbiddenException('You can only manage queues for your own lounge agents');
+    }
   }
 
   // ─── Shared internal helpers ──────────────────────────────────────

@@ -20,19 +20,19 @@ info:
     - Admin & agent management
   contact:
     name: Frame Team
-    url: https://framebeauty.com
+    url: https://framebeautydemo.vercel.app
     email: support@framebeauty.com
   license:
     name: Proprietary
-    url: https://framebeauty.com/terms
+    url: https://framebeautydemo.vercel.app/terms
   x-logo:
-    url: https://framebeauty.com/logo.png
+    url: https://framebeautydemo.vercel.app/logo.png
     altText: Frame Beauty
 
 servers:
-  - url: http://localhost:3000
+  - url: http://0.0.0.0:2000
     description: Local development
-  - url: https://backend-server-dob4.onrender.com
+  - url: https://frame-backend-apis.onrender.com
     description: Production
 
 tags:

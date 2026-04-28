@@ -1,8 +1,13 @@
 import { config } from 'dotenv';
 import { networkInterfaces } from 'os';
 
-config();
-config({ path: `.env.${process.env.NODE_ENV || 'development'}.local` });
+const nodeEnv = process.env.NODE_ENV || 'development';
+const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
+
+config({ path: envFile });
+
+const PRODUCTION_FRONTEND_BASE_URL = 'https://framebeautydemo.vercel.app';
+const PRODUCTION_BACKEND_BASE_URL = 'https://frame-backend-apis.onrender.com';
 
 /** First non-internal IPv4 address on the local network, or 'localhost'. */
 export const LOCAL_IP = ((): string => {
@@ -22,6 +27,10 @@ export const {
   MONGO_URI,
   SECRET_KEY,
   REFRESH_TOKEN_SECRET,
+  ENABLE_ADMIN_BOOTSTRAP,
+  REFRESH_TOKEN_COOKIE_DOMAIN,
+  REFRESH_TOKEN_COOKIE_SAMESITE,
+  REFRESH_TOKEN_COOKIE_SECURE,
   LOG_FORMAT,
   LOG_DIR,
   ORIGIN,
@@ -36,11 +45,38 @@ export const {
   GOOGLE_CLIENT_SECRET,
 } = process.env;
 
-/** In development, uses localhost so Google OAuth allows the redirect (private IPs are rejected). */
-export const GOOGLE_REDIRECT_URI = NODE_ENV === 'production' ? process.env.GOOGLE_REDIRECT_URI : `http://localhost:3000/v1/auth/google/callback`;
+const localFrontendPort = process.env.LOCAL_FRONTEND_PORT || '2111';
+const localFrontendBaseUrl = process.env.LOCAL_FRONTEND_BASE_URL || `http://${LOCAL_IP}:${localFrontendPort}`;
+const localBackendPort = process.env.LOCAL_BACKEND_PORT || PORT || '2000';
+const localBackendBaseUrl = process.env.LOCAL_BACKEND_BASE_URL || `http://${LOCAL_IP}:${localBackendPort}`;
+
+const withLocalNetworkHost = (baseUrl: string): string => {
+  try {
+    const parsed = new URL(baseUrl);
+    if (['localhost', '127.0.0.1', '0.0.0.0'].includes(parsed.hostname)) {
+      parsed.hostname = LOCAL_IP;
+      return parsed.toString().replace(/\/$/, '');
+    }
+  } catch {
+    return baseUrl;
+  }
+  return baseUrl;
+};
+
+/** Base URL for backend links, callbacks, docs, and health checks. */
+export const BACKEND_BASE_URL =
+  NODE_ENV === 'production'
+    ? process.env.BACKEND_BASE_URL || PRODUCTION_BACKEND_BASE_URL
+    : withLocalNetworkHost(process.env.BACKEND_BASE_URL || localBackendBaseUrl);
 
 /** Base URL for frontend links (emails, OAuth redirects). */
-export const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || `http://${LOCAL_IP}:3001`;
+export const FRONTEND_BASE_URL =
+  NODE_ENV === 'production'
+    ? process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || PRODUCTION_FRONTEND_BASE_URL
+    : withLocalNetworkHost(process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || localFrontendBaseUrl);
+
+/** OAuth callback URL served by this backend. */
+export const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${BACKEND_BASE_URL}/v1/auth/google/callback`;
 
 /**
  * Base URL used specifically for links sent via email (magic link, password reset).
@@ -48,4 +84,7 @@ export const FRONTEND_BASE_URL = process.env.FRONTEND_BASE_URL || process.env.GO
  * on the same Wi-Fi network resolves to this server instead of the phone's own
  * localhost. In production, falls back to FRONTEND_BASE_URL.
  */
-export const MAGIC_LINK_BASE_URL = process.env.MAGIC_LINK_BASE_URL || (NODE_ENV === 'production' ? FRONTEND_BASE_URL : `http://${LOCAL_IP}:2111`);
+export const MAGIC_LINK_BASE_URL =
+  NODE_ENV === 'production'
+    ? process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL
+    : withLocalNetworkHost(process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL);

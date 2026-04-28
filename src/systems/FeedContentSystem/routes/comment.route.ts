@@ -6,6 +6,7 @@ import { commentRateLimiter, likeRateLimiter, generalRateLimiter } from '@middle
 import validationMiddleware from '@middlewares/validation.middleware';
 import { CreateCommentDto } from '@systems/FeedContentSystem/dtos/comment.dto';
 import authMiddleware from '@middlewares/auth.middleware';
+import csrfMiddleware from '@middlewares/csrf.middleware';
 
 class CommentRoute implements Routes {
   public path = '/v1/comments';
@@ -31,35 +32,35 @@ class CommentRoute implements Routes {
      * @desc    Like or unlike a comment
      * @access  Private
      */
-    this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleLike);
 
     /**
      * @route   PUT /v1/comments/:commentId/hide
      * @desc    Hide a comment (admin moderation)
      * @access  Admin only
      */
-    this.router.put('/:commentId/hide', authMiddleware, adminMiddleware, this.controller.hideComment);
+    this.router.put('/:commentId/hide', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.hideComment);
 
     /**
      * @route   PUT /v1/comments/:commentId/unhide
      * @desc    Unhide a comment (admin moderation)
      * @access  Admin only
      */
-    this.router.put('/:commentId/unhide', authMiddleware, adminMiddleware, this.controller.unhideComment);
+    this.router.put('/:commentId/unhide', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.unhideComment);
 
     /**
      * @route   DELETE /v1/comments/:commentId/admin
      * @desc    Admin force delete a comment
      * @access  Admin only
      */
-    this.router.delete('/:commentId/admin', authMiddleware, adminMiddleware, this.controller.adminDeleteComment);
+    this.router.delete('/:commentId/admin', authMiddleware, adminMiddleware, csrfMiddleware, this.controller.adminDeleteComment);
 
     /**
      * @route   DELETE /v1/comments/:commentId
      * @desc    Delete own comment
      * @access  Private (owner only)
      */
-    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.controller.deleteComment);
+    this.router.delete('/:commentId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, this.controller.deleteComment);
 
     /* ───────── Generic two-param routes LAST ───────── */
 
@@ -73,6 +74,7 @@ class CommentRoute implements Routes {
       '/:targetType/:targetId',
       authMiddleware,
       adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
       commentRateLimiter,
       validationMiddleware(CreateCommentDto, 'body'),
       this.controller.addComment,

@@ -49,7 +49,7 @@ Frame Beauty is a Tunisian startup platform digitizing the beauty and salon indu
 | **Runtime** | Node.js | 18+ |
 | **Language** | TypeScript | 5.x |
 | **Framework** | Express | 4.18 |
-| **ODM** | Mongoose | 8.x |
+| **ODM** | Mongoose | 6.5.x |
 | **Database** | MongoDB | 6+ |
 | **Real-Time** | Socket.IO | 4.8 |
 | **File Storage** | Cloudflare R2 | S3-compatible |
@@ -813,7 +813,7 @@ app.use((err: HttpException, req, res, next) => {
 All API routes are prefixed with `/v1`:
 
 ```
-https://api.framebeauty.tn/v1/{system}/{resource}
+https://frame-backend-apis.onrender.com/v1/{system}/{resource}
 ```
 
 ### Complete Route Groups
@@ -848,7 +848,7 @@ https://api.framebeauty.tn/v1/{system}/{resource}
 ### Swagger / OpenAPI
 
 Interactive API documentation is available at:
-- **Local:** `http://localhost:{PORT}/api-docs`
+- **Local:** `http://0.0.0.0:2000/api-docs`
 - **File:** [`swagger.yaml`](swagger.yaml) (OpenAPI 2.0 / Swagger, ~11,000 lines)
 
 ---
@@ -932,14 +932,14 @@ npm run dev                    # nodemon + SWC watch
 npm run build                  # SWC compile to dist/
 
 # Production (PM2)
-npm run start:prod             # pm2 start ecosystem.config.js
+npm run deploy:prod            # pm2 production deployment
 pm2 status                     # Check process status
 pm2 logs frame-beauty          # View logs
 
 # Docker
 docker-compose up -d           # Start all services
 docker-compose logs -f api     # Stream API logs
-make deploy                    # Full build + deploy (see Makefile)
+npm run docker:up              # Start full stack via Docker
 ```
 
 ### PM2 Cluster Mode

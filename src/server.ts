@@ -1,5 +1,4 @@
 ﻿import 'reflect-metadata';
-import 'dotenv/config';
 import '@/config';
 
 import validateEnv from '@utils/validateEnv';

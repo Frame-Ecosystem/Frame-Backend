@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import disposableDomains from 'disposable-email-domains';
+import { FRONTEND_BASE_URL } from '@config';
 
 /**
  * Lazily-initialized reusable SMTP transporter.
@@ -31,13 +32,13 @@ function getFromAddress(): string {
 /* ------------------------------------------------------------------ */
 
 /** Public URL for the brand logo shown in email headers (PNG recommended, ~120px tall). */
-const LOGO_URL = process.env.EMAIL_LOGO_URL || 'https://framebeauty.com/assets/logo.png';
+const LOGO_URL = process.env.EMAIL_LOGO_URL || `${FRONTEND_BASE_URL}/assets/logo.png`;
 
 /** Fallback wordmark when the logo image is blocked by the email client. */
 const BRAND_NAME = 'FRAME BEAUTY';
 
 /** Marketing site URL (footer). */
-const BRAND_URL = process.env.BRAND_URL || 'https://framebeauty.com';
+const BRAND_URL = process.env.BRAND_URL || FRONTEND_BASE_URL;
 
 /** Support email shown in the footer. */
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@framebeauty.com';

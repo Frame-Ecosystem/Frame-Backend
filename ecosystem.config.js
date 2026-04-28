@@ -28,7 +28,7 @@
       // Production-specific PM2 settings
       node_args: '--max-old-space-size=4096', // Increase Node.js heap size
       kill_timeout: 5000, // Wait 5 seconds before force killing
-      wait_ready: true, // Wait for app to send ready signal
+      wait_ready: false, // App does not emit process ready signal
       listen_timeout: 10000, // Wait 10 seconds for app to listen
     },
     {

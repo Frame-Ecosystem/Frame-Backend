@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m'
 
 # Configuration
-APP_URL="http://localhost"
+APP_URL="${BACKEND_BASE_URL:-https://frame-backend-apis.onrender.com}"
 HEALTH_ENDPOINT="$APP_URL/health"
 READY_ENDPOINT="$APP_URL/ready"
 

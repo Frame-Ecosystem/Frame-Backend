@@ -10,7 +10,7 @@ import { connect, set, disconnect, connection } from 'mongoose';
 import swaggerUi from 'swagger-ui-express';
 import { createServer, Server as HTTPServer } from 'http';
 import { buildSwaggerDocument } from '@utils/swagger';
-import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP } from '@config';
+import { NODE_ENV, PORT, LOG_FORMAT, ORIGIN, CREDENTIALS, LOCAL_IP, FRONTEND_BASE_URL, BACKEND_BASE_URL } from '@config';
 import { dbConnection } from '@databases';
 import { Routes } from '@interfaces/routes.interface';
 import errorMiddleware from '@middlewares/error.middleware';
@@ -53,12 +53,13 @@ class App {
   public listen() {
     this.httpServer.listen(Number(this.port), '0.0.0.0', () => {
       const localIP = LOCAL_IP || 'localhost';
+      const backendUrl = BACKEND_BASE_URL || `http://${localIP}:${this.port}`;
       logger.info(`=================================`);
       logger.info(`======= ENV: ${this.env} =======`);
-      logger.info(`🚀 App listening on ${localIP}:${this.port}`);
-      logger.info(`📱 WiFi Access: http://${localIP}:${this.port}`);
-      logger.info(`📚 Swagger API Docs: http://${localIP}:${this.port}/api-docs`);
-      logger.info(`🔌 WebSocket: ws://${localIP}:${this.port}`);
+      logger.info(`🚀 App listening on ${backendUrl}`);
+      logger.info(`📱 WiFi Access: ${backendUrl}`);
+      logger.info(`📚 Swagger API Docs: ${backendUrl}/api-docs`);
+      logger.info(`🔌 WebSocket: ${backendUrl.replace(/^http/, 'ws')}`);
       logger.info(`=================================`);
     });
   }
@@ -76,22 +77,32 @@ class App {
     return this.app;
   }
 
+  private getDatabaseName(uri: string): string {
+    try {
+      const parsed = new URL(uri);
+      return parsed.pathname.replace(/^\//, '') || 'default';
+    } catch {
+      return 'unknown';
+    }
+  }
+
   private async connectToDatabase(retries = 5, delay = 5000) {
     // Suppress Mongoose 7 strictQuery deprecation warning
     set('strictQuery', false);
 
-    if (this.env !== 'production') {
+    if (process.env.ENABLE_MONGOOSE_DEBUG === 'true') {
       set('debug', true);
     }
 
+    const dbName = this.getDatabaseName(dbConnection.url);
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        logger.info(`🔄 Connecting to MongoDB at ${dbConnection.url}... (attempt ${attempt}/${retries})`);
+        logger.info(`🔄 Connecting to MongoDB database "${dbName}" (attempt ${attempt}/${retries})`);
         await connect(dbConnection.url, dbConnection.options);
         logger.info(`✅ Successfully connected to MongoDB`);
 
         // Log the actual database name for verification in Compass
-        const dbName = dbConnection.url.split('/').pop() || 'unknown';
         logger.info(`📊 Using database: ${dbName}`);
 
         // Ensure the collection and indexes exist
@@ -120,6 +131,10 @@ class App {
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
           logger.error('❌ All MongoDB connection attempts failed.');
+          if (this.env === 'production') {
+            logger.error('❌ Production startup aborted: MongoDB is unavailable after all retries.');
+            process.exit(1);
+          }
           logger.warn('⚠️ App starting without database connection. API will be unavailable until MongoDB connects.');
         }
       }
@@ -129,28 +144,35 @@ class App {
   private initializeMiddlewares() {
     this.app.use(morgan(LOG_FORMAT, { stream }));
 
+    const configuredOrigins = new Set<string>();
+    if (FRONTEND_BASE_URL) configuredOrigins.add(FRONTEND_BASE_URL.trim());
+    if (ORIGIN) {
+      ORIGIN.split(',')
+        .map(value => value.trim())
+        .filter(Boolean)
+        .forEach(value => configuredOrigins.add(value));
+    }
+
     // CORS configuration for WiFi access
     const corsOptions = {
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
 
-        // Allow localhost for development
-        if (origin.startsWith('http://localhost')) return callback(null, true);
+        // Allow configured frontend origin(s)
+        if (configuredOrigins.has(origin)) return callback(null, true);
 
-        // Allow 127.0.0.1 for local access
-        if (origin.startsWith('http://127.0.0.1')) return callback(null, true);
-        if (origin.startsWith('http://0.0.0.0')) return callback(null, true);
+        // Allow localhost for development (http and https)
+        if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) return callback(null, true);
 
-        // Allow WiFi network IPs (192.168.x.x range)
-        if (origin.match(/^http:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
+        // Allow 127.0.0.1 and 0.0.0.0 for local access (http and https)
+        if (origin.startsWith('http://127.0.0.1') || origin.startsWith('https://127.0.0.1')) return callback(null, true);
+        if (origin.startsWith('http://0.0.0.0') || origin.startsWith('https://0.0.0.0')) return callback(null, true);
 
-        // Allow 172.x.x.x range (common for mobile hotspots and some networks)
-        if (origin.match(/^http:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
-        if (origin.match(/^http:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
-
-        // Allow specific configured origin
-        if (ORIGIN && origin === ORIGIN) return callback(null, true);
+        // Allow LAN IPs (192.168.x.x, 172.x.x.x, 10.x.x.x) for development (http and https)
+        if (origin.match(/^https?:\/\/192\.168\.\d+\.\d+/)) return callback(null, true);
+        if (origin.match(/^https?:\/\/172\.\d+\.\d+\.\d+/)) return callback(null, true);
+        if (origin.match(/^https?:\/\/10\.\d+\.\d+\.\d+/)) return callback(null, true);
 
         return callback(new Error('Not allowed by CORS'));
       },

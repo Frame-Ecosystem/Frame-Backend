@@ -2,7 +2,7 @@
 import { hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '@config/constants';
 import { logger } from '@utils/logger';
-import { ADMIN_EMAIL, ADMIN_PASSWORD } from '@config';
+import { ADMIN_EMAIL, ADMIN_PASSWORD, ENABLE_ADMIN_BOOTSTRAP } from '@config';
 
 // Admin defaults
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '';
@@ -29,6 +29,11 @@ export async function ensureCollectionExists(): Promise<void> {
  */
 export async function ensureAdminExists(): Promise<void> {
   try {
+    if (ENABLE_ADMIN_BOOTSTRAP !== 'true') {
+      logger.info('ensureAdminExists: skipped (ENABLE_ADMIN_BOOTSTRAP is disabled)');
+      return;
+    }
+
     logger.info('ensureAdminExists: starting check for admin user');
 
     // Use count for a precise check and diagnostics

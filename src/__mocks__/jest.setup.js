@@ -9,11 +9,12 @@ process.env.DB_HOST = 'localhost';
 process.env.DB_PORT = '27017';
 process.env.DB_DATABASE = 'frame_test';
 process.env.PORT = '3001';
-process.env.ORIGIN = 'http://localhost';
+process.env.ORIGIN = 'http://0.0.0.0:2111';
 process.env.CREDENTIALS = 'true';
 process.env.LOG_FORMAT = 'dev';
 process.env.LOG_DIR = '../logs';
-process.env.FRONTEND_BASE_URL = 'http://localhost:3001';
+process.env.FRONTEND_BASE_URL = 'http://0.0.0.0:2111';
+process.env.BACKEND_BASE_URL = 'http://0.0.0.0:2000';
 process.env.ADMIN_EMAIL = 'admin@test.com';
 process.env.ADMIN_PASSWORD = 'Admin@Test123';
 

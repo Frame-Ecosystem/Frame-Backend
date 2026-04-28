@@ -27,8 +27,30 @@ const hashIp = (ip: string | undefined): string | undefined => {
   return hash.substring(0, 16); // First 16 chars is sufficient for correlation
 };
 
+const redactSensitive = (value: unknown): unknown => {
+  if (typeof value !== 'string') return value;
+
+  return value
+    .replace(/mongodb(?:\+srv)?:\/\/[^@\s]+@/gi, 'mongodb://<redacted>@')
+    .replace(/(SECRET_KEY|REFRESH_TOKEN_SECRET|SMTP_PASS|R2_SECRET_ACCESS_KEY|GOOGLE_CLIENT_SECRET)=([^&\s]+)/gi, '$1=<redacted>')
+    .replace(/(password|token|secret|api[_-]?key)(["'\s:=]+)([^"',\s}]+)/gi, '$1$2<redacted>');
+};
+
+const redactMeta = (meta: Record<string, unknown>): Record<string, unknown> =>
+  Object.fromEntries(Object.entries(meta).map(([key, value]) => [key, redactSensitive(value)]));
+
+const redactFormat = winston.format(info => {
+  info.message = redactSensitive(info.message);
+  Object.entries(info).forEach(([key, value]) => {
+    if (key !== 'level' && key !== 'timestamp') {
+      info[key] = redactSensitive(value);
+    }
+  });
+  return info;
+});
+
 // Define log format
-const logFormat = winston.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${message}`);
+const logFormat = winston.format.printf(({ timestamp, level, message }) => `${timestamp} ${level}: ${redactSensitive(message)}`);
 
 /*
  * Log Level
@@ -36,6 +58,7 @@ const logFormat = winston.format.printf(({ timestamp, level, message }) => `${ti
  */
 const logger = winston.createLogger({
   format: winston.format.combine(
+    redactFormat(),
     winston.format.timestamp({
       format: 'YYYY-MM-DD HH:mm:ss',
     }),
@@ -68,11 +91,13 @@ const logger = winston.createLogger({
 
 // Security audit logger for authentication events
 const securityLogFormat = winston.format.printf(({ timestamp, level, message, ...meta }) => {
-  return `${timestamp} ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
+  const safeMeta = redactMeta(meta);
+  return `${timestamp} ${level}: ${redactSensitive(message)} ${Object.keys(safeMeta).length ? JSON.stringify(safeMeta) : ''}`;
 });
 
 const securityLogger = winston.createLogger({
   format: winston.format.combine(
+    redactFormat(),
     winston.format.timestamp({
       format: 'YYYY-MM-DD HH:mm:ss',
     }),
@@ -97,7 +122,8 @@ securityLogger.add(
     format: winston.format.combine(
       winston.format.colorize(),
       winston.format.printf(({ timestamp, level, message, ...meta }) => {
-        return `${timestamp} [SECURITY] ${level}: ${message} ${Object.keys(meta).length ? JSON.stringify(meta) : ''}`;
+        const safeMeta = redactMeta(meta);
+        return `${timestamp} [SECURITY] ${level}: ${redactSensitive(message)} ${Object.keys(safeMeta).length ? JSON.stringify(safeMeta) : ''}`;
       }),
     ),
   }),
