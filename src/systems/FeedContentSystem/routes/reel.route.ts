@@ -40,6 +40,13 @@ class ReelRoute implements Routes {
     this.router.get('/user/:userId', authMiddleware, generalRateLimiter, this.controller.getUserReels);
 
     /**
+     * @route   GET /v1/reels/lounge/:loungeId
+     * @desc    Get reels for a specific lounge
+     * @access  Private
+     */
+    this.router.get('/lounge/:loungeId', authMiddleware, generalRateLimiter, this.controller.getLoungeReels);
+
+    /**
      * @route   GET /v1/reels/:reelId
      * @desc    Get a single reel
      * @access  Private

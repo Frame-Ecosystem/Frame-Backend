@@ -117,6 +117,7 @@ jest.mock('@systems/FeedContentSystem/services/reel.service', () => ({
     createReel: jest.fn().mockResolvedValue({ _id: 'reel1', caption: 'Test reel' }),
     getReelById: jest.fn().mockResolvedValue({ _id: 'reel1', caption: 'Test reel' }),
     getUserReels: jest.fn().mockResolvedValue({ reels: [], total: 0 }),
+    getLoungeContent: jest.fn().mockResolvedValue({ posts: [], reels: [], totalPosts: 0, totalReels: 0 }),
     updateReel: jest.fn().mockResolvedValue({ _id: 'reel1', caption: 'Updated' }),
     deleteReel: jest.fn().mockResolvedValue(undefined),
     toggleLike: jest.fn().mockResolvedValue({ liked: true }),
@@ -337,6 +338,13 @@ describe('FeedContentSystem — Route Tests', () => {
     it('GET /v1/reels/:reelId → 200 single reel', async () => {
       const res = await request(server)
         .get(`/v1/reels/${testIds.reel}`)
+        .set('Authorization', bearerHeader(clientToken()));
+      expectRouteOk(res.status);
+    });
+
+    it('GET /v1/reels/lounge/:loungeId → 200 lounge reels', async () => {
+      const res = await request(server)
+        .get(`/v1/reels/lounge/${testIds.lounge}`)
         .set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });

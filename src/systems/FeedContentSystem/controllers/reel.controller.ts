@@ -45,6 +45,28 @@ class ReelController {
     }
   };
 
+  /** Get reels by lounge */
+  public getLoungeReels = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const result = await this.reelService.getLoungeContent(req.params.loungeId, page, limit);
+      res.status(200).json({
+        data: {
+          posts: result.posts,
+          reels: result.reels,
+        },
+        pagination: {
+          posts: { total: result.totalPosts, page, limit },
+          reels: { total: result.totalReels, page, limit },
+        },
+        message: 'Reels and posts retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   /** Update a reel (caption + hashtags only) */
   public updateReel = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
