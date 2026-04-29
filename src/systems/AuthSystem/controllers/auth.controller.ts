@@ -5,7 +5,7 @@ import { LoginUserDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@systems/AuthSystem/interfaces/auth.interface';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import AuthService from '@systems/AuthSystem/services/auth.service';
-import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL } from '@config';
+import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL, REFRESH_TOKEN_COOKIE_DOMAIN, REFRESH_TOKEN_COOKIE_SAMESITE, REFRESH_TOKEN_COOKIE_SECURE } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
 import { stripSensitiveFields } from '@utils/util';
 
@@ -33,16 +33,25 @@ class AuthController {
   /**
    * Set the refresh token HttpOnly cookie on the response.
    */
-  private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
-    const site = sameSite ?? (NODE_ENV === 'production' ? 'none' : 'lax');
-    res.cookie('refreshToken', refreshToken, {
+  private getRefreshTokenCookieOptions(sameSite?: 'strict' | 'lax' | 'none') {
+    const site = sameSite ?? (REFRESH_TOKEN_COOKIE_SAMESITE === 'auto' ? 'none' : REFRESH_TOKEN_COOKIE_SAMESITE);
+    const secure =
+      REFRESH_TOKEN_COOKIE_SECURE === 'auto'
+        ? NODE_ENV === 'production'
+        : REFRESH_TOKEN_COOKIE_SECURE === 'true';
+
+    return {
       httpOnly: true,
-      secure: NODE_ENV === 'production',
-      // Cast to any because some @types may not include 'none' in the union
-      sameSite: site as any,
+      secure,
+      sameSite: (site as any) || 'none',
       maxAge: REFRESH_TOKEN_MAX_AGE,
       path: '/',
-    });
+      ...(REFRESH_TOKEN_COOKIE_DOMAIN ? { domain: REFRESH_TOKEN_COOKIE_DOMAIN } : {}),
+    };
+  }
+
+  private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
+    res.cookie('refreshToken', refreshToken, this.getRefreshTokenCookieOptions(sameSite));
   }
 
   /**
@@ -213,6 +222,7 @@ class AuthController {
         });
       } else {
         this.setRefreshTokenCookie(res, newRefreshToken);
+        setCsrfToken(res);
         res.status(200).json({
           token: tokenData.token,
           expiresIn: tokenData.expiresIn,

@@ -32,8 +32,7 @@ export const setCsrfToken = (res: Response): string => {
   res.cookie(CSRF_COOKIE_NAME, csrfToken, {
     httpOnly: false, // Must be readable by JavaScript
     secure: NODE_ENV === 'production',
-    // Allow cross-site JS access in production (frontend may be on a different origin)
-    sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
+    sameSite: 'none',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     path: '/',
   });
