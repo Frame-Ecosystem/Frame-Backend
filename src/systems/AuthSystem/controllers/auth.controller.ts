@@ -5,14 +5,7 @@ import { LoginUserDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@systems/AuthSystem/interfaces/auth.interface';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import AuthService from '@systems/AuthSystem/services/auth.service';
-import {
-  NODE_ENV,
-  REFRESH_TOKEN_SECRET,
-  FRONTEND_BASE_URL,
-  REFRESH_TOKEN_COOKIE_DOMAIN,
-  REFRESH_TOKEN_COOKIE_SAMESITE,
-  REFRESH_TOKEN_COOKIE_SECURE,
-} from '@config';
+import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL } from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
 import { stripSensitiveFields } from '@utils/util';
 
@@ -21,26 +14,6 @@ const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 class AuthController {
   private authService = new AuthService();
-
-  private getRefreshTokenCookieOptions(sameSite?: 'strict' | 'lax' | 'none') {
-    const configuredSameSite = REFRESH_TOKEN_COOKIE_SAMESITE && REFRESH_TOKEN_COOKIE_SAMESITE !== 'auto' ? REFRESH_TOKEN_COOKIE_SAMESITE : undefined;
-    const configuredSecure =
-      REFRESH_TOKEN_COOKIE_SECURE === 'true' ? true : REFRESH_TOKEN_COOKIE_SECURE === 'false' ? false : NODE_ENV === 'production';
-
-    return {
-      httpOnly: true,
-      secure: configuredSecure,
-      sameSite: (sameSite ?? configuredSameSite ?? (NODE_ENV === 'production' ? 'none' : 'lax')) as 'strict' | 'lax' | 'none',
-      maxAge: REFRESH_TOKEN_MAX_AGE,
-      path: '/',
-      ...(REFRESH_TOKEN_COOKIE_DOMAIN ? { domain: REFRESH_TOKEN_COOKIE_DOMAIN } : {}),
-    };
-  }
-
-  private getClearRefreshTokenCookieOptions(sameSite?: 'strict' | 'lax' | 'none') {
-    const { maxAge, ...clearOptions } = this.getRefreshTokenCookieOptions(sameSite);
-    return clearOptions;
-  }
 
   /**
    * Extract device info from the request for session tracking.
@@ -61,7 +34,15 @@ class AuthController {
    * Set the refresh token HttpOnly cookie on the response.
    */
   private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
-    res.cookie('refreshToken', refreshToken, this.getRefreshTokenCookieOptions(sameSite));
+    const site = sameSite ?? (NODE_ENV === 'production' ? 'none' : 'lax');
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: NODE_ENV === 'production',
+      // Cast to any because some @types may not include 'none' in the union
+      sameSite: site as any,
+      maxAge: REFRESH_TOKEN_MAX_AGE,
+      path: '/',
+    });
   }
 
   /**
@@ -88,16 +69,24 @@ class AuthController {
       });
     } else {
       this.setRefreshTokenCookie(res, refreshToken);
-      const csrfToken = setCsrfToken(res);
+      setCsrfToken(res);
       res.status(200).json({
         data: stripSensitiveFields(userData),
         token: tokenData.token,
         expiresIn: tokenData.expiresIn,
         message,
-        csrfToken,
       });
     }
   }
+
+  public getCsrfToken = (req: Request, res: Response, next: NextFunction) => {
+    try {
+      setCsrfToken(res);
+      res.status(200).json({ message: 'CSRF token generated', success: true });
+    } catch (error) {
+      next(error);
+    }
+  };
 
   public signUp = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -106,19 +95,6 @@ class AuthController {
       const { message } = await this.authService.signup(userData, deviceInfo);
 
       res.status(200).json({ message, success: true });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  public getCsrfToken = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const csrfToken = setCsrfToken(res);
-      res.status(200).json({
-        csrfToken,
-        headerName: 'x-csrf-token',
-        cookieName: 'csrf-token',
-      });
     } catch (error) {
       next(error);
     }
@@ -195,7 +171,7 @@ class AuthController {
       const logOutUserData: User = await this.authService.logout(userData, jti);
 
       // Clear refresh token cookie and CSRF token
-      res.clearCookie('refreshToken', this.getClearRefreshTokenCookieOptions());
+      res.clearCookie('refreshToken', { path: '/' });
       clearCsrfToken(res);
       res.status(200).json({ data: stripSensitiveFields(logOutUserData), message: 'logout' });
     } catch (error) {
@@ -209,7 +185,7 @@ class AuthController {
       await this.authService.logoutAllDevices(userData._id);
 
       // Clear refresh token cookie and CSRF token
-      res.clearCookie('refreshToken', this.getClearRefreshTokenCookieOptions());
+      res.clearCookie('refreshToken', { path: '/' });
       clearCsrfToken(res);
       res.status(200).json({ message: 'Logged out from all devices' });
     } catch (error) {
@@ -237,12 +213,10 @@ class AuthController {
         });
       } else {
         this.setRefreshTokenCookie(res, newRefreshToken);
-        const csrfToken = setCsrfToken(res);
         res.status(200).json({
           token: tokenData.token,
           expiresIn: tokenData.expiresIn,
           message: 'Token refreshed',
-          csrfToken,
         });
       }
     } catch (error) {
@@ -271,10 +245,8 @@ class AuthController {
         });
       } else {
         this.setRefreshTokenCookie(res, refreshToken, 'lax');
-        const csrfToken = setCsrfToken(res);
-        return res.redirect(
-          `${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google#csrf=${encodeURIComponent(csrfToken)}`,
-        );
+        setCsrfToken(res);
+        return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google`);
       }
     } catch (error) {
       next(error);

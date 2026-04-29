@@ -1,4 +1,5 @@
-﻿import reelModel from '@systems/FeedContentSystem/models/reel.model';
+﻿import postModel from '@systems/FeedContentSystem/models/post.model';
+import reelModel from '@systems/FeedContentSystem/models/reel.model';
 import hashtagModel from '@systems/FeedContentSystem/models/hashtag.model';
 import contentLikeModel from '@systems/FeedContentSystem/models/contentLike.model';
 import contentSaveModel from '@systems/FeedContentSystem/models/contentSave.model';
@@ -11,6 +12,7 @@ import { logger } from '@utils/logger';
 import { AuthorType } from '@systems/FeedContentSystem/interfaces/content.interface';
 
 class ReelService {
+  private posts = postModel;
   private reels = reelModel;
   private hashtags = hashtagModel;
   private contentLikes = contentLikeModel;
@@ -103,6 +105,55 @@ class ReelService {
     ]);
 
     return { reels, total, page, limit };
+  }
+
+  public async getLoungeReels(loungeId: string, page: number, limit: number) {
+    assertObjectId(loungeId, 'Lounge');
+    const skip = (page - 1) * limit;
+
+    const filter = { authorId: loungeId, isHidden: false };
+    const [reels, total] = await Promise.all([
+      this.reels
+        .find(filter)
+        .populate('authorId', 'firstName lastName loungeTitle profileImage type')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.reels.countDocuments(filter).exec(),
+    ]);
+
+    return { reels, total, page, limit };
+  }
+
+  public async getLoungeContent(loungeId: string, page: number, limit: number) {
+    assertObjectId(loungeId, 'Lounge');
+    const skip = (page - 1) * limit;
+
+    const filter = { authorId: loungeId, isHidden: false };
+    const [posts, totalPosts, reels, totalReels] = await Promise.all([
+      this.posts
+        .find(filter)
+        .populate('authorId', 'firstName lastName loungeTitle profileImage type')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.posts.countDocuments(filter).exec(),
+      this.reels
+        .find(filter)
+        .populate('authorId', 'firstName lastName loungeTitle profileImage type')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.reels.countDocuments(filter).exec(),
+    ]);
+
+    return { posts, totalPosts, reels, totalReels, page, limit };
   }
 
   /* ───────── Update ───────── */
