@@ -135,9 +135,15 @@ class App {
         // Allow requests with no origin (mobile apps, Postman, etc.)
         if (!origin) return callback(null, true);
 
-        // Allow configured frontend origin(s)
-        if (FRONTEND_BASE_URL && origin === FRONTEND_BASE_URL) return callback(null, true);
-        if (ORIGIN && origin === ORIGIN) return callback(null, true);
+        // Allow configured frontend origin(s) - split by comma for multiple origins
+        if (FRONTEND_BASE_URL) {
+          const allowedFrontends = FRONTEND_BASE_URL.split(',').map((url) => url.trim());
+          if (allowedFrontends.includes(origin)) return callback(null, true);
+        }
+        if (ORIGIN) {
+          const allowedOrigins = ORIGIN.split(',').map((url) => url.trim());
+          if (allowedOrigins.includes(origin)) return callback(null, true);
+        }
 
         // Allow localhost for development (http and https)
         if (origin.startsWith('http://localhost') || origin.startsWith('https://localhost')) return callback(null, true);
