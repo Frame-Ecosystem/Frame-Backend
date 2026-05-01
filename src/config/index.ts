@@ -6,7 +6,7 @@ const envFile = nodeEnv === 'production' ? '.env.production' : '.env';
 
 config({ path: envFile });
 
-const PRODUCTION_FRONTEND_BASE_URL = 'https://framebeautydemo.vercel.app';
+const PRODUCTION_FRONTEND_BASE_URL = 'https://framebeauty.tn';
 const PRODUCTION_BACKEND_BASE_URL = 'https://frame-backend-apis.onrender.com';
 
 /** First non-internal IPv4 address on the local network, or 'localhost'. */
