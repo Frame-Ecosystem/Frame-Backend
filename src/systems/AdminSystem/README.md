@@ -293,72 +293,6 @@ sequenceDiagram
     UMS-->>A: 200 { data: updatedUser }
 ```
 
----
-
-## Security Model
-
-All AdminSystem endpoints enforce **double middleware protection**:
-
-```
-authMiddleware   → valid JWT required
-    ↓
-adminMiddleware  → user.type === 'admin' required
-    ↓
-Controller method
-```
-
-Any request without a valid admin JWT returns `401 Unauthorized`. Any authenticated non-admin user gets `403 Forbidden`.
-
-> **Principle of Least Privilege**: Admin credentials are never created through a public API endpoint. Initial admin seeding is done via the `initAdmin` utility (`src/utils/initAdmin.ts`) which runs once at startup if no admin exists.
-
----
-
-## Directory Structure
-
-```
-src/systems/AdminSystem/
-├── controllers/
-│   ├── index.controller.ts          # GET /v1/admin → health/info
-│   ├── catalogManagement.controller.ts  # CRUD for services, categories, suggestions
-│   ├── contentModeration.controller.ts  # Hide/delete posts, reels, comments; reports
-│   └── systemServices.controller.ts     # Stats, health, dashboard, audit log
-├── routes/
-│   ├── index.route.ts               # Registers all admin sub-routers
-│   ├── admin.route.ts               # User mgmt: GET/POST/PUT/DELETE /users, /session-info
-│   ├── catalog.route.ts             # Services, categories, suggestions
-│   ├── moderation.route.ts          # Content moderation endpoints
-│   └── system.route.ts              # System health, stats, audit log
-├── services/
-│   └── systemServices.service.ts    # Dashboard, health, export, audit log
-└── README.md
-```
-
-> **No models owned**: AdminSystem is a pure facade — it imports and uses models from UserManager, BookingSystem, ServiceCatalogSystem, FeedContentSystem, and NotificationSystem.
-
-
-```mermaid
-sequenceDiagram
-    participant Admin as Admin Client
-    participant API as AdminSystem
-    participant DB as MongoDB
-
-    Admin->>API: GET /system/dashboard
-    API->>DB: Count users by type
-    API->>DB: Count bookings by status
-    API->>DB: Aggregate revenue
-    API->>DB: Count posts, reels
-    API-->>Admin: Dashboard stats
-
-    Admin->>API: GET /system/health
-    API->>DB: Check connection state
-    API->>API: Read memory usage, uptime
-    API-->>Admin: Health report
-
-    Admin->>API: GET /session-info
-    API->>DB: Find users where sessionTrack.isOnline = true
-    API-->>Admin: Online users list
-```
-
 ### User Management Flow
 
 ```mermaid
@@ -378,6 +312,24 @@ sequenceDiagram
     UMS->>DB: Update isBlocked, clear sessions if blocked
     UMS-->>Admin: Updated user
 ```
+
+---
+
+## Security Model
+
+All AdminSystem endpoints enforce **double middleware protection**:
+
+```
+authMiddleware   → valid JWT required
+    ↓
+adminMiddleware  → user.type === 'admin' required
+    ↓
+Controller method
+```
+
+Any request without a valid admin JWT returns `401 Unauthorized`. Any authenticated non-admin user gets `403 Forbidden`.
+
+> **Principle of Least Privilege**: Admin credentials are never created through a public API endpoint. Initial admin seeding is done via the `initAdmin` utility (`src/utils/initAdmin.ts`) which runs once at startup if no admin exists.
 
 ---
 

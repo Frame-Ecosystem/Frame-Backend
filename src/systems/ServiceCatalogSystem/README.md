@@ -462,84 +462,10 @@ sequenceDiagram
 
 ---
 
-## Directory Structure
+## Security Notes
 
-```
-src/systems/ServiceCatalogSystem/
-├── interfaces/
-│   └── catalog.interface.ts    # ServiceCategoryType, SuggestionStatus enums
-├── models/
-│   ├── service.model.ts
-│   ├── serviceCategory.model.ts
-│   ├── loungeService.model.ts
-│   ├── serviceSuggestion.model.ts
-│   └── rating.model.ts
-├── dtos/
-│   ├── services.dto.ts
-│   ├── serviceCategories.dto.ts
-│   ├── loungeServices.dto.ts
-│   ├── serviceSuggestions.dto.ts
-│   └── rating.dto.ts
-├── services/
-│   ├── services.service.ts
-│   ├── serviceCategories.service.ts
-│   ├── loungeServices.service.ts
-│   ├── serviceSuggestions.service.ts
-│   └── rating.service.ts
-├── controllers/
-│   ├── services.controller.ts
-│   ├── serviceCategories.controller.ts
-│   ├── loungeServices.controller.ts
-│   ├── serviceSuggestions.controller.ts
-│   └── rating.controller.ts
-├── routes/
-│   ├── services.route.ts
-│   ├── serviceCategories.route.ts
-│   ├── loungeServices.route.ts
-│   ├── serviceSuggestions.route.ts
-│   └── rating.route.ts
-└── README.md
-```
-    AS->>DB: Create new Service {name, categoryId}
-    AS->>DB: Optionally create LoungeService for the suggesting lounge
-    AS->>DB: Update suggestion status → implemented
-    AS->>NS: notifySuggestionApproved(loungeId)
-    AS-->>API: Done
-```
-
-### Rating & Average Recalculation
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as RatingController
-    participant RS as RatingService
-    participant NS as NotificationService
-    participant DB as MongoDB
-
-    C->>API: PUT /v1/ratings {loungeId, score: 4, comment: "Great!"}
-    API->>RS: upsertRating(clientId, dto)
-    RS->>DB: Upsert Rating (unique: clientId + loungeId)
-    RS->>DB: Aggregate avg(score) for loungeId
-    RS->>DB: Update User(loungeId).ratingsAverage, ratingsCount
-    RS->>NS: notifyLoungeRated(loungeId, clientId, score)
-    RS-->>C: 200 Rating saved
-```
-
-### Queue-Booking Toggle
-
-```mermaid
-sequenceDiagram
-    participant L as Lounge
-    participant API as LoungeController
-    participant LS as LoungeServicesService
-    participant DB as MongoDB
-
-    L->>API: PATCH /v1/lounge/agents/:agentId/queue-booking
-    API->>LS: Toggle agent.acceptQueueBooking
-    LS->>DB: Agent.findByIdAndUpdate({acceptQueueBooking: !current})
-    LS-->>L: 200 {acceptQueueBooking: true/false}
-```
+- **Service name escaping** — `ServicesService.createService()` and `updateService()` escape the normalized service name with `escapeRegex()` before using it in `new RegExp()` for duplicate-name detection, preventing ReDoS via crafted service names.
+- **Atomic rating upsert** — `RatingService.upsertRating()` uses a single `findOneAndUpdate` with `{upsert: true}` to prevent double-rating race conditions at the database level.
 
 ---
 

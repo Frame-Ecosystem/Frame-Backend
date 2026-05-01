@@ -359,70 +359,6 @@ On lounge agent connect:
   socket.join(`lounge:${loungeId}`)       → queue update events
 ```
 
-### Client-Side Integration Example
-
-```javascript
-const socket = io(process.env.BACKEND_BASE_URL || 'https://frame-backend-apis.onrender.com', {
-  auth: { token: `Bearer ${accessToken}` }
-});
-
-// Listen for in-app notifications
-socket.on('notification', (notification) => {
-  showToast(notification.title, notification.body);
-  incrementUnreadBadge();
-});
-
-// Listen for queue updates (lounge/agent clients)
-socket.on('queueUpdated', ({ agentId, queue }) => {
-  updateQueueDisplay(agentId, queue);
-});
-
-// Listen for booking changes
-socket.on('bookingUpdated', ({ booking }) => {
-  refreshBookingCard(booking);
-});
-```
-
----
-
-## Directory Structure
-
-```
-src/systems/NotificationSystem/
-├── interfaces/
-│   └── notification.interface.ts   # NotificationType, NotificationCategory enums
-├── models/
-│   └── notification.model.ts       # Mongoose Notification schema + TTL index
-├── dtos/
-│   └── notification.dto.ts         # GetNotificationsDto, MarkNotificationsReadDto, etc.
-├── services/
-│   ├── notification.service.ts     # CRUD + 27 trigger methods
-│   ├── socket.service.ts           # Socket.IO singleton
-│   └── push.service.ts             # Firebase FCM integration
-├── controllers/
-│   └── notification.controller.ts
-├── routes/
-│   └── notification.route.ts
-└── README.md
-```
-
-
-```mermaid
-sequenceDiagram
-    participant L as Lounge App
-    participant QS as QueueService
-    participant SS as SocketService
-    participant NS as NotificationService
-    participant Clients as Connected Clients
-
-    QS->>SS: emitQueueUpdated(agentId, queue)
-    SS->>L: Socket "queueUpdated" to lounge room
-    SS->>Clients: Socket "queueUpdated" to affected clients
-
-    QS->>NS: notifyQueuePositionChanged(person)
-    NS->>SS: emitNotification(person.clientId, notification)
-    NS->>PS: sendToUser(person.clientId, "Position updated")
-```
 
 ### Notification Read Flow
 
@@ -447,6 +383,30 @@ sequenceDiagram
     API->>NS: markAllAsRead(userId)
     NS->>DB: UpdateMany({userId, isRead: false}, {isRead: true})
     NS-->>U: 200 OK
+```
+
+### Client-Side Integration Example
+
+```javascript
+const socket = io(process.env.BACKEND_BASE_URL || 'https://frame-backend-apis.onrender.com', {
+  auth: { token: `Bearer ${accessToken}` }
+});
+
+// Listen for in-app notifications
+socket.on('notification', (notification) => {
+  showToast(notification.title, notification.body);
+  incrementUnreadBadge();
+});
+
+// Listen for queue updates (lounge/agent clients)
+socket.on('queueUpdated', ({ agentId, queue }) => {
+  updateQueueDisplay(agentId, queue);
+});
+
+// Listen for booking changes
+socket.on('bookingUpdated', ({ booking }) => {
+  refreshBookingCard(booking);
+});
 ```
 
 ---

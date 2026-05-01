@@ -385,62 +385,6 @@ sequenceDiagram
     QS-->>A: 200 { data: updatedQueue }
 ```
 
----
-
-## Directory Structure
-
-```
-src/systems/BookingSystem/
-├── interfaces/
-│   └── booking.interface.ts    # BookingStatus, QueuePersonStatus enums
-├── models/
-│   ├── booking.model.ts        # Mongoose Booking schema
-│   └── queue.model.ts          # Mongoose Queue schema (with QueuePerson subdoc)
-├── dtos/
-│   ├── booking.dto.ts          # CreateBookingDto, UpdateBookingDto, etc.
-│   └── queue.dto.ts            # AddToQueueDto, UpdateQueuePersonDto, etc.
-├── services/
-│   ├── booking.service.ts      # Booking lifecycle, stats, filters
-│   └── queue.service.ts        # Queue CRUD, Socket.IO emissions, cron registration
-├── controllers/
-│   ├── booking.controller.ts
-│   └── queue.controller.ts
-├── routes/
-│   ├── booking.route.ts
-│   └── queue.route.ts
-└── README.md
-```
-
-    BS->>SS: emitBookingCreated(booking)
-    BS-->>C: 201 Booking created
-
-    Note over API: Lounge confirms...
-    API->>BS: confirmBooking(bookingId)
-    BS->>DB: status → confirmed
-    BS->>NS: notifyBookingConfirmed(client)
-    BS->>SS: emitBookingUpdated(booking)
-
-    Note over API: Client arrives, added to queue...
-    API->>QS: addToQueue({agentId, bookingId})
-    QS->>DB: Push to Queue.persons[]
-    QS->>DB: Booking.status → inQueue
-    QS->>SS: emitQueueUpdated(agentId)
-    QS->>NS: notifyAddedToQueue(client)
-
-    Note over API: Agent starts service...
-    API->>QS: updatePersonStatus({status: inService})
-    QS->>DB: QueuePerson.status → inService
-    QS->>SS: emitQueueUpdated(agentId)
-
-    Note over API: Service complete...
-    API->>QS: updatePersonStatus({status: completed})
-    QS->>DB: QueuePerson.status → completed
-    QS->>DB: Booking.status → completed
-    QS->>SS: emitQueueUpdated(agentId)
-    QS->>SS: emitBookingUpdated(booking)
-    QS->>NS: notifyBookingCompleted(client)
-```
-
 ### Queue Reminder Flow
 
 ```mermaid
@@ -451,7 +395,7 @@ sequenceDiagram
     participant DB as MongoDB
 
     Cron->>QS: sendQueueReminders()
-    QS->>DB: Find Queue entries where persons have position <= 2 and reminderSent = false
+    QS->>DB: Find queues where persons have position <= 2 and reminderSent = false
     loop For each person
         QS->>PS: sendToUser(clientId, "Your turn is coming up!")
         QS->>DB: Set reminderSent = true

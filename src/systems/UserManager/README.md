@@ -407,6 +407,31 @@ Social graph follow/unfollow.
 
 ## Flows
 
+### Lounge Discovery Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client App
+    participant API as ClientController
+    participant CS as ClientService
+    participant DB as MongoDB
+
+    C->>API: GET /v1/client/lounges?lat=36.8&lng=10.2&search=hair&page=1
+    API->>CS: getAllLounges(params)
+    CS->>DB: User.find({type:'lounge'}) with geo $near, text search, pagination
+    CS-->>C: { lounges[], total, page, pages }
+
+    C->>API: GET /v1/client/lounges/:loungeId
+    API->>CS: getLoungeById(loungeId)
+    CS->>DB: User.findById + populate services, agents
+    CS-->>C: Full lounge profile
+
+    C->>API: GET /v1/client/lounges/:loungeId/services
+    API->>CS: getLoungeServicesById(loungeId)
+    CS->>DB: LoungeService.find({loungeId, isActive: true}).populate('serviceId')
+    CS-->>C: Active services list
+```
+
 ### Client Follow a Lounge
 
 ```mermaid
@@ -470,86 +495,11 @@ sequenceDiagram
 
 ---
 
-## Directory Structure
+## Security Notes
 
-```
-src/systems/UserManager/
-├── interfaces/
-│   ├── user.interface.ts       # UserType, Theme, Language, DayOpeningHours
-│   └── follow.interface.ts     # FollowerType enum
-├── models/
-│   ├── user.model.ts           # Mongoose User schema (discriminator base)
-│   ├── agent.model.ts          # Mongoose Agent schema
-│   └── follow.model.ts         # Mongoose Follow schema
-├── dtos/
-│   ├── user.dto.ts             # CreateUserDto, UpdateUserDto, ChangePasswordDto, etc.
-│   └── agent.dto.ts            # CreateAgentDto, UpdateAgentDto, UpdateAgentSelfDto, etc.
-├── services/
-│   ├── userProfile.service.ts  # Current user self-management
-│   ├── userManagement.service.ts # Admin CRUD for all users
-│   ├── agent.service.ts        # Agent CRUD (lounge + admin)
-│   └── follow.service.ts       # Social follow/unfollow graph
-├── controllers/
-│   ├── currentUser.controller.ts
-│   ├── client.controller.ts
-│   ├── admin.controller.ts
-│   ├── adminServices.controller.ts
-│   └── agent.controller.ts
-├── routes/
-│   ├── currentUser.route.ts
-│   ├── client.route.ts
-│   ├── admin.route.ts
-│   └── agent.route.ts
-└── README.md
-```
-
-
-## Flows
-
-### Lounge Discovery Flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client App
-    participant API as ClientController
-    participant CS as ClientService
-    participant DB as MongoDB
-
-    C->>API: GET /v1/client/lounges?lat=36.8&lng=10.2&search=hair&page=1
-    API->>CS: getAllLounges(params)
-    CS->>DB: User.find({type:'lounge'}) with geo $near, text search, pagination
-    CS-->>C: { lounges[], total, page, pages }
-
-    C->>API: GET /v1/client/lounges/:loungeId
-    API->>CS: getLoungeById(loungeId)
-    CS->>DB: User.findById + populate services, agents
-    CS-->>C: Full lounge profile
-
-    C->>API: GET /v1/client/lounges/:loungeId/services
-    API->>CS: getLoungeServicesById(loungeId)
-    CS->>DB: LoungeService.find({loungeId, isActive: true}).populate('serviceId')
-    CS-->>C: Active services list
-```
-
-### Follow Flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as FollowController
-    participant FS as FollowService
-    participant NS as NotificationService
-    participant DB as MongoDB
-
-    C->>API: POST /v1/follows/:targetId
-    API->>FS: follow(userId, userType, targetId)
-    FS->>DB: Check not already following
-    FS->>DB: Create Follow document
-    FS->>DB: Increment follower's followingCount
-    FS->>DB: Increment target's followersCount
-    FS->>NS: notifyNewFollower(targetId, userId)
-    FS-->>C: 200 "Followed"
-```
+- **Search query escaping** — All user-supplied `search` strings are passed through `escapeRegex()` before being embedded in MongoDB `$regex` patterns (`email`, `username`, `phoneNumber` in `UserManagementService`; `loungeTitle`, `firstName`, `lastName`, `bio` in `ClientService`). This prevents ReDoS attacks and operator injection.
+- **Concurrent follow safety** — A unique compound index on `{ followerId, followingId }` prevents duplicate follow documents at the database level. The service catches MongoDB duplicate-key errors (code `11000`) on concurrent requests and returns `{ following: true }` gracefully.
+- **Role enforcement** — All mutation routes verify the requester is the resource owner or an admin before allowing updates or deletes.
 
 ---
 
@@ -558,32 +508,32 @@ sequenceDiagram
 ```
 UserManager/
 ├── controllers/
-│   ├── currentUser.controller.ts    # Self-service profile operations
-│   ├── client.controller.ts         # Client-facing lounge discovery
-│   ├── agent.controller.ts          # Agent CRUD
-│   └── admin.controller.ts          # User management for admin facade
+│   ├── currentUser.controller.ts        # Self-service profile operations
+│   ├── client.controller.ts             # Client-facing lounge discovery
+│   ├── agent.controller.ts              # Agent CRUD
+│   └── admin.controller.ts              # User management for admin facade
 ├── dtos/
-│   ├── user.dto.ts                  # User-related DTOs
-│   └── agent.dto.ts                 # Agent DTOs
+│   ├── user.dto.ts                      # User-related DTOs
+│   └── agent.dto.ts                     # Agent DTOs
 ├── interfaces/
-│   ├── user.interface.ts            # User, Agent interfaces
-│   └── follow.interface.ts          # Follow interface
+│   ├── user.interface.ts                # User, Agent interfaces
+│   └── follow.interface.ts              # Follow interface
 ├── models/
-│   ├── user.model.ts                # User Mongoose schema
-│   ├── agent.model.ts               # Agent Mongoose schema
-│   └── follow.model.ts              # Follow Mongoose schema
+│   ├── user.model.ts                    # User Mongoose schema
+│   ├── agent.model.ts                   # Agent Mongoose schema
+│   └── follow.model.ts                  # Follow Mongoose schema
 ├── routes/
-│   ├── currentUser.route.ts         # /v1/me routes
-│   ├── client.route.ts              # /v1/client routes
-│   ├── agent.route.ts               # /v1/agents routes
-│   └── follow.route.ts              # /v1/follows routes
+│   ├── currentUser.route.ts             # /v1/me routes
+│   ├── client.route.ts                  # /v1/client routes
+│   ├── agent.route.ts                   # /v1/agents routes
+│   └── follow.route.ts                  # /v1/follows routes
 ├── services/
-│   ├── currentUser.service.ts       # Self-service logic
-│   ├── userManagement.service.ts    # Admin user management
-│   ├── client.service.ts            # Lounge discovery
+│   ├── currentUser.service.ts           # Self-service logic
+│   ├── userManagement.service.ts        # Admin user management
+│   ├── client.service.ts                # Lounge discovery
 │   ├── clientVisitorProfile.service.ts  # Profile viewing
-│   ├── agent.service.ts             # Agent CRUD logic
-│   └── follow.service.ts            # Follow/unfollow logic
+│   ├── agent.service.ts                 # Agent CRUD logic
+│   └── follow.service.ts                # Follow/unfollow logic
 └── tests/
-    └── currentUser.test.ts          # User manager tests
+    └── currentUser.test.ts              # User manager tests
 ```
