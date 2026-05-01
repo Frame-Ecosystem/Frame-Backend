@@ -3,6 +3,9 @@ import nodemailer from 'nodemailer';
 
 import { logger } from '@utils/logger';
 
+type EmailRecipient = { email: string };
+type EmailSender = { email: string; name?: string };
+
 export interface SendEmailInput {
   to: string | string[];
   subject: string;
@@ -19,13 +22,13 @@ const BREVO_API_URL = 'https://api.brevo.com/v3/smtp/email';
 const REQUEST_TIMEOUT_MS = 5_000;
 const RETRY_DELAYS_MS = [500, 1_000];
 
-function normalizeRecipients(to: string | string[]): Array<{ email: string }> {
+function normalizeRecipients(to: string | string[]): EmailRecipient[] {
   const recipients = (Array.isArray(to) ? to : [to]).map(email => email.trim()).filter(Boolean);
 
   return recipients.map(email => ({ email }));
 }
 
-function parseSender(sender: string): { email: string; name?: string } {
+function parseSender(sender: string): EmailSender {
   const match = sender.match(/^(.*?)<([^>]+)>$/);
   if (!match) {
     return { email: sender.trim() };
@@ -40,7 +43,7 @@ function parseSender(sender: string): { email: string; name?: string } {
   };
 }
 
-function getConfiguredSender(): { email: string; name?: string } {
+function getConfiguredSender(): EmailSender {
   const rawSender = process.env.SMTP_FROM?.trim() || 'Frame Beauty <noreply@framebeauty.com>';
   return parseSender(rawSender);
 }
@@ -66,13 +69,21 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function sendViaBrevoApi(
-  recipients: Array<{ email: string }>,
-  sender: { email: string; name?: string },
-  subject: string,
-  html: string,
-  text?: string,
-): Promise<void> {
+function getSmtpConfig(): { host: string; port: number; user: string; pass: string; from?: string } {
+  const host = process.env.SMTP_HOST?.trim();
+  const port = parseInt(process.env.SMTP_PORT?.trim() || '587', 10);
+  const user = process.env.BREVO_SMTP_USER?.trim();
+  const pass = process.env.BREVO_SMTP_KEY?.trim();
+  const from = process.env.SMTP_FROM?.trim();
+
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration (SMTP_HOST, BREVO_SMTP_USER, BREVO_SMTP_KEY) is incomplete');
+  }
+
+  return { host, port, user, pass, ...(from ? { from } : {}) };
+}
+
+async function sendViaBrevoApi(recipients: EmailRecipient[], sender: EmailSender, subject: string, html: string, text?: string): Promise<void> {
   const apiKey = getBrevoApiKey();
   if (!apiKey) {
     throw new Error('BREVO_API_KEY is not configured');
@@ -96,39 +107,68 @@ async function sendViaBrevoApi(
   });
 }
 
-async function sendViaSmtp(
-  recipients: Array<{ email: string }>,
-  sender: { email: string; name?: string },
-  subject: string,
-  html: string,
-  text?: string,
-): Promise<void> {
-  const host = process.env.SMTP_HOST?.trim();
-  const port = parseInt(process.env.SMTP_PORT?.trim() || '587', 10);
-  const user = process.env.BREVO_SMTP_USER?.trim();
-  const pass = process.env.BREVO_SMTP_KEY?.trim();
-  const from = process.env.SMTP_FROM?.trim();
-
-  if (!host || !user || !pass) {
-    throw new Error('SMTP configuration (SMTP_HOST, BREVO_SMTP_USER, BREVO_SMTP_KEY) is incomplete');
-  }
+async function sendViaSmtp(recipients: EmailRecipient[], sender: EmailSender, subject: string, html: string, text?: string): Promise<void> {
+  const smtp = getSmtpConfig();
 
   const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
+    host: smtp.host,
+    port: smtp.port,
+    secure: smtp.port === 465,
+    auth: { user: smtp.user, pass: smtp.pass },
   });
 
   const senderString = sender.name ? `"${sender.name}" <${sender.email}>` : sender.email;
 
   await transporter.sendMail({
-    from: from || senderString,
+    from: smtp.from || senderString,
     to: recipients.map(r => r.email).join(', '),
     subject,
     html,
     ...(text ? { text } : {}),
   });
+}
+
+async function tryBrevoApiWithRetries(
+  recipients: EmailRecipient[],
+  sender: EmailSender,
+  subject: string,
+  html: string,
+  text: string | undefined,
+  recipientList: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const apiKey = getBrevoApiKey();
+
+  if (!apiKey) {
+    const message = 'BREVO_API_KEY not configured';
+    logger.warn('[Email] BREVO_API_KEY not configured, skipping Brevo API and using SMTP fallback');
+    return { success: false, error: message };
+  }
+
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      await sendViaBrevoApi(recipients, sender, subject, html, text);
+      logger.info(`[Email] Sent via Brevo API to ${recipientList} | ${subject}`);
+      return { success: true };
+    } catch (err) {
+      const errorMessage = formatError(err);
+      logger.warn('[Email] Brevo API attempt failed', {
+        to: recipientList,
+        subject,
+        attempt: attempt + 1,
+        message: errorMessage,
+      });
+
+      if (attempt < RETRY_DELAYS_MS.length) {
+        await delay(RETRY_DELAYS_MS[attempt]);
+        continue;
+      }
+
+      logger.error(`[Email] Brevo API failed after ${RETRY_DELAYS_MS.length + 1} attempts, falling back to SMTP`);
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  return { success: false, error: 'Brevo API retries exhausted' };
 }
 
 export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<SendEmailResult> {
@@ -140,36 +180,12 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
     return { success: false, error: 'At least one recipient is required' };
   }
 
-  // --- Attempt 1: Brevo API (with retries) ---
-  const apiKey = getBrevoApiKey();
-  if (apiKey) {
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-      try {
-        await sendViaBrevoApi(recipients, sender, subject, html, text);
-        logger.info(`[Email] Sent via Brevo API to ${recipientList} | ${subject}`);
-        return { success: true };
-      } catch (err) {
-        const errorMessage = formatError(err);
-        logger.warn('[Email] Brevo API attempt failed', {
-          to: recipientList,
-          subject,
-          attempt: attempt + 1,
-          message: errorMessage,
-        });
-
-        if (attempt < RETRY_DELAYS_MS.length) {
-          await delay(RETRY_DELAYS_MS[attempt]);
-          continue;
-        }
-
-        logger.error(`[Email] Brevo API failed after ${RETRY_DELAYS_MS.length + 1} attempts, falling back to SMTP`);
-      }
-    }
-  } else {
-    logger.warn('[Email] BREVO_API_KEY not configured, skipping Brevo API — falling back to SMTP');
+  const brevoResult = await tryBrevoApiWithRetries(recipients, sender, subject, html, text, recipientList);
+  if (brevoResult.success) {
+    return { success: true };
   }
+  const brevoError = 'error' in brevoResult ? brevoResult.error : 'Unknown Brevo failure';
 
-  // --- Fallback: SMTP ---
   try {
     await sendViaSmtp(recipients, sender, subject, html, text);
     logger.info(`[Email] Sent via SMTP fallback to ${recipientList} | ${subject}`);
@@ -177,7 +193,10 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
   } catch (err) {
     const errorMessage = formatError(err);
     logger.error('[Email] SMTP fallback also failed', { to: recipientList, subject, message: errorMessage });
-    return { success: false, error: `Brevo API and SMTP both failed. Last error: ${errorMessage}` };
+    return {
+      success: false,
+      error: `Brevo API failed (${brevoError}). SMTP fallback failed (${errorMessage}).`,
+    };
   }
 }
 
