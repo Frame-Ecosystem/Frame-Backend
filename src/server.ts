@@ -9,9 +9,8 @@ const main = async () => {
   const env = validateEnv();
 
   if (env.NODE_ENV === 'production') {
-    verifyEmailTransporter()
-      .then(() => logger.info('SMTP connectivity check passed'))
-      .catch(err => logger.warn(`SMTP connectivity check failed (emails may not send): ${err.message}`));
+    await verifyEmailTransporter();
+    logger.info('Email service configuration check passed');
   }
 
   // Import routes AFTER validateEnv

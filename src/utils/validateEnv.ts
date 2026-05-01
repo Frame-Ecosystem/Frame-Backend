@@ -31,11 +31,7 @@ const validateEnv = () => {
     FIREBASE_PROJECT_ID: str({ default: '', desc: 'Firebase project ID (alternative to service account file)' }),
     FIREBASE_CLIENT_EMAIL: str({ default: '', desc: 'Firebase client email (alternative to service account file)' }),
     FIREBASE_PRIVATE_KEY: str({ default: '', desc: 'Firebase private key (alternative to service account file)' }),
-    // Email / SMTP configuration
-    SMTP_HOST: str({ default: 'smtp-relay.brevo.com' }),
-    SMTP_PORT: port({ default: 587 }),
-    BREVO_SMTP_USER: str({ default: '' }),
-    BREVO_SMTP_KEY: str({ default: '' }),
+    // Email configuration
     BREVO_API_KEY: str({ default: '' }),
     SMTP_FROM: str({ default: '' }),
     FRONTEND_BASE_URL: str({ default: '' }),
@@ -82,17 +78,14 @@ const validateEnv = () => {
   }
 
   if (env.NODE_ENV === 'production') {
-    const hasBrevoApi = Boolean(env.BREVO_API_KEY);
-    const hasSmtp = Boolean(env.BREVO_SMTP_USER && env.BREVO_SMTP_KEY);
-
     if (!env.SMTP_FROM) {
       logger.error('❌ Production email is misconfigured: SMTP_FROM is required');
       throw new Error('Missing required email sender for production');
     }
 
-    if (!hasBrevoApi && !hasSmtp) {
-      logger.error('❌ Production email is misconfigured: provide BREVO_API_KEY or SMTP credentials (BREVO_SMTP_USER/BREVO_SMTP_KEY)');
-      throw new Error('Missing required email provider credentials for production');
+    if (!env.BREVO_API_KEY) {
+      logger.error('❌ Production email is misconfigured: BREVO_API_KEY is required');
+      throw new Error('Missing required Brevo API key for production');
     }
 
     if (env.FRONTEND_BASE_URL && env.FRONTEND_BASE_URL.includes(',')) {
