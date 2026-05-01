@@ -3,9 +3,15 @@ import '@/config';
 
 import validateEnv from '@utils/validateEnv';
 import { logger } from '@utils/logger';
+import { verifyEmailTransporter } from '@utils/email';
 
 const main = async () => {
-  validateEnv();
+  const env = validateEnv();
+
+  if (env.NODE_ENV === 'production') {
+    await verifyEmailTransporter();
+    logger.info('SMTP connectivity check passed');
+  }
 
   // Import routes AFTER validateEnv
   const { default: App } = await import('@/app');

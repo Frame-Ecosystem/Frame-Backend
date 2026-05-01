@@ -1,24 +1,51 @@
 import nodemailer from 'nodemailer';
 import disposableDomains from 'disposable-email-domains';
 import { FRONTEND_BASE_URL } from '@config';
+import { logger } from '@utils/logger';
 
 /**
  * Lazily-initialized reusable SMTP transporter.
  * Created once on first use instead of per-email call.
  */
 let transporter: nodemailer.Transporter | null = null;
+let transporterVerified = false;
+
+function resolveBaseUrl(input?: string): string {
+  if (!input) return '';
+  return input.split(',')[0]?.trim() || '';
+}
 
 function getTransporter(): nodemailer.Transporter {
   if (!transporter) {
+    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const smtpHost = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
+    const smtpUser = process.env.BREVO_SMTP_USER;
+    const smtpPass = process.env.BREVO_SMTP_KEY;
+
+    if (!smtpUser || !smtpPass) {
+      throw new Error('SMTP credentials are missing: BREVO_SMTP_USER and BREVO_SMTP_KEY are required');
+    }
+
     transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
-      port: parseInt(process.env.SMTP_PORT || '587'),
-      secure: false,
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpPort === 465,
+      requireTLS: smtpPort !== 465,
       auth: {
-        user: process.env.BREVO_SMTP_USER,
-        pass: process.env.BREVO_SMTP_KEY,
+        user: smtpUser,
+        pass: smtpPass,
+      },
+      pool: true,
+      maxConnections: 3,
+      maxMessages: 100,
+      connectionTimeout: 15_000,
+      socketTimeout: 30_000,
+      tls: {
+        minVersion: 'TLSv1.2',
       },
     });
+
+    logger.info(`Email transporter initialized with host=${smtpHost} port=${smtpPort}`);
   }
   return transporter;
 }
@@ -32,13 +59,14 @@ function getFromAddress(): string {
 /* ------------------------------------------------------------------ */
 
 /** Public URL for the brand logo shown in email headers (PNG recommended, ~120px tall). */
-const LOGO_URL = process.env.EMAIL_LOGO_URL || `${FRONTEND_BASE_URL}/assets/logo.png`;
+const BRAND_BASE_URL = resolveBaseUrl(process.env.BRAND_URL || FRONTEND_BASE_URL);
+const LOGO_URL = process.env.EMAIL_LOGO_URL || `${BRAND_BASE_URL}/assets/logo.png`;
 
 /** Fallback wordmark when the logo image is blocked by the email client. */
 const BRAND_NAME = 'FRAME BEAUTY';
 
 /** Marketing site URL (footer). */
-const BRAND_URL = process.env.BRAND_URL || FRONTEND_BASE_URL;
+const BRAND_URL = BRAND_BASE_URL;
 
 /** Support email shown in the footer. */
 const SUPPORT_EMAIL = process.env.SUPPORT_EMAIL || 'support@framebeauty.com';
@@ -265,6 +293,15 @@ const TEMPLATES: Record<string, EmailTemplate> = {
 
 async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token: string): Promise<void> {
   const tpl = TEMPLATES[templateName];
+  const smtp = getTransporter();
+
+  // Verify transport lazily on first send to surface bad SMTP config quickly.
+  if (!transporterVerified) {
+    await smtp.verify();
+    transporterVerified = true;
+    logger.info('Email transporter verification succeeded');
+  }
+
   await getTransporter().sendMail({
     from: getFromAddress(),
     to,
@@ -281,6 +318,11 @@ async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token
 export const sendVerificationEmail = (to: string, code: string) => sendEmail(to, 'verification', code);
 export const sendMagicLinkEmail = (to: string, magicLink: string) => sendEmail(to, 'magicLink', magicLink);
 export const sendPasswordResetEmail = (to: string, resetLink: string) => sendEmail(to, 'passwordReset', resetLink);
+
+export async function verifyEmailTransporter(): Promise<void> {
+  await getTransporter().verify();
+  transporterVerified = true;
+}
 
 export function isDisposableEmail(email: string): boolean {
   const domain = email.split('@')[1]?.toLowerCase();

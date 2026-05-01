@@ -31,7 +31,24 @@ const validateEnv = () => {
     FIREBASE_PROJECT_ID: str({ default: '', desc: 'Firebase project ID (alternative to service account file)' }),
     FIREBASE_CLIENT_EMAIL: str({ default: '', desc: 'Firebase client email (alternative to service account file)' }),
     FIREBASE_PRIVATE_KEY: str({ default: '', desc: 'Firebase private key (alternative to service account file)' }),
+    // Email / SMTP configuration
+    SMTP_HOST: str({ default: 'smtp-relay.brevo.com' }),
+    SMTP_PORT: port({ default: 587 }),
+    BREVO_SMTP_USER: str({ default: '' }),
+    BREVO_SMTP_KEY: str({ default: '' }),
+    SMTP_FROM: str({ default: '' }),
+    FRONTEND_BASE_URL: str({ default: '' }),
+    MAGIC_LINK_BASE_URL: str({ default: '' }),
   });
+
+  const isValidAbsoluteUrl = (value: string): boolean => {
+    try {
+      const parsed = new URL(value);
+      return ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
 
   // Validate Cloudflare R2 config if image upload is enabled
   if (env.ENABLE_IMAGE_UPLOAD) {
@@ -60,6 +77,24 @@ const validateEnv = () => {
     if (env.ADMIN_PASSWORD.length < 12) {
       logger.error('❌ ADMIN_PASSWORD must be at least 12 characters when ENABLE_ADMIN_BOOTSTRAP is enabled');
       throw new Error('ADMIN_PASSWORD is too weak for bootstrap admin account');
+    }
+  }
+
+  if (env.NODE_ENV === 'production') {
+    if (!env.BREVO_SMTP_USER || !env.BREVO_SMTP_KEY || !env.SMTP_FROM) {
+      logger.error('❌ Production email is misconfigured: BREVO_SMTP_USER, BREVO_SMTP_KEY, and SMTP_FROM are required');
+      throw new Error('Missing required SMTP credentials for production');
+    }
+
+    if (env.FRONTEND_BASE_URL && env.FRONTEND_BASE_URL.includes(',')) {
+      logger.error('❌ FRONTEND_BASE_URL must be a single URL. Use ORIGIN for comma-separated CORS origins.');
+      throw new Error('Invalid FRONTEND_BASE_URL format in production');
+    }
+
+    const linkBase = env.MAGIC_LINK_BASE_URL || env.FRONTEND_BASE_URL;
+    if (!linkBase || !isValidAbsoluteUrl(linkBase)) {
+      logger.error('❌ MAGIC_LINK_BASE_URL (or FRONTEND_BASE_URL fallback) must be a valid absolute http/https URL in production');
+      throw new Error('Invalid magic link base URL for production');
     }
   }
 
