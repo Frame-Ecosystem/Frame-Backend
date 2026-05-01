@@ -328,38 +328,62 @@ async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token
   const tpl = TEMPLATES[templateName];
   const smtp = getTransporter();
   const primaryFrom = getFromAddress();
+  const fallbackFrom = getFallbackFromAddress();
 
-  try {
-    await smtp.sendMail({
-      from: primaryFrom,
-      to,
-      subject: tpl.subject,
-      text: tpl.text(token),
-      html: tpl.html(token),
-    });
-  } catch (err) {
-    // Some providers accept auth but reject an unverified SMTP_FROM during DATA.
-    if (isSenderRejectedError(err)) {
-      const fallbackFrom = getFallbackFromAddress();
-      const primaryFromEmail = extractEmailAddress(primaryFrom);
-      const fallbackFromEmail = extractEmailAddress(fallbackFrom);
+  const senderOptions = [
+    primaryFrom,
+    fallbackFrom || 'Frame Beauty <noreply@framebeauty.com>',
+    process.env.BREVO_SMTP_USER || 'noreply@framebeauty.com',
+  ].filter((s, i, arr) => s && arr.indexOf(s) === i);
 
-      if (fallbackFrom && fallbackFromEmail && fallbackFromEmail !== primaryFromEmail) {
-        logger.warn(`SMTP_FROM was rejected by provider; retrying send with authenticated sender ${fallbackFromEmail}`);
+  let lastError: Error | null = null;
 
-        await smtp.sendMail({
-          from: fallbackFrom,
-          to,
-          subject: tpl.subject,
-          text: tpl.text(token),
-          html: tpl.html(token),
-        });
+  for (let attempt = 0; attempt < senderOptions.length; attempt++) {
+    const currentFrom = senderOptions[attempt];
 
-        return;
+    try {
+      logger.debug(`[Email] Attempt ${attempt + 1}/${senderOptions.length} with sender: ${extractEmailAddress(currentFrom) || currentFrom}`);
+
+      await smtp.sendMail({
+        from: currentFrom,
+        to,
+        subject: tpl.subject,
+        text: tpl.text(token),
+        html: tpl.html(token),
+      });
+
+      if (attempt > 0) {
+        logger.info(`[Email] Fallback sender succeeded on attempt ${attempt + 1}: ${extractEmailAddress(currentFrom) || currentFrom}`);
+      }
+
+      return;
+    } catch (err) {
+      lastError = err as Error;
+
+      const error = err as {
+        message?: string;
+        code?: string;
+        command?: string;
+        responseCode?: number;
+        response?: string;
+      };
+
+      logger.warn(`[Email] Attempt ${attempt + 1} failed with sender ${extractEmailAddress(currentFrom) || currentFrom}:`, {
+        message: error.message,
+        code: error.code,
+        command: error.command,
+        responseCode: error.responseCode,
+        response: error.response,
+      });
+
+      if (!isSenderRejectedError(err) || attempt === senderOptions.length - 1) {
+        break;
       }
     }
+  }
 
-    throw err;
+  if (lastError) {
+    throw lastError;
   }
 }
 
