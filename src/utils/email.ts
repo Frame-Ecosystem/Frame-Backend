@@ -53,6 +53,40 @@ function getFromAddress(): string {
   return process.env.SMTP_FROM || 'Frame Beauty <noreply@framebeauty.com>';
 }
 
+function extractEmailAddress(value?: string): string | undefined {
+  if (!value) return undefined;
+  const match = value.match(/<([^>]+)>/);
+  const candidate = (match ? match[1] : value).trim();
+  return candidate.includes('@') ? candidate : undefined;
+}
+
+function getFallbackFromAddress(): string | undefined {
+  const smtpUser = process.env.BREVO_SMTP_USER?.trim();
+  if (!smtpUser || !smtpUser.includes('@')) return undefined;
+  return `Frame Beauty <${smtpUser}>`;
+}
+
+function isSenderRejectedError(err: unknown): boolean {
+  const error = err as {
+    message?: string;
+    response?: string;
+    responseCode?: number;
+  };
+
+  const responseCode = Number(error?.responseCode || 0);
+  const details = `${error?.message || ''} ${error?.response || ''}`.toLowerCase();
+
+  return (
+    responseCode === 550 ||
+    responseCode === 553 ||
+    details.includes('sender') ||
+    details.includes('from address') ||
+    details.includes('mail from') ||
+    details.includes('not authorized') ||
+    details.includes('rejected')
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  Brand constants                                                    */
 /* ------------------------------------------------------------------ */
@@ -293,14 +327,40 @@ const TEMPLATES: Record<string, EmailTemplate> = {
 async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token: string): Promise<void> {
   const tpl = TEMPLATES[templateName];
   const smtp = getTransporter();
+  const primaryFrom = getFromAddress();
 
-  await smtp.sendMail({
-    from: getFromAddress(),
-    to,
-    subject: tpl.subject,
-    text: tpl.text(token),
-    html: tpl.html(token),
-  });
+  try {
+    await smtp.sendMail({
+      from: primaryFrom,
+      to,
+      subject: tpl.subject,
+      text: tpl.text(token),
+      html: tpl.html(token),
+    });
+  } catch (err) {
+    // Some providers accept auth but reject an unverified SMTP_FROM during DATA.
+    if (isSenderRejectedError(err)) {
+      const fallbackFrom = getFallbackFromAddress();
+      const primaryFromEmail = extractEmailAddress(primaryFrom);
+      const fallbackFromEmail = extractEmailAddress(fallbackFrom);
+
+      if (fallbackFrom && fallbackFromEmail && fallbackFromEmail !== primaryFromEmail) {
+        logger.warn(`SMTP_FROM was rejected by provider; retrying send with authenticated sender ${fallbackFromEmail}`);
+
+        await smtp.sendMail({
+          from: fallbackFrom,
+          to,
+          subject: tpl.subject,
+          text: tpl.text(token),
+          html: tpl.html(token),
+        });
+
+        return;
+      }
+    }
+
+    throw err;
+  }
 }
 
 /* ------------------------------------------------------------------ */
