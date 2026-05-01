@@ -26,14 +26,12 @@ class PostService {
         throw new BadRequestException('A post must have at least text or an image', 'EMPTY_POST');
       }
 
-      // Upload images to R2
+      // Upload images to R2 (parallel)
       const media: { url: string; publicId: string }[] = [];
       if (files?.length) {
         const tempId = `${authorId}-${Date.now()}`;
-        for (const file of files) {
-          const result = await R2Service.uploadPostImage(file.buffer, tempId);
-          media.push(result);
-        }
+        const uploaded = await Promise.all(files.map(f => R2Service.uploadPostImage(f.buffer, tempId)));
+        media.push(...uploaded);
       }
 
       const hashtags = this.normalizeHashtags(data.hashtags);
@@ -128,14 +126,8 @@ class PostService {
       throw new ForbiddenException('You can only delete your own posts');
     }
 
-    // Delete media from R2
-    for (const m of post.media || []) {
-      try {
-        await R2Service.deleteImage(m.publicId);
-      } catch {
-        /* log only */
-      }
-    }
+    // Delete media from R2 (parallel)
+    await Promise.all((post.media || []).map(m => R2Service.deleteImage(m.publicId).catch(() => {})));
 
     // Clean up interactions
     await Promise.all([
