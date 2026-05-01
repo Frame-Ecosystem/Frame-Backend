@@ -857,47 +857,68 @@ Interactive API documentation is available at:
 
 ### Required Variables
 
+> Variable names below exactly match what the codebase reads from `process.env`. Using a different name will silently fall back to undefined.
+
 ```env
 # ── Application ─────────────────────────────────────────────────────
 NODE_ENV=development         # development | production | test
-PORT=3000                    # HTTP port
-LOG_LEVEL=info               # error | warn | info | debug
+PORT=3000                    # HTTP port (Render uses 10000)
+LOG_FORMAT=combined          # Morgan format
+LOG_DIR=logs/                # Log directory
 
 # ── Security ────────────────────────────────────────────────────────
-SECRET_KEY=                  # JWT signing secret (min 32 chars)
-ACCESS_TOKEN_EXPIRES=15m     # Access token TTL (e.g. 15m, 1h)
-REFRESH_TOKEN_EXPIRES=7d     # Refresh token TTL (e.g. 7d, 30d)
-CSRF_SECRET=                 # CSRF token secret
+SECRET_KEY=                  # JWT access token signing secret (≥ 32 chars)
+REFRESH_TOKEN_SECRET=        # JWT refresh token signing secret (≥ 32 chars, different from SECRET_KEY)
+CREDENTIALS=true             # Allow cookies with credentials: include
+CSRF_SECRET=                 # CSRF token secret (optional, falls back to SECRET_KEY)
 
 # ── MongoDB ─────────────────────────────────────────────────────────
-MONGODB_URI=                 # MongoDB connection string
+MONGO_URI=                   # Full MongoDB connection string
+                             # e.g. mongodb+srv://user:pass@cluster.mongodb.net/dbname
 
-# ── CORS ────────────────────────────────────────────────────────────
-CLIENT_URL=                  # Frontend app URL (for CORS + OAuth redirect)
-ALLOWED_ORIGINS=             # Comma-separated allowed origins
+# ── CORS & URLs ─────────────────────────────────────────────────────
+ORIGIN=                      # Allowed CORS origin(s), comma-separated
+FRONTEND_BASE_URL=           # Frontend app URL (OAuth redirects, email links)
+                             # Defaults to https://framebeauty.tn in production
+BACKEND_BASE_URL=            # This server's public URL
+                             # Defaults to https://frame-backend-apis.onrender.com in production
+MAGIC_LINK_BASE_URL=         # Base URL for magic link / password reset emails
+                             # Defaults to FRONTEND_BASE_URL. MUST be set on Render dashboard.
+GOOGLE_REDIRECT_URI=         # Google OAuth callback URL
+                             # Defaults to BACKEND_BASE_URL/v1/auth/google/callback
+
+# ── Google OAuth ────────────────────────────────────────────────────
+GOOGLE_CLIENT_ID=            # Google OAuth 2.0 client ID
+GOOGLE_CLIENT_SECRET=        # Google OAuth 2.0 client secret
 
 # ── Cloudflare R2 ───────────────────────────────────────────────────
 R2_ACCOUNT_ID=               # Cloudflare account ID
-R2_ACCESS_KEY_ID=            # R2 access key
-R2_SECRET_ACCESS_KEY=        # R2 secret key
-R2_BUCKET_NAME=              # R2 bucket name
-R2_PUBLIC_URL=               # Public CDN URL for R2 assets
+R2_ACCESS_KEY_ID=            # R2 access key ID
+R2_SECRET_ACCESS_KEY=        # R2 secret access key
+R2_BUCKET_NAME=              # R2 bucket name (e.g. frame-storage)
+R2_PUBLIC_URL=               # Public CDN base URL for R2 assets
 
 # ── Firebase FCM ────────────────────────────────────────────────────
 FIREBASE_PROJECT_ID=         # Firebase project ID
 FIREBASE_CLIENT_EMAIL=       # Firebase service account email
-FIREBASE_PRIVATE_KEY=        # Firebase private key (base64 or escaped)
+FIREBASE_PRIVATE_KEY=        # Firebase private key (newlines as \n)
 
-# ── Google OAuth ────────────────────────────────────────────────────
-GOOGLE_CLIENT_ID=            # Google OAuth client ID
-GOOGLE_CLIENT_SECRET=        # Google OAuth client secret
+# ── Email — Brevo API (primary) ──────────────────────────────────────
+BREVO_API_KEY=               # Brevo transactional email API key
+                             # Used for: POST https://api.brevo.com/v3/smtp/email
+                             # 3 attempts: immediate + 500 ms + 1 000 ms retry
 
-# ── Email (SMTP) ────────────────────────────────────────────────────
-SMTP_HOST=                   # SMTP server host
-SMTP_PORT=587                # SMTP port (587 STARTTLS, 465 SSL)
-SMTP_USER=                   # SMTP username
-SMTP_PASS=                   # SMTP password
-EMAIL_FROM=                  # From address (e.g. "Frame Beauty <no-reply@framebeauty.tn>")
+# ── Email — Brevo SMTP relay (fallback) ──────────────────────────────
+SMTP_HOST=smtp-relay.brevo.com  # Brevo SMTP host
+SMTP_PORT=587                   # SMTP port (587 STARTTLS)
+BREVO_SMTP_USER=                # Brevo account email (SMTP username)
+BREVO_SMTP_KEY=                 # Brevo SMTP password / API key
+SMTP_FROM=                      # Sender address, e.g. Frame Beauty <noreply@framebeauty.tn>
+
+# ── Admin Bootstrap ─────────────────────────────────────────────────
+ENABLE_ADMIN_BOOTSTRAP=false # Set true ONCE to auto-create admin on startup; then false
+ADMIN_EMAIL=                 # Admin account email (bootstrap only)
+ADMIN_PASSWORD=              # Admin account password (bootstrap only)
 ```
 
 ### Variable Validation
