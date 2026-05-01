@@ -97,7 +97,19 @@ class AuthService {
         await sendMagicLinkEmail(normalizedEmail, magicLink);
         logger.info(`Magic link sent to: ${normalizedEmail}`);
       } catch (emailError) {
-        logger.error(`Failed to send magic link email to ${normalizedEmail}: ${emailError.message}`);
+        const smtpError = emailError as {
+          message?: string;
+          code?: string;
+          command?: string;
+          responseCode?: number;
+          response?: string;
+        };
+        logger.error(`Failed to send magic link email to ${normalizedEmail}: ${smtpError.message || 'Unknown SMTP error'}`, {
+          code: smtpError.code,
+          command: smtpError.command,
+          responseCode: smtpError.responseCode,
+          response: smtpError.response,
+        });
         // Clean up the verification token if email fails
         await verificationTokenModel.deleteOne({ token: verificationToken });
         throw new InternalServerException('Failed to send verification email. Please try again.');
