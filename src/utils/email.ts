@@ -16,13 +16,21 @@ function resolveBaseUrl(input?: string): string {
 
 function getTransporter(): nodemailer.Transporter {
   if (!transporter) {
-    const smtpPort = Number(process.env.SMTP_PORT || 587);
+    const configPort = Number(process.env.SMTP_PORT || 587);
     const smtpHost = process.env.SMTP_HOST || 'smtp-relay.brevo.com';
     const smtpUser = process.env.BREVO_SMTP_USER;
     const smtpPass = process.env.BREVO_SMTP_KEY;
 
     if (!smtpUser || !smtpPass) {
       throw new Error('SMTP credentials are missing: BREVO_SMTP_USER and BREVO_SMTP_KEY are required');
+    }
+
+    // In production on Render, try implicit TLS (port 465) first.
+    // If not explicitly configured, default to 465 in prod, 587 in dev.
+    let smtpPort = configPort;
+    if (configPort === 587 && process.env.NODE_ENV === 'production') {
+      smtpPort = 465;
+      logger.info(`[Email] Using implicit TLS (port 465) in production for better Render compatibility`);
     }
 
     transporter = nodemailer.createTransport({
@@ -35,12 +43,15 @@ function getTransporter(): nodemailer.Transporter {
         pass: smtpPass,
       },
       pool: true,
-      maxConnections: 3,
+      maxConnections: 5,
       maxMessages: 100,
-      connectionTimeout: 15_000,
-      socketTimeout: 30_000,
+      rateDelta: 1000,
+      rateLimit: 10,
+      connectionTimeout: 30_000,
+      socketTimeout: 60_000,
+      greetingTimeout: 10_000,
       tls: {
-        minVersion: 'TLSv1.2',
+        rejectUnauthorized: false,
       },
     });
 
@@ -341,43 +352,52 @@ async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token
   for (let attempt = 0; attempt < senderOptions.length; attempt++) {
     const currentFrom = senderOptions[attempt];
 
-    try {
-      logger.debug(`[Email] Attempt ${attempt + 1}/${senderOptions.length} with sender: ${extractEmailAddress(currentFrom) || currentFrom}`);
+    for (let retryCount = 0; retryCount < 3; retryCount++) {
+      try {
+        if (retryCount === 0) {
+          logger.debug(`[Email] Sender option ${attempt + 1}/${senderOptions.length}: ${extractEmailAddress(currentFrom) || currentFrom}`);
+        } else {
+          logger.warn(`[Email] Retry ${retryCount}/2 for sender: ${extractEmailAddress(currentFrom) || currentFrom}`);
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, retryCount) * 1000));
+        }
 
-      await smtp.sendMail({
-        from: currentFrom,
-        to,
-        subject: tpl.subject,
-        text: tpl.text(token),
-        html: tpl.html(token),
-      });
+        await smtp.sendMail({
+          from: currentFrom,
+          to,
+          subject: tpl.subject,
+          text: tpl.text(token),
+          html: tpl.html(token),
+        });
 
-      if (attempt > 0) {
-        logger.info(`[Email] Fallback sender succeeded on attempt ${attempt + 1}: ${extractEmailAddress(currentFrom) || currentFrom}`);
-      }
+        if (attempt > 0 || retryCount > 0) {
+          logger.info(`[Email] Sent successfully on sender ${attempt + 1}, retry ${retryCount}`);
+        }
 
-      return;
-    } catch (err) {
-      lastError = err as Error;
+        return;
+      } catch (err) {
+        lastError = err as Error;
 
-      const error = err as {
-        message?: string;
-        code?: string;
-        command?: string;
-        responseCode?: number;
-        response?: string;
-      };
+        const error = err as {
+          message?: string;
+          code?: string;
+          command?: string;
+          responseCode?: number;
+          response?: string;
+        };
 
-      logger.warn(`[Email] Attempt ${attempt + 1} failed with sender ${extractEmailAddress(currentFrom) || currentFrom}:`, {
-        message: error.message,
-        code: error.code,
-        command: error.command,
-        responseCode: error.responseCode,
-        response: error.response,
-      });
+        logger.warn(`[Email] Sender ${attempt + 1} retry ${retryCount} failed: ${error.message || 'Unknown error'}`, {
+          code: error.code,
+          command: error.command,
+          responseCode: error.responseCode,
+        });
 
-      if (!isSenderRejectedError(err) || attempt === senderOptions.length - 1) {
-        break;
+        if (retryCount < 2) {
+          continue;
+        }
+
+        if (!isSenderRejectedError(err) || attempt === senderOptions.length - 1) {
+          break;
+        }
       }
     }
   }
