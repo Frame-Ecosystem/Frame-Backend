@@ -8,7 +8,6 @@ import { logger } from '@utils/logger';
  * Created once on first use instead of per-email call.
  */
 let transporter: nodemailer.Transporter | null = null;
-let transporterVerified = false;
 
 function resolveBaseUrl(input?: string): string {
   if (!input) return '';
@@ -295,14 +294,7 @@ async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token
   const tpl = TEMPLATES[templateName];
   const smtp = getTransporter();
 
-  // Verify transport lazily on first send to surface bad SMTP config quickly.
-  if (!transporterVerified) {
-    await smtp.verify();
-    transporterVerified = true;
-    logger.info('Email transporter verification succeeded');
-  }
-
-  await getTransporter().sendMail({
+  await smtp.sendMail({
     from: getFromAddress(),
     to,
     subject: tpl.subject,
@@ -320,8 +312,11 @@ export const sendMagicLinkEmail = (to: string, magicLink: string) => sendEmail(t
 export const sendPasswordResetEmail = (to: string, resetLink: string) => sendEmail(to, 'passwordReset', resetLink);
 
 export async function verifyEmailTransporter(): Promise<void> {
-  await getTransporter().verify();
-  transporterVerified = true;
+  getTransporter()
+    .verify()
+    .catch(err => {
+      logger.warn(`SMTP verify failed: ${err.message}`);
+    });
 }
 
 export function isDisposableEmail(email: string): boolean {
