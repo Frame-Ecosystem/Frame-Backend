@@ -2,6 +2,15 @@ import { BadRequestException, ConflictException, InternalServerException } from 
 import { logger } from '@utils/logger';
 
 /**
+ * Escape special regex metacharacters in a string so it can be safely used in
+ * a MongoDB `$regex` query or `new RegExp(...)` without enabling regex injection
+ * or ReDoS attacks via crafted user input.
+ *
+ * @example escapeRegex('hair (cut)') // 'hair \\(cut\\)'
+ */
+export const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
  * Check whether a value is empty (null, undefined, empty string, or empty object).
  */
 export const isEmpty = (value: unknown): boolean => {

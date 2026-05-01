@@ -3,7 +3,7 @@ import { BCRYPT_ROUNDS, RETRY_BACKOFF_BASE_MS, RETRY_MAX_ATTEMPTS } from '@confi
 import { CreateUserDto, UpdateUserDto } from '@systems/UserManager/dtos/user.dto';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import userModel from '@systems/UserManager/models/user.model';
-import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
+import { isEmpty, handleMongoDBDuplicateKeyError, escapeRegex } from '@utils/util';
 import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 
@@ -41,10 +41,11 @@ class UserManagementService {
     try {
       const filter: any = {};
       if (search) {
+        const escapedSearch = escapeRegex(search);
         filter.$or = [
-          { email: { $regex: search, $options: 'i' } },
-          { username: { $regex: search, $options: 'i' } },
-          { phoneNumber: { $regex: search, $options: 'i' } },
+          { email: { $regex: escapedSearch, $options: 'i' } },
+          { username: { $regex: escapedSearch, $options: 'i' } },
+          { phoneNumber: { $regex: escapedSearch, $options: 'i' } },
         ];
       }
       const skip = (page - 1) * limit;

@@ -3,6 +3,7 @@ import { LoungeService } from '@systems/ServiceCatalogSystem/interfaces/loungeSe
 import userModel from '@systems/UserManager/models/user.model';
 import loungeServiceModel from '@systems/ServiceCatalogSystem/models/loungeService.model';
 import { HttpException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
+import { escapeRegex } from '@utils/util';
 import { logger } from '@utils/logger';
 
 interface PaginationParams {
@@ -109,11 +110,12 @@ class ClientService {
       isBlocked: { $ne: true },
     };
     if (search) {
+      const escapedSearch = escapeRegex(search);
       filter.$or = [
-        { loungeTitle: { $regex: search, $options: 'i' } },
-        { firstName: { $regex: search, $options: 'i' } },
-        { lastName: { $regex: search, $options: 'i' } },
-        { bio: { $regex: search, $options: 'i' } },
+        { loungeTitle: { $regex: escapedSearch, $options: 'i' } },
+        { firstName: { $regex: escapedSearch, $options: 'i' } },
+        { lastName: { $regex: escapedSearch, $options: 'i' } },
+        { bio: { $regex: escapedSearch, $options: 'i' } },
       ];
     }
     if (gender && ['male', 'female', 'unisex', 'kids'].includes(gender)) {
