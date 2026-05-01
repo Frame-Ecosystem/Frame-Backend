@@ -87,11 +87,14 @@ const validateEnv = () => {
     }
 
     if (env.FRONTEND_BASE_URL && env.FRONTEND_BASE_URL.includes(',')) {
-      logger.error('❌ FRONTEND_BASE_URL must be a single URL. Use ORIGIN for comma-separated CORS origins.');
-      throw new Error('Invalid FRONTEND_BASE_URL format in production');
+      const first = env.FRONTEND_BASE_URL.split(',')[0].trim();
+      logger.warn(
+        `⚠️  FRONTEND_BASE_URL contains multiple values; using first entry "${first}" for email/link generation. Set ORIGIN for CORS origins.`,
+      );
+      process.env.FRONTEND_BASE_URL = first;
     }
 
-    const linkBase = env.MAGIC_LINK_BASE_URL || env.FRONTEND_BASE_URL;
+    const linkBase = env.MAGIC_LINK_BASE_URL || process.env.FRONTEND_BASE_URL || env.FRONTEND_BASE_URL;
     if (!linkBase || !isValidAbsoluteUrl(linkBase)) {
       logger.error('❌ MAGIC_LINK_BASE_URL (or FRONTEND_BASE_URL fallback) must be a valid absolute http/https URL in production');
       throw new Error('Invalid magic link base URL for production');
