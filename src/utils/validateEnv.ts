@@ -36,6 +36,7 @@ const validateEnv = () => {
     SMTP_PORT: port({ default: 587 }),
     BREVO_SMTP_USER: str({ default: '' }),
     BREVO_SMTP_KEY: str({ default: '' }),
+    BREVO_API_KEY: str({ default: '' }),
     SMTP_FROM: str({ default: '' }),
     FRONTEND_BASE_URL: str({ default: '' }),
     MAGIC_LINK_BASE_URL: str({ default: '' }),
@@ -81,9 +82,17 @@ const validateEnv = () => {
   }
 
   if (env.NODE_ENV === 'production') {
-    if (!env.BREVO_SMTP_USER || !env.BREVO_SMTP_KEY || !env.SMTP_FROM) {
-      logger.error('❌ Production email is misconfigured: BREVO_SMTP_USER, BREVO_SMTP_KEY, and SMTP_FROM are required');
-      throw new Error('Missing required SMTP credentials for production');
+    const hasBrevoApi = Boolean(env.BREVO_API_KEY);
+    const hasSmtp = Boolean(env.BREVO_SMTP_USER && env.BREVO_SMTP_KEY);
+
+    if (!env.SMTP_FROM) {
+      logger.error('❌ Production email is misconfigured: SMTP_FROM is required');
+      throw new Error('Missing required email sender for production');
+    }
+
+    if (!hasBrevoApi && !hasSmtp) {
+      logger.error('❌ Production email is misconfigured: provide BREVO_API_KEY or SMTP credentials (BREVO_SMTP_USER/BREVO_SMTP_KEY)');
+      throw new Error('Missing required email provider credentials for production');
     }
 
     if (env.FRONTEND_BASE_URL && env.FRONTEND_BASE_URL.includes(',')) {

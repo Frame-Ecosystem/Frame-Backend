@@ -1,3 +1,4 @@
+import axios from 'axios';
 import nodemailer from 'nodemailer';
 import disposableDomains from 'disposable-email-domains';
 import { FRONTEND_BASE_URL } from '@config';
@@ -8,6 +9,10 @@ import { logger } from '@utils/logger';
  * Created once on first use instead of per-email call.
  */
 let transporter: nodemailer.Transporter | null = null;
+
+function hasBrevoApiMode(): boolean {
+  return Boolean(process.env.BREVO_API_KEY?.trim());
+}
 
 function resolveBaseUrl(input?: string): string {
   if (!input) return '';
@@ -64,6 +69,15 @@ function getFromAddress(): string {
   return process.env.SMTP_FROM || 'Frame Beauty <noreply@framebeauty.com>';
 }
 
+function getFromPayload(from: string): { email: string; name?: string } {
+  const extractedEmail = extractEmailAddress(from) || from;
+  const name = from.replace(/<[^>]+>/g, '').trim();
+  return {
+    email: extractedEmail,
+    ...(name ? { name } : {}),
+  };
+}
+
 function extractEmailAddress(value?: string): string | undefined {
   if (!value) return undefined;
   const match = value.match(/<([^>]+)>/);
@@ -96,6 +110,30 @@ function isSenderRejectedError(err: unknown): boolean {
     details.includes('not authorized') ||
     details.includes('rejected')
   );
+}
+
+async function sendEmailViaBrevoApi(to: string, subject: string, text: string, html: string, from: string): Promise<void> {
+  const apiKey = process.env.BREVO_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is missing for Brevo API email mode');
+  }
+
+  const payload = {
+    sender: getFromPayload(from),
+    to: [{ email: to }],
+    subject,
+    htmlContent: html,
+    textContent: text,
+  };
+
+  await axios.post('https://api.brevo.com/v3/smtp/email', payload, {
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    timeout: 20_000,
+  });
 }
 
 /* ------------------------------------------------------------------ */
@@ -337,6 +375,24 @@ const TEMPLATES: Record<string, EmailTemplate> = {
 
 async function sendEmail(to: string, templateName: keyof typeof TEMPLATES, token: string): Promise<void> {
   const tpl = TEMPLATES[templateName];
+
+  if (hasBrevoApiMode()) {
+    const from = getFromAddress();
+    try {
+      await sendEmailViaBrevoApi(to, tpl.subject, tpl.text(token), tpl.html(token), from);
+      return;
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        logger.error('[Email] Brevo API send failed', {
+          status: err.response?.status,
+          data: err.response?.data,
+          message: err.message,
+        });
+      }
+      throw err;
+    }
+  }
+
   const smtp = getTransporter();
   const primaryFrom = getFromAddress();
   const fallbackFrom = getFallbackFromAddress();
@@ -416,6 +472,11 @@ export const sendMagicLinkEmail = (to: string, magicLink: string) => sendEmail(t
 export const sendPasswordResetEmail = (to: string, resetLink: string) => sendEmail(to, 'passwordReset', resetLink);
 
 export async function verifyEmailTransporter(): Promise<void> {
+  if (hasBrevoApiMode()) {
+    logger.info('[Email] Brevo API mode enabled; skipping SMTP connectivity verify');
+    return;
+  }
+
   getTransporter()
     .verify()
     .catch(err => {
