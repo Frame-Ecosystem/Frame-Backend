@@ -55,12 +55,20 @@ class FollowService {
       throw new BadRequestException('You are already following this user', 'ALREADY_FOLLOWING');
     }
 
-    await this.follows.create({
-      followerId,
-      followingId: targetId,
-      followerType,
-      followingType: targetType,
-    });
+    try {
+      await this.follows.create({
+        followerId,
+        followingId: targetId,
+        followerType,
+        followingType: targetType,
+      });
+    } catch (err: any) {
+      // Concurrent follow race: unique index caught a duplicate — treat as success
+      if (err?.code === 11000) {
+        return { following: true };
+      }
+      throw err;
+    }
 
     // Update denormalized counts
     await this.refreshCounts(followerId, targetId);

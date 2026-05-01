@@ -3,6 +3,7 @@ import hashtagModel from '@systems/FeedContentSystem/models/hashtag.model';
 import contentLikeModel from '@systems/FeedContentSystem/models/contentLike.model';
 import contentSaveModel from '@systems/FeedContentSystem/models/contentSave.model';
 import commentModel from '@systems/FeedContentSystem/models/comment.model';
+import userModel from '@systems/UserManager/models/user.model';
 import R2Service from '@shared/services/cloudflareR2.service';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
 import { HttpException, BadRequestException, NotFoundException, ForbiddenException, InternalServerException } from '@exceptions/HttpException';
@@ -16,6 +17,7 @@ class PostService {
   private contentLikes = contentLikeModel;
   private contentSaves = contentSaveModel;
   private comments = commentModel;
+  private users = userModel;
   private notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
@@ -162,8 +164,7 @@ class PostService {
       // Notify post author
       const authorId = post.authorId.toString();
       if (authorId !== userId) {
-        const userModel = (await import('@systems/UserManager/models/user.model')).default;
-        const actor = await userModel.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+        const actor = await this.users.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
         const actorName = this.notificationService.extractName(actor);
         const actorImage = actor?.profileImage?.url;
         this.notificationService.notifyPostLiked(authorId, userId, actorName, postId, actorImage).catch(() => {});

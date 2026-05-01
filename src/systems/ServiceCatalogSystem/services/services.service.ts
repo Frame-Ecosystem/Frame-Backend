@@ -2,7 +2,7 @@
 import { CreateServiceDto, UpdateServiceDto } from '@systems/ServiceCatalogSystem/dtos/services.dto';
 import serviceModel from '@systems/ServiceCatalogSystem/models/service.model';
 import { HttpException, BadRequestException, NotFoundException, ConflictException, InternalServerException } from '@exceptions/HttpException';
-import { isEmpty, handleMongooseError } from '@utils/util';
+import { isEmpty, handleMongooseError, escapeRegex } from '@utils/util';
 import { logger } from '@utils/logger';
 
 class ServicesService {
@@ -39,7 +39,8 @@ class ServicesService {
       }
 
       // Check if service name already exists (case-insensitive)
-      const existingService = await this.services.findOne({ name: new RegExp(`^${data.name.trim()}$`, 'i') });
+      const escapedName = escapeRegex(data.name.trim());
+      const existingService = await this.services.findOne({ name: new RegExp(`^${escapedName}$`, 'i') });
       if (existingService) {
         logger.error(`ServicesService.createService: service name already exists: ${data.name}`);
         throw new ConflictException('A service with this name already exists. Please choose a different name.', 'SERVICE_NAME_EXISTS');
@@ -47,10 +48,11 @@ class ServicesService {
 
       // Normalize name for duplicate checking
       const normalizedName = this.normalizeServiceName(data.name);
+      const escapedNormalizedName = escapeRegex(normalizedName);
 
       // Check if a service with similar normalized name exists
       const existingNormalized = await this.services.findOne({
-        $or: [{ name: new RegExp(`^${normalizedName}$`, 'i') }, { name: new RegExp(`\\b${normalizedName}\\b`, 'i') }],
+        $or: [{ name: new RegExp(`^${escapedNormalizedName}$`, 'i') }, { name: new RegExp(`\\b${escapedNormalizedName}\\b`, 'i') }],
       });
 
       if (existingNormalized && this.normalizeServiceName(existingNormalized.name) === normalizedName) {
@@ -133,8 +135,9 @@ class ServicesService {
 
       // If name is being updated, check for duplicates
       if (data.name) {
+        const escapedName = escapeRegex(data.name.trim());
         const existingService = await this.services.findOne({
-          name: new RegExp(`^${data.name.trim()}$`, 'i'),
+          name: new RegExp(`^${escapedName}$`, 'i'),
           _id: { $ne: serviceId },
         });
         if (existingService) {
@@ -147,11 +150,12 @@ class ServicesService {
 
         // Normalize name for duplicate checking
         const normalizedName = this.normalizeServiceName(data.name);
+        const escapedNormalizedName = escapeRegex(normalizedName);
 
         // Check if a service with similar normalized name exists
         const existingNormalized = await this.services.findOne({
           _id: { $ne: serviceId },
-          $or: [{ name: new RegExp(`^${normalizedName}$`, 'i') }, { name: new RegExp(`\\b${normalizedName}\\b`, 'i') }],
+          $or: [{ name: new RegExp(`^${escapedNormalizedName}$`, 'i') }, { name: new RegExp(`\\b${escapedNormalizedName}\\b`, 'i') }],
         });
 
         if (existingNormalized && this.normalizeServiceName(existingNormalized.name) === normalizedName) {
