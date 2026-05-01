@@ -116,7 +116,7 @@ import App from '@/app';
 import BookingRoute from '@systems/BookingSystem/routes/booking.route';
 import QueueRoute from '@systems/BookingSystem/routes/queue.route';
 import userModel from '@systems/UserManager/models/user.model';
-import { makeClientUser, makeLoungeUser, makeAdminUser, makeBooking, makeQueue, testIds } from '../../../tests/helpers/factories';
+import { makeClientUser, makeLoungeUser, makeAdminUser, testIds } from '../../../tests/helpers/factories';
 import { clientToken, loungeToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
 import { expectRouteOk } from '../../../tests/helpers/assertions';
 
@@ -125,8 +125,6 @@ import { expectRouteOk } from '../../../tests/helpers/assertions';
 const mockClient = makeClientUser();
 const mockLounge = makeLoungeUser();
 const mockAdmin = makeAdminUser();
-const mockBooking = makeBooking();
-const mockQueue = makeQueue();
 
 let server: Express.Application;
 
@@ -210,27 +208,21 @@ describe('BookingSystem — Route Tests', () => {
 
     describe('GET /v1/bookings/:id', () => {
       it('returns 200 for a valid booking', async () => {
-        const res = await request(server)
-          .get(`/v1/bookings/${testIds.booking}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).get(`/v1/bookings/${testIds.booking}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });
 
     describe('GET /v1/bookings/stats/client/:clientId', () => {
       it('returns 200 with client booking stats', async () => {
-        const res = await request(server)
-          .get(`/v1/bookings/stats/client/${testIds.client}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).get(`/v1/bookings/stats/client/${testIds.client}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });
 
     describe('DELETE /v1/bookings/:id', () => {
       it('returns 200 deleting a booking', async () => {
-        const res = await request(server)
-          .delete(`/v1/bookings/${testIds.booking}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).delete(`/v1/bookings/${testIds.booking}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });
@@ -241,25 +233,19 @@ describe('BookingSystem — Route Tests', () => {
   describe('Queues (/v1/queues)', () => {
     describe('GET /v1/queues/agent/:agentId', () => {
       it('returns 200 with agent queue (client token)', async () => {
-        const res = await request(server)
-          .get(`/v1/queues/agent/${testIds.agent}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).get(`/v1/queues/agent/${testIds.agent}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
 
       it('returns 200 with agent queue (lounge token)', async () => {
-        const res = await request(server)
-          .get(`/v1/queues/agent/${testIds.agent}`)
-          .set('Authorization', bearerHeader(loungeToken()));
+        const res = await request(server).get(`/v1/queues/agent/${testIds.agent}`).set('Authorization', bearerHeader(loungeToken()));
         expectRouteOk(res.status);
       });
     });
 
     describe('GET /v1/queues/lounge/:loungeId', () => {
       it('returns 200 with lounge queues', async () => {
-        const res = await request(server)
-          .get(`/v1/queues/lounge/${testIds.lounge}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).get(`/v1/queues/lounge/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });

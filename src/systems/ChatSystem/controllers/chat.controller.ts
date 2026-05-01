@@ -145,12 +145,7 @@ class ChatController {
       let attachment: { url: string; publicId: string; mimeType?: string; fileName?: string; sizeBytes?: number } | undefined;
 
       if (req.file && contentType !== 'text') {
-        const uploadResult = await r2Service.uploadFile(
-          req.file.buffer,
-          req.file.originalname,
-          req.file.mimetype,
-          `chat/${conversationId}`,
-        );
+        const uploadResult = await r2Service.uploadFile(req.file.buffer, req.file.originalname, req.file.mimetype, `chat/${conversationId}`);
         attachment = {
           url: uploadResult.url,
           publicId: uploadResult.key,
@@ -278,4 +273,3 @@ class ChatController {
 }
 
 export default ChatController;
-

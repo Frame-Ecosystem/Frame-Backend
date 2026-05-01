@@ -19,5 +19,3 @@ declare module 'express-serve-static-core' {
     user: AppUser & Document;
   }
 }
-
-

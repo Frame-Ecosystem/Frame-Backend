@@ -15,9 +15,7 @@ class ProductCategorySuggestionsController {
         suggestion: stripSensitiveFields(result.suggestion),
         category: result.category ? stripSensitiveFields(result.category) : null,
       },
-      message: result.category
-        ? 'Category suggestion approved and implemented successfully'
-        : 'Category suggestion status updated successfully',
+      message: result.category ? 'Category suggestion approved and implemented successfully' : 'Category suggestion status updated successfully',
     };
   }
 

@@ -149,12 +149,7 @@ class CloudflareR2Service {
    * @param mimeType    Used to override content-type detection
    * @param folder      Virtual folder path (e.g. `chat/conversationId`)
    */
-  public async uploadFile(
-    fileBuffer: Buffer,
-    fileName: string,
-    mimeType: string,
-    folder: string,
-  ): Promise<{ url: string; key: string }> {
+  public async uploadFile(fileBuffer: Buffer, fileName: string, mimeType: string, folder: string): Promise<{ url: string; key: string }> {
     const client = this.ensureClient();
 
     const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;

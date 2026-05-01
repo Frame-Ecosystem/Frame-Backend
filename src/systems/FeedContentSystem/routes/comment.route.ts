@@ -32,7 +32,14 @@ class CommentRoute implements Routes {
      * @desc    Like or unlike a comment
      * @access  Private
      */
-    this.router.post('/:commentId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post(
+      '/:commentId/like',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      likeRateLimiter,
+      this.controller.toggleLike,
+    );
 
     /**
      * @route   PUT /v1/comments/:commentId/hide

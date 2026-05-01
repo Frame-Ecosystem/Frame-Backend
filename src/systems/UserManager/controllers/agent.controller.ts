@@ -1,11 +1,6 @@
 import { NextFunction, Response } from 'express';
 import AgentService from '@systems/UserManager/services/agent.service';
-import {
-  CreateAgentDto,
-  UpdateAgentDto,
-  UpdateAgentSelfDto,
-  ToggleAvailabilityDto,
-} from '@systems/UserManager/dtos/agent.dto';
+import { CreateAgentDto, UpdateAgentDto, UpdateAgentSelfDto, ToggleAvailabilityDto } from '@systems/UserManager/dtos/agent.dto';
 import { RequestWithUser } from '@systems/AuthSystem/interfaces/auth.interface';
 import QueueService from '@systems/BookingSystem/services/queue.service';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@systems/BookingSystem/dtos/queue.dto';
@@ -52,11 +47,7 @@ class AgentController {
         lastName: req.body.lastName,
         phoneNumber: req.body.phoneNumber,
         parentLounge: req.body.parentLounge,
-        services: Array.isArray(req.body.services)
-          ? req.body.services
-          : typeof req.body.services === 'string'
-            ? JSON.parse(req.body.services)
-            : [],
+        services: Array.isArray(req.body.services) ? req.body.services : typeof req.body.services === 'string' ? JSON.parse(req.body.services) : [],
         isBlocked: req.body.isBlocked === 'true' || req.body.isBlocked === true,
         acceptQueueBooking: req.body.acceptQueueBooking === 'true' || req.body.acceptQueueBooking === true,
         profileImage: req.body.profileImage,
@@ -256,11 +247,7 @@ class AgentController {
         return res.status(200).json({ data: updated, message: 'No more waiting persons' });
       }
 
-      const updated = await this.queueService.updatePersonStatus(
-        agentId,
-        nextWaiting.bookingId.toString(),
-        { status: QueuePersonStatus.IN_SERVICE },
-      );
+      const updated = await this.queueService.updatePersonStatus(agentId, nextWaiting.bookingId.toString(), { status: QueuePersonStatus.IN_SERVICE });
       res.status(200).json({ data: updated, message: 'Next person is now in service' });
     } catch (error) {
       next(error);

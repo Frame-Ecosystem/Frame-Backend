@@ -21,7 +21,14 @@ class FollowRoute implements Routes {
      * @desc    Follow a user (client or lounge)
      * @access  Private (Client or Lounge) � rate-limited
      */
-    this.router.post('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, followRateLimiter, this.followController.follow);
+    this.router.post(
+      '/:targetId',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      followRateLimiter,
+      this.followController.follow,
+    );
 
     /**
      * @route   DELETE /v1/follows/:targetId

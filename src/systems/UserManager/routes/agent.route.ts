@@ -2,19 +2,11 @@ import { Router } from 'express';
 import AgentController from '@systems/UserManager/controllers/agent.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import {
-  adminOrLoungeMiddleware,
-  adminOrLoungeOrClientMiddleware,
-  agentMiddleware,
-} from '@middlewares/role.middleware';
+import { adminOrLoungeMiddleware, adminOrLoungeOrClientMiddleware, agentMiddleware } from '@middlewares/role.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import upload, { optionalUpload } from '@middlewares/imageUpload.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
-import {
-  UpdateAgentDto,
-  UpdateAgentSelfDto,
-  ToggleAvailabilityDto,
-} from '@systems/UserManager/dtos/agent.dto';
+import { UpdateAgentDto, UpdateAgentSelfDto, ToggleAvailabilityDto } from '@systems/UserManager/dtos/agent.dto';
 import { ReorderQueuePersonDto } from '@systems/BookingSystem/dtos/queue.dto';
 
 /**
@@ -60,32 +52,14 @@ class AgentRoute implements Routes {
       this.agentController.toggleAvailability,
     );
 
-    this.router.put(
-      '/me/image',
-      authMiddleware,
-      agentMiddleware,
-      upload.single('image'),
-      this.agentController.uploadOwnImage,
-    );
+    this.router.put('/me/image', authMiddleware, agentMiddleware, upload.single('image'), this.agentController.uploadOwnImage);
 
     this.router.get('/me/queue', authMiddleware, agentMiddleware, this.agentController.getMyQueue);
     this.router.get('/me/queue/stats', authMiddleware, agentMiddleware, this.agentController.getMyQueueStats);
 
-    this.router.post(
-      '/me/queue/persons',
-      authMiddleware,
-      agentMiddleware,
-      csrfMiddleware,
-      this.agentController.addToMyQueue,
-    );
+    this.router.post('/me/queue/persons', authMiddleware, agentMiddleware, csrfMiddleware, this.agentController.addToMyQueue);
 
-    this.router.post(
-      '/me/queue/next',
-      authMiddleware,
-      agentMiddleware,
-      csrfMiddleware,
-      this.agentController.callNextInQueue,
-    );
+    this.router.post('/me/queue/next', authMiddleware, agentMiddleware, csrfMiddleware, this.agentController.callNextInQueue);
 
     this.router.patch(
       '/me/queue/persons/:bookingId',
@@ -104,13 +78,7 @@ class AgentRoute implements Routes {
       this.agentController.reorderMyQueuePerson,
     );
 
-    this.router.delete(
-      '/me/queue/persons/:bookingId',
-      authMiddleware,
-      agentMiddleware,
-      csrfMiddleware,
-      this.agentController.removeMyQueuePerson,
-    );
+    this.router.delete('/me/queue/persons/:bookingId', authMiddleware, agentMiddleware, csrfMiddleware, this.agentController.removeMyQueuePerson);
 
     // \u2500\u2500\u2500 Admin / Lounge management \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 

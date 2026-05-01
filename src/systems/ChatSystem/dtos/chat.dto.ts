@@ -1,16 +1,4 @@
-import {
-  IsOptional,
-  IsMongoId,
-  IsNumber,
-  Min,
-  Max,
-  IsString,
-  IsIn,
-  IsNotEmpty,
-  MaxLength,
-  MinLength,
-  IsBoolean,
-} from 'class-validator';
+import { IsOptional, IsMongoId, IsNumber, Min, Max, IsString, IsIn, IsNotEmpty, MaxLength, MinLength, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { MessageContentType } from '@systems/ChatSystem/interfaces/chat.interface';
 
@@ -147,4 +135,3 @@ export class SearchMessagesDto {
   @Max(50)
   public limit?: number;
 }
-

@@ -58,7 +58,14 @@ class ReelRoute implements Routes {
      * @desc    Update a reel (caption, hashtags)
      * @access  Private (owner only)
      */
-    this.router.put('/:reelId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, generalRateLimiter, this.controller.updateReel);
+    this.router.put(
+      '/:reelId',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      generalRateLimiter,
+      this.controller.updateReel,
+    );
 
     /**
      * @route   DELETE /v1/reels/:reelId
@@ -72,14 +79,28 @@ class ReelRoute implements Routes {
      * @desc    Like or unlike a reel
      * @access  Private
      */
-    this.router.post('/:reelId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post(
+      '/:reelId/like',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      likeRateLimiter,
+      this.controller.toggleLike,
+    );
 
     /**
      * @route   POST /v1/reels/:reelId/save
      * @desc    Save or unsave a reel
      * @access  Private
      */
-    this.router.post('/:reelId/save', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleSave);
+    this.router.post(
+      '/:reelId/save',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      likeRateLimiter,
+      this.controller.toggleSave,
+    );
 
     /* ───────── Admin routes ───────── */
 

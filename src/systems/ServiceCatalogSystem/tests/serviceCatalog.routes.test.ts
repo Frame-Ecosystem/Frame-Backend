@@ -255,9 +255,7 @@ describe('ServiceCatalogSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/services/:serviceId → 200 deleting service (admin)', async () => {
-      const res = await request(server)
-        .delete(`/v1/services/${testIds.service}`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).delete(`/v1/services/${testIds.service}`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
   });
@@ -300,9 +298,7 @@ describe('ServiceCatalogSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/service-categories/:id → 200 deleting category (admin)', async () => {
-      const res = await request(server)
-        .delete(`/v1/service-categories/${testIds.serviceCategory}`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).delete(`/v1/service-categories/${testIds.serviceCategory}`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
   });
@@ -316,9 +312,7 @@ describe('ServiceCatalogSystem — Route Tests', () => {
     });
 
     it('GET /v1/lounge-services/:id → 200 (client)', async () => {
-      const res = await request(server)
-        .get(`/v1/lounge-services/${testIds.loungeService}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/lounge-services/${testIds.loungeService}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
@@ -347,9 +341,7 @@ describe('ServiceCatalogSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/lounge-services/:id → 200 deleting (lounge)', async () => {
-      const res = await request(server)
-        .delete(`/v1/lounge-services/${testIds.loungeService}`)
-        .set('Authorization', bearerHeader(loungeToken()));
+      const res = await request(server).delete(`/v1/lounge-services/${testIds.loungeService}`).set('Authorization', bearerHeader(loungeToken()));
       expectRouteOk(res.status);
     });
   });
@@ -387,9 +379,7 @@ describe('ServiceCatalogSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/ratings/lounge/:loungeId → 200 deleting rating (client)', async () => {
-      const res = await request(server)
-        .delete(`/v1/ratings/lounge/${testIds.lounge}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/ratings/lounge/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });

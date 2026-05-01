@@ -1,4 +1,3 @@
-import productCategoryModel from '@systems/MarketplaceSystem/models/productCategory.model';
 import productCategorySuggestionModel from '@systems/MarketplaceSystem/models/productCategorySuggestion.model';
 import {
   ProductCategorySuggestion,
@@ -11,13 +10,7 @@ import {
 } from '@systems/MarketplaceSystem/dtos/productCategorySuggestions.dto';
 import ProductCategoriesService from '@systems/MarketplaceSystem/services/productCategories.service';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
-import {
-  HttpException,
-  BadRequestException,
-  NotFoundException,
-  InternalServerException,
-  ConflictException,
-} from '@exceptions/HttpException';
+import { HttpException, BadRequestException, NotFoundException, InternalServerException, ConflictException } from '@exceptions/HttpException';
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 
@@ -48,10 +41,7 @@ class ProductCategorySuggestionsAdminService {
 
       const validStatuses = Object.values(ProductCategorySuggestionStatus);
       if (!validStatuses.includes(data.status)) {
-        throw new BadRequestException(
-          `Invalid status. Must be one of: ${validStatuses.join(', ')}`,
-          'INVALID_STATUS',
-        );
+        throw new BadRequestException(`Invalid status. Must be one of: ${validStatuses.join(', ')}`, 'INVALID_STATUS');
       }
 
       const suggestion = await this.suggestions.findById(suggestionId);
@@ -60,17 +50,11 @@ class ProductCategorySuggestionsAdminService {
       }
 
       if (suggestion.status === ProductCategorySuggestionStatus.IMPLEMENTED) {
-        throw new BadRequestException(
-          'This suggestion has already been implemented and cannot be re-moderated',
-          'SUGGESTION_ALREADY_IMPLEMENTED',
-        );
+        throw new BadRequestException('This suggestion has already been implemented and cannot be re-moderated', 'SUGGESTION_ALREADY_IMPLEMENTED');
       }
 
       if (suggestion.status === data.status) {
-        throw new BadRequestException(
-          `The suggestion is already ${data.status.toLowerCase()}`,
-          'STATUS_ALREADY_SET',
-        );
+        throw new BadRequestException(`The suggestion is already ${data.status.toLowerCase()}`, 'STATUS_ALREADY_SET');
       }
 
       let createdCategory: ProductCategory | null = null;
@@ -100,13 +84,8 @@ class ProductCategorySuggestionsAdminService {
       // Notify suggester (fire-and-forget)
       const suggesterId = (suggestion.suggestedBy as any)?.toString();
       if (suggesterId && data.status !== ProductCategorySuggestionStatus.PENDING) {
-        if (
-          data.status === ProductCategorySuggestionStatus.APPROVED ||
-          data.status === ProductCategorySuggestionStatus.IMPLEMENTED
-        ) {
-          this.notificationService
-            .notifyProductCategorySuggestionApproved(suggesterId, suggestion.name, suggestionId)
-            .catch(() => {});
+        if (data.status === ProductCategorySuggestionStatus.APPROVED || data.status === ProductCategorySuggestionStatus.IMPLEMENTED) {
+          this.notificationService.notifyProductCategorySuggestionApproved(suggesterId, suggestion.name, suggestionId).catch(() => {});
         } else if (data.status === ProductCategorySuggestionStatus.REJECTED) {
           this.notificationService
             .notifyProductCategorySuggestionRejected(suggesterId, suggestion.name, suggestionId, data.adminNote)
@@ -167,9 +146,7 @@ class ProductCategorySuggestionsAdminService {
         ...(opts.adminNote !== undefined && { adminNote: opts.adminNote }),
       });
 
-      logger.info(
-        `ProductCategorySuggestionsAdminService.implement: suggestion ${suggestion._id} → category ${created._id}`,
-      );
+      logger.info(`ProductCategorySuggestionsAdminService.implement: suggestion ${suggestion._id} → category ${created._id}`);
 
       return created;
     } catch (error) {
@@ -180,14 +157,11 @@ class ProductCategorySuggestionsAdminService {
         );
       }
       if (error instanceof HttpException) throw error;
-      logger.error(
-        `ProductCategorySuggestionsAdminService.implement error: ${error?.message || error}`,
-        { suggestionId: suggestion._id, stack: error?.stack },
-      );
-      throw new InternalServerException(
-        'Failed to create the category from the suggestion. Please try again.',
-        'CATEGORY_CREATION_FAILED',
-      );
+      logger.error(`ProductCategorySuggestionsAdminService.implement error: ${error?.message || error}`, {
+        suggestionId: suggestion._id,
+        stack: error?.stack,
+      });
+      throw new InternalServerException('Failed to create the category from the suggestion. Please try again.', 'CATEGORY_CREATION_FAILED');
     }
   }
 }

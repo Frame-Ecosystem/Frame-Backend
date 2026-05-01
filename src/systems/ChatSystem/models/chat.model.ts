@@ -186,4 +186,3 @@ conversationSchema.index({ participants: 1, updatedAt: -1 });
 const conversationModel: Model<ConversationDocument> = model<ConversationDocument>('Conversation', conversationSchema);
 
 export { messageModel, conversationModel };
-

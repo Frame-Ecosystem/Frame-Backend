@@ -182,7 +182,7 @@ import LikeRoute from '@systems/FeedContentSystem/routes/like.route';
 import ReportRoute from '@systems/FeedContentSystem/routes/report.route';
 import userModel from '@systems/UserManager/models/user.model';
 import { makeClientUser, makeLoungeUser, makeAdminUser, testIds } from '../../../tests/helpers/factories';
-import { clientToken, loungeToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
+import { clientToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
 import { expectRouteOk } from '../../../tests/helpers/assertions';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -267,16 +267,12 @@ describe('FeedContentSystem — Route Tests', () => {
     });
 
     it('GET /v1/posts/user/:userId → 200 user posts', async () => {
-      const res = await request(server)
-        .get(`/v1/posts/user/${testIds.client}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/posts/user/${testIds.client}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/posts/:postId → 200 single post', async () => {
-      const res = await request(server)
-        .get(`/v1/posts/${testIds.post}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/posts/${testIds.post}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
@@ -289,37 +285,27 @@ describe('FeedContentSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/posts/:postId → 200 deleting a post', async () => {
-      const res = await request(server)
-        .delete(`/v1/posts/${testIds.post}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/posts/${testIds.post}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('POST /v1/posts/:postId/like → 200 toggling like', async () => {
-      const res = await request(server)
-        .post(`/v1/posts/${testIds.post}/like`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).post(`/v1/posts/${testIds.post}/like`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('POST /v1/posts/:postId/save → 200 toggling save', async () => {
-      const res = await request(server)
-        .post(`/v1/posts/${testIds.post}/save`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).post(`/v1/posts/${testIds.post}/save`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('PUT /v1/posts/:postId/hide → 200 hiding post (admin only)', async () => {
-      const res = await request(server)
-        .put(`/v1/posts/${testIds.post}/hide`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).put(`/v1/posts/${testIds.post}/hide`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('PUT /v1/posts/:postId/hide → 403 for non-admin', async () => {
-      const res = await request(server)
-        .put(`/v1/posts/${testIds.post}/hide`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).put(`/v1/posts/${testIds.post}/hide`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -328,38 +314,27 @@ describe('FeedContentSystem — Route Tests', () => {
 
   describe('Reels (/v1/reels)', () => {
     it('POST /v1/reels → 201 creating a reel', async () => {
-      const res = await request(server)
-        .post('/v1/reels')
-        .set('Authorization', bearerHeader(clientToken()))
-        .send({ caption: 'Test reel caption' });
+      const res = await request(server).post('/v1/reels').set('Authorization', bearerHeader(clientToken())).send({ caption: 'Test reel caption' });
       expectRouteOk(res.status);
     });
 
     it('GET /v1/reels/:reelId → 200 single reel', async () => {
-      const res = await request(server)
-        .get(`/v1/reels/${testIds.reel}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/reels/${testIds.reel}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/reels/lounge/:loungeId → 200 lounge reels', async () => {
-      const res = await request(server)
-        .get(`/v1/reels/lounge/${testIds.lounge}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/reels/lounge/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('POST /v1/reels/:reelId/like → 200 toggling like', async () => {
-      const res = await request(server)
-        .post(`/v1/reels/${testIds.reel}/like`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).post(`/v1/reels/${testIds.reel}/like`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('DELETE /v1/reels/:reelId → 200 deleting a reel', async () => {
-      const res = await request(server)
-        .delete(`/v1/reels/${testIds.reel}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/reels/${testIds.reel}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -376,23 +351,17 @@ describe('FeedContentSystem — Route Tests', () => {
     });
 
     it('GET /v1/comments/post/:postId → 200 getting comments', async () => {
-      const res = await request(server)
-        .get(`/v1/comments/post/${testIds.post}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/comments/post/${testIds.post}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/comments/:commentId/replies → 200 getting replies', async () => {
-      const res = await request(server)
-        .get(`/v1/comments/${testIds.comment}/replies`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/comments/${testIds.comment}/replies`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('DELETE /v1/comments/:commentId → 200 deleting own comment', async () => {
-      const res = await request(server)
-        .delete(`/v1/comments/${testIds.comment}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/comments/${testIds.comment}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -401,9 +370,7 @@ describe('FeedContentSystem — Route Tests', () => {
 
   describe('Likes (/v1/likes)', () => {
     it('POST /v1/likes/:loungeId → 200 toggling lounge like (client)', async () => {
-      const res = await request(server)
-        .post(`/v1/likes/${testIds.lounge}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).post(`/v1/likes/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 

@@ -279,11 +279,7 @@ class LoungeServicesAdminService {
       if (!existing) {
         throw new NotFoundException('Lounge service not found', 'SERVICE_NOT_FOUND');
       }
-      const updated = await this.loungeServices.findByIdAndUpdate(
-        serviceId,
-        { isActive: !existing.isActive },
-        { new: true },
-      );
+      const updated = await this.loungeServices.findByIdAndUpdate(serviceId, { isActive: !existing.isActive }, { new: true });
       logger.info(`LoungeServicesAdminService.toggleLoungeServiceStatus: toggled service ${serviceId} to isActive=${updated?.isActive}`);
       return updated as LoungeService;
     } catch (error) {
@@ -301,11 +297,7 @@ class LoungeServicesAdminService {
       if (isEmpty(loungeId)) {
         throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
       }
-      const updatedLounge = await userModel.findByIdAndUpdate(
-        loungeId,
-        { $set: { openingHours: openingHoursData } },
-        { new: true },
-      );
+      const updatedLounge = await userModel.findByIdAndUpdate(loungeId, { $set: { openingHours: openingHoursData } }, { new: true });
       if (!updatedLounge) {
         throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
       }
@@ -349,12 +341,8 @@ class LoungeServicesAdminService {
         throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
       }
       // Strip fields that should never be updated through this endpoint
-      const { password, refreshTokens, type, isAdmin: _isAdmin, ...safeData } = loungeData || {};
-      const updatedLounge = await userModel.findByIdAndUpdate(
-        loungeId,
-        { $set: safeData },
-        { new: true },
-      );
+      const { password: _password, refreshTokens: _refreshTokens, type: _type, isAdmin: _isAdmin, ...safeData } = loungeData || {};
+      const updatedLounge = await userModel.findByIdAndUpdate(loungeId, { $set: safeData }, { new: true });
       if (!updatedLounge) {
         throw new NotFoundException('Lounge not found', 'LOUNGE_NOT_FOUND');
       }

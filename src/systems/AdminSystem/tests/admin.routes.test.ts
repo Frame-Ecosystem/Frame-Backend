@@ -183,16 +183,12 @@ describe('AdminSystem — Route Tests', () => {
     });
 
     it('GET /v1/admin/users?page=1&limit=10 → 200 paginated (admin)', async () => {
-      const res = await request(server)
-        .get('/v1/admin/users?page=1&limit=10')
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).get('/v1/admin/users?page=1&limit=10').set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/admin/users/:userId → 200 single user (admin)', async () => {
-      const res = await request(server)
-        .get(`/v1/admin/users/${testIds.client}`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).get(`/v1/admin/users/${testIds.client}`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
@@ -213,16 +209,12 @@ describe('AdminSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/admin/users/:userId → 200 deleting user (admin)', async () => {
-      const res = await request(server)
-        .delete(`/v1/admin/users/${testIds.client}`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).delete(`/v1/admin/users/${testIds.client}`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('PATCH /v1/admin/users/:userId/block → 200 toggling user block (admin)', async () => {
-      const res = await request(server)
-        .patch(`/v1/admin/users/${testIds.client}/block`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).patch(`/v1/admin/users/${testIds.client}/block`).set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
   });
@@ -231,30 +223,22 @@ describe('AdminSystem — Route Tests', () => {
 
   describe('System routes (/v1/admin/system)', () => {
     it('GET /v1/admin/system/dashboard → 200 dashboard (admin)', async () => {
-      const res = await request(server)
-        .get('/v1/admin/system/dashboard')
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).get('/v1/admin/system/dashboard').set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/admin/system/stats → 200 system stats (admin)', async () => {
-      const res = await request(server)
-        .get('/v1/admin/system/stats')
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).get('/v1/admin/system/stats').set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/admin/session-info → 200 online users (admin)', async () => {
-      const res = await request(server)
-        .get('/v1/admin/session-info')
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).get('/v1/admin/session-info').set('Authorization', bearerHeader(adminToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/admin/system/dashboard → 403 for non-admin', async () => {
-      const res = await request(server)
-        .get('/v1/admin/system/dashboard')
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get('/v1/admin/system/dashboard').set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });

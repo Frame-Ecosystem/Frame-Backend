@@ -16,7 +16,13 @@ class LoungeRoute implements Routes {
 
   private initializeRoutes() {
     this.router.get('/clients/:clientId', authMiddleware, loungeMiddleware, this.loungeController.getClientById);
-    this.router.patch('/agents/:agentId/queue-booking', authMiddleware, loungeMiddleware, csrfMiddleware, this.loungeController.updateAgentQueueBooking);
+    this.router.patch(
+      '/agents/:agentId/queue-booking',
+      authMiddleware,
+      loungeMiddleware,
+      csrfMiddleware,
+      this.loungeController.updateAgentQueueBooking,
+    );
     this.router.patch('/me/queue-booking', authMiddleware, agentMiddleware, csrfMiddleware, this.loungeController.updateMyQueueBooking);
   }
 }

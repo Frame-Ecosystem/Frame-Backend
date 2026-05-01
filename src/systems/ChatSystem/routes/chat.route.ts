@@ -63,18 +63,9 @@ class ChatRoute implements Routes {
     this.router.use(authMiddleware);
 
     // ── Conversations ───────────────────────────────────────────────
-    this.router.post(
-      '/conversations',
-      csrfMiddleware,
-      validationMiddleware(CreateConversationDto),
-      this.chatController.startConversation,
-    );
+    this.router.post('/conversations', csrfMiddleware, validationMiddleware(CreateConversationDto), this.chatController.startConversation);
 
-    this.router.get(
-      '/conversations',
-      validationMiddleware(GetConversationsDto, 'query', true),
-      this.chatController.getConversations,
-    );
+    this.router.get('/conversations', validationMiddleware(GetConversationsDto, 'query', true), this.chatController.getConversations);
 
     this.router.get('/conversations/:id', this.chatController.getConversation);
 
@@ -93,33 +84,20 @@ class ChatRoute implements Routes {
       this.chatController.markMessagesRead,
     );
 
-    this.router.get(
-      '/conversations/:id/messages/search',
-      validationMiddleware(SearchMessagesDto, 'query', true),
-      this.chatController.searchMessages,
-    );
+    this.router.get('/conversations/:id/messages/search', validationMiddleware(SearchMessagesDto, 'query', true), this.chatController.searchMessages);
 
-    this.router.get(
-      '/conversations/:id/messages',
-      validationMiddleware(GetMessagesDto, 'query', true),
-      this.chatController.getMessages,
-    );
+    this.router.get('/conversations/:id/messages', validationMiddleware(GetMessagesDto, 'query', true), this.chatController.getMessages);
 
     this.router.post(
       '/conversations/:id/messages',
       csrfMiddleware,
-      generalRateLimiter,                              // 100 req / 15 min per IP
-      optionalUpload('file'),                          // handles multipart for image/file/audio uploads
+      generalRateLimiter, // 100 req / 15 min per IP
+      optionalUpload('file'), // handles multipart for image/file/audio uploads
       validationMiddleware(SendMessageDto, 'body', true),
       this.chatController.sendMessage,
     );
 
-    this.router.patch(
-      '/conversations/:id/messages/:msgId',
-      csrfMiddleware,
-      validationMiddleware(EditMessageDto),
-      this.chatController.editMessage,
-    );
+    this.router.patch('/conversations/:id/messages/:msgId', csrfMiddleware, validationMiddleware(EditMessageDto), this.chatController.editMessage);
 
     this.router.post(
       '/conversations/:id/messages/:msgId/reactions',
@@ -141,4 +119,3 @@ class ChatRoute implements Routes {
 }
 
 export default ChatRoute;
-

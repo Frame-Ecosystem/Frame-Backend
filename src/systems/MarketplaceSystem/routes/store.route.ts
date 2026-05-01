@@ -24,7 +24,14 @@ class StoreRoute implements Routes {
     this.router.get('/:id', this.controller.getStoreById);
 
     // Authenticated owner
-    this.router.post('/', authMiddleware, adminOrLoungeOrClientMiddleware, csrfMiddleware, validationMiddleware(CreateStoreDto, 'body'), this.controller.createStore);
+    this.router.post(
+      '/',
+      authMiddleware,
+      adminOrLoungeOrClientMiddleware,
+      csrfMiddleware,
+      validationMiddleware(CreateStoreDto, 'body'),
+      this.controller.createStore,
+    );
     this.router.get('/me/store', authMiddleware, this.controller.getMyStore);
     this.router.put('/me/store', authMiddleware, csrfMiddleware, validationMiddleware(UpdateStoreDto, 'body'), this.controller.updateStore);
     this.router.put('/me/store/logo', authMiddleware, csrfMiddleware, optionalUpload('logo'), this.controller.uploadLogo);

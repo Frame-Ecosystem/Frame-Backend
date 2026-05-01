@@ -26,14 +26,7 @@ class MarketplaceAnalyticsService {
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const storeObjId = new mongoose.Types.ObjectId(storeId);
 
-    const [
-      revenueData,
-      ordersByStatus,
-      topProducts,
-      recentOrders,
-      dailyRevenue,
-      totalProducts,
-    ] = await Promise.all([
+    const [revenueData, ordersByStatus, topProducts, recentOrders, dailyRevenue, totalProducts] = await Promise.all([
       // Revenue summary for last 30 days
       this.orders.aggregate([
         {
@@ -54,24 +47,18 @@ class MarketplaceAnalyticsService {
       ]),
 
       // Orders by status
-      this.orders.aggregate([
-        { $match: { storeId: storeObjId } },
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
+      this.orders.aggregate([{ $match: { storeId: storeObjId } }, { $group: { _id: '$status', count: { $sum: 1 } } }]),
 
       // Top 10 selling products
-      this.products.find({ storeId })
+      this.products
+        .find({ storeId })
         .sort({ 'stats.totalSold': -1 })
         .limit(10)
         .select('name slug price stats.totalSold stats.totalRevenue stats.averageRating images')
         .lean(),
 
       // Recent 5 orders
-      this.orders.find({ storeId })
-        .populate('buyerId', 'firstName lastName profileImage')
-        .sort({ createdAt: -1 })
-        .limit(5)
-        .lean(),
+      this.orders.find({ storeId }).populate('buyerId', 'firstName lastName profileImage').sort({ createdAt: -1 }).limit(5).lean(),
 
       // Daily revenue for last 7 days
       this.orders.aggregate([
@@ -127,31 +114,19 @@ class MarketplaceAnalyticsService {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-    const [
-      storesByStatus,
-      totalProducts,
-      totalOrders,
-      revenueData,
-      topStores,
-      recentDisputes,
-      dailyOrders,
-    ] = await Promise.all([
+    const [storesByStatus, totalProducts, totalOrders, revenueData, topStores, recentDisputes, dailyOrders] = await Promise.all([
       // Stores by status
-      this.stores.aggregate([
-        { $group: { _id: '$status', count: { $sum: 1 } } },
-      ]),
+      this.stores.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
 
       this.products.countDocuments(),
       this.orders.countDocuments(),
 
       // Total marketplace revenue
-      this.orders.aggregate([
-        { $match: { status: OrderStatus.DELIVERED } },
-        { $group: { _id: null, total: { $sum: '$total' } } },
-      ]),
+      this.orders.aggregate([{ $match: { status: OrderStatus.DELIVERED } }, { $group: { _id: null, total: { $sum: '$total' } } }]),
 
       // Top 10 stores by revenue
-      this.stores.find({ status: StoreStatus.ACTIVE })
+      this.stores
+        .find({ status: StoreStatus.ACTIVE })
         .sort({ 'stats.totalRevenue': -1 })
         .limit(10)
         .populate('ownerId', 'firstName lastName email type')
@@ -159,7 +134,8 @@ class MarketplaceAnalyticsService {
         .lean(),
 
       // Recent disputed orders
-      this.orders.find({ status: OrderStatus.DISPUTED })
+      this.orders
+        .find({ status: OrderStatus.DISPUTED })
         .populate('buyerId', 'firstName lastName email')
         .populate('storeId', 'name slug ownerId')
         .sort({ updatedAt: -1 })

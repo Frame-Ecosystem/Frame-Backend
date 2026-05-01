@@ -11,10 +11,7 @@ class MarketplaceAnalyticsController {
 
   public getStoreAnalytics = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const analytics = await this.analyticsService.getStoreAnalytics(
-        req.params.storeId,
-        req.user._id.toString(),
-      );
+      const analytics = await this.analyticsService.getStoreAnalytics(req.params.storeId, req.user._id.toString());
       res.status(200).json({ data: analytics, message: 'Analytics retrieved' });
     } catch (error) {
       next(error);
@@ -24,10 +21,7 @@ class MarketplaceAnalyticsController {
   public getMyStoreAnalytics = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const store = await this.storeService.getMyStore(req.user._id.toString());
-      const analytics = await this.analyticsService.getStoreAnalytics(
-        store._id.toString(),
-        req.user._id.toString(),
-      );
+      const analytics = await this.analyticsService.getStoreAnalytics(store._id.toString(), req.user._id.toString());
       res.status(200).json({ data: analytics, message: 'Analytics retrieved' });
     } catch (error) {
       next(error);

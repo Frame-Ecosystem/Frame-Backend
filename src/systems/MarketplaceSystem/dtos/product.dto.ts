@@ -1,24 +1,42 @@
 import {
-  IsString, IsOptional, IsEnum, IsNumber, IsArray, IsBoolean, MaxLength, MinLength,
-  Min, Max, ValidateNested, ArrayMaxSize, IsMongoId,
+  IsString,
+  IsOptional,
+  IsEnum,
+  IsNumber,
+  IsArray,
+  IsBoolean,
+  MaxLength,
+  MinLength,
+  Min,
+  ValidateNested,
+  ArrayMaxSize,
+  IsMongoId,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ProductCondition } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 
 class ProductVariantDto {
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   sku?: string;
 
-  @IsString() @MinLength(1) @MaxLength(100)
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
   name: string;
 
-  @IsNumber() @Min(0)
+  @IsNumber()
+  @Min(0)
   price: number;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   compareAtPrice?: number;
 
-  @IsNumber() @Min(0)
+  @IsNumber()
+  @Min(0)
   stock: number;
 
   @IsOptional()
@@ -35,90 +53,144 @@ export class CreateProductDto {
   @IsMongoId({ message: 'Invalid store ID' })
   storeId: string;
 
-  @IsString() @MinLength(2) @MaxLength(200)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
   name: string;
 
-  @IsOptional() @IsString() @MaxLength(5000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
   description?: string;
 
   @IsMongoId({ message: 'Invalid product category ID' })
   categoryId: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(20)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(20)
   tags?: string[];
 
-  @IsNumber() @Min(0)
+  @IsNumber()
+  @Min(0)
   price: number;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   compareAtPrice?: number;
 
-  @IsOptional() @IsString() @MaxLength(10)
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
   currency?: string;
 
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ProductVariantDto) @ArrayMaxSize(50)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  @ArrayMaxSize(50)
   variants?: ProductVariantDto[];
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   stock?: number;
 
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   sku?: string;
 
-  @IsOptional() @IsEnum(ProductCondition)
+  @IsOptional()
+  @IsEnum(ProductCondition)
   condition?: ProductCondition;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   isDigital?: boolean;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   weight?: number;
 
-  @IsOptional() @ValidateNested() @Type(() => ProductDimensionsDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductDimensionsDto)
   dimensions?: ProductDimensionsDto;
 }
 
 export class UpdateProductDto {
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(200)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(5000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
   description?: string;
 
-  @IsOptional() @IsMongoId({ message: 'Invalid product category ID' })
+  @IsOptional()
+  @IsMongoId({ message: 'Invalid product category ID' })
   categoryId?: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(20)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(20)
   tags?: string[];
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   price?: number;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   compareAtPrice?: number;
 
-  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ProductVariantDto) @ArrayMaxSize(50)
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ProductVariantDto)
+  @ArrayMaxSize(50)
   variants?: ProductVariantDto[];
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   stock?: number;
 
-  @IsOptional() @IsString() @MaxLength(50)
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
   sku?: string;
 
-  @IsOptional() @IsEnum(['draft', 'active', 'archived'], { message: 'Status must be draft, active, or archived' })
+  @IsOptional()
+  @IsEnum(['draft', 'active', 'archived'], { message: 'Status must be draft, active, or archived' })
   status?: string;
 
-  @IsOptional() @IsEnum(ProductCondition)
+  @IsOptional()
+  @IsEnum(ProductCondition)
   condition?: ProductCondition;
 
-  @IsOptional() @IsBoolean()
+  @IsOptional()
+  @IsBoolean()
   isDigital?: boolean;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   weight?: number;
 
-  @IsOptional() @ValidateNested() @Type(() => ProductDimensionsDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ProductDimensionsDto)
   dimensions?: ProductDimensionsDto;
 }
 
@@ -126,6 +198,8 @@ export class AdminUpdateProductStatusDto {
   @IsEnum(['active', 'hidden'], { message: 'Status must be active or hidden' })
   status: string;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   reason?: string;
 }

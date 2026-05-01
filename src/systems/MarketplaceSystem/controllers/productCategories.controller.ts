@@ -1,9 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import ProductCategoriesService from '@systems/MarketplaceSystem/services/productCategories.service';
-import {
-  CreateProductCategoryDto,
-  UpdateProductCategoryDto,
-} from '@systems/MarketplaceSystem/dtos/productCategories.dto';
+import { CreateProductCategoryDto, UpdateProductCategoryDto } from '@systems/MarketplaceSystem/dtos/productCategories.dto';
 import { ProductCategory } from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
 
 class ProductCategoriesController {
@@ -64,10 +61,7 @@ class ProductCategoriesController {
   public updateProductCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data: UpdateProductCategoryDto = req.body;
-      const updated: ProductCategory = await this.categoriesService.updateProductCategory(
-        req.params.categoryId,
-        data,
-      );
+      const updated: ProductCategory = await this.categoriesService.updateProductCategory(req.params.categoryId, data);
       res.status(200).json({ data: updated, message: 'Product category updated successfully' });
     } catch (error) {
       next(error);

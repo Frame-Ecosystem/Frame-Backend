@@ -106,11 +106,7 @@ class StoreController {
 
   public adminUpdateStoreStatus = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const store = await this.storeService.adminUpdateStoreStatus(
-        req.params.id,
-        req.body.status as StoreStatus,
-        req.body.reason,
-      );
+      const store = await this.storeService.adminUpdateStoreStatus(req.params.id, req.body.status as StoreStatus, req.body.reason);
       res.status(200).json({ data: store, message: 'Store status updated' });
     } catch (error) {
       next(error);

@@ -22,7 +22,12 @@ class BookingRoute implements Routes {
     // Booking CRUD
     this.router.post('/', csrfMiddleware, validationMiddleware(CreateBookingDto, 'body'), this.bookingController.createBooking);
     this.router.post('/queue', csrfMiddleware, validationMiddleware(CreateQueueBookingDto, 'body'), this.bookingController.createQueueBooking);
-    this.router.post('/queue/lounge', csrfMiddleware, validationMiddleware(CreateLoungeQueueBookingDto, 'body'), this.bookingController.createLoungeQueueBooking);
+    this.router.post(
+      '/queue/lounge',
+      csrfMiddleware,
+      validationMiddleware(CreateLoungeQueueBookingDto, 'body'),
+      this.bookingController.createLoungeQueueBooking,
+    );
     this.router.get('/', this.bookingController.getAllBookings);
 
     // Availability (must come before /:id to avoid route conflict)

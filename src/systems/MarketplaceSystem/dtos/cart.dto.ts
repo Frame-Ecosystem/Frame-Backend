@@ -4,14 +4,18 @@ export class AddToCartDto {
   @IsMongoId({ message: 'Invalid product ID' })
   productId: string;
 
-  @IsOptional() @IsNumber() @Min(0)
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
   variantIndex?: number;
 
-  @IsNumber() @Min(1)
+  @IsNumber()
+  @Min(1)
   quantity: number;
 }
 
 export class UpdateCartItemDto {
-  @IsNumber() @Min(0)
+  @IsNumber()
+  @Min(0)
   quantity: number;
 }

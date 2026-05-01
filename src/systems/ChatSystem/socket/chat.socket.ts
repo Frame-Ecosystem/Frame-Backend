@@ -86,9 +86,7 @@ export class ChatSocketHandler {
       });
 
       if (!isMember) {
-        logger.warn(
-          `Socket ${socket.id} denied chat:join — conversation ${payload.conversationId} (user ${userId} not a member)`,
-        );
+        logger.warn(`Socket ${socket.id} denied chat:join — conversation ${payload.conversationId} (user ${userId} not a member)`);
         return ack?.({ error: 'Access denied' });
       }
 

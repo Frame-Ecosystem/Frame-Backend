@@ -1,6 +1,14 @@
 ﻿import { Router } from 'express';
 import CurrentUserController from '@systems/UserManager/controllers/currentUser.controller';
-import { UpdateUserDto, LocationDto, DeleteAccountDto, UpdateClientProfileDto, UpdateThemeDto, UpdateLanguageDto, ChangePasswordDto } from '@systems/UserManager/dtos/user.dto';
+import {
+  UpdateUserDto,
+  LocationDto,
+  DeleteAccountDto,
+  UpdateClientProfileDto,
+  UpdateThemeDto,
+  UpdateLanguageDto,
+  ChangePasswordDto,
+} from '@systems/UserManager/dtos/user.dto';
 import { Routes } from '@interfaces/routes.interface';
 import validationMiddleware from '@middlewares/validation.middleware';
 import authMiddleware from '@middlewares/auth.middleware';
@@ -33,7 +41,13 @@ class CurrentUserRoute implements Routes {
     this.router.put('/', authMiddleware, csrfMiddleware, validationMiddleware(UpdateUserDto, 'body', true), this.currentUserController.updateMe);
 
     // PUT - Update current user location
-    this.router.put('/location', authMiddleware, csrfMiddleware, validationMiddleware(LocationDto, 'body'), this.currentUserController.updateLocation);
+    this.router.put(
+      '/location',
+      authMiddleware,
+      csrfMiddleware,
+      validationMiddleware(LocationDto, 'body'),
+      this.currentUserController.updateLocation,
+    );
     // PUT - Upload profile image
     this.router.put('/image', authMiddleware, csrfMiddleware, upload.single('image'), this.currentUserController.uploadProfileImage);
 
@@ -57,7 +71,13 @@ class CurrentUserRoute implements Routes {
     // PUT - Update current user theme
     this.router.put('/theme', authMiddleware, csrfMiddleware, validationMiddleware(UpdateThemeDto, 'body'), this.currentUserController.updateTheme);
     // PUT - Update current user language preference
-    this.router.put('/language', authMiddleware, csrfMiddleware, validationMiddleware(UpdateLanguageDto, 'body'), this.currentUserController.updateLanguage);
+    this.router.put(
+      '/language',
+      authMiddleware,
+      csrfMiddleware,
+      validationMiddleware(UpdateLanguageDto, 'body'),
+      this.currentUserController.updateLanguage,
+    );
     // POST - Send email verification code
     this.router.post('/send-verification-code', authMiddleware, csrfMiddleware, strictRateLimiter, this.currentUserController.sendVerificationCode);
     // POST - Verify email code

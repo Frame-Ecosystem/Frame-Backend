@@ -2,28 +2,35 @@
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import wishlistModel from '@systems/MarketplaceSystem/models/wishlist.model';
 import productModel from '@systems/MarketplaceSystem/models/product.model';
-import { Wishlist, ProductStatus } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
+import { Wishlist } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 
 class WishlistService {
   private wishlists = wishlistModel;
   private products = productModel;
 
-  public async getWishlist(userId: string, query: {
-    page?: number;
-    limit?: number;
-  }): Promise<{ items: Wishlist[]; total: number }> {
+  public async getWishlist(
+    userId: string,
+    query: {
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{ items: Wishlist[]; total: number }> {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(50, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
 
     const [items, total] = await Promise.all([
-      this.wishlists.find({ userId })
+      this.wishlists
+        .find({ userId })
         .populate({
           path: 'productId',
           select: 'name slug price images stats status storeId',
           populate: { path: 'storeId', select: 'name slug' },
         })
-        .sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.wishlists.countDocuments({ userId }),
     ]);
 
