@@ -1,4 +1,5 @@
 import axios from 'axios';
+import nodemailer from 'nodemailer';
 
 import { logger } from '@utils/logger';
 
@@ -44,13 +45,8 @@ function getConfiguredSender(): { email: string; name?: string } {
   return parseSender(rawSender);
 }
 
-function getBrevoApiKey(): string {
-  const apiKey = process.env.BREVO_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error('BREVO_API_KEY is required');
-  }
-
-  return apiKey;
+function getBrevoApiKey(): string | null {
+  return process.env.BREVO_API_KEY?.trim() || null;
 }
 
 function formatError(err: unknown): string {
@@ -70,12 +66,16 @@ function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<SendEmailResult> {
-  const recipients = normalizeRecipients(to);
-  const sender = getConfiguredSender();
-
-  if (!recipients.length) {
-    return { success: false, error: 'At least one recipient is required' };
+async function sendViaBrevoApi(
+  recipients: Array<{ email: string }>,
+  sender: { email: string; name?: string },
+  subject: string,
+  html: string,
+  text?: string,
+): Promise<void> {
+  const apiKey = getBrevoApiKey();
+  if (!apiKey) {
+    throw new Error('BREVO_API_KEY is not configured');
   }
 
   const payload = {
@@ -86,48 +86,106 @@ export async function sendEmail({ to, subject, html, text }: SendEmailInput): Pr
     ...(text ? { textContent: text } : {}),
   };
 
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
-    try {
-      await axios.post(BREVO_API_URL, payload, {
-        headers: {
-          'api-key': getBrevoApiKey(),
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        timeout: REQUEST_TIMEOUT_MS,
-      });
+  await axios.post(BREVO_API_URL, payload, {
+    headers: {
+      'api-key': apiKey,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    timeout: REQUEST_TIMEOUT_MS,
+  });
+}
 
-      logger.info(`[Email] Sent successfully to ${recipients.map(recipient => recipient.email).join(', ')} | ${subject}`);
-      return { success: true };
-    } catch (err) {
-      const errorMessage = formatError(err);
+async function sendViaSmtp(
+  recipients: Array<{ email: string }>,
+  sender: { email: string; name?: string },
+  subject: string,
+  html: string,
+  text?: string,
+): Promise<void> {
+  const host = process.env.SMTP_HOST?.trim();
+  const port = parseInt(process.env.SMTP_PORT?.trim() || '587', 10);
+  const user = process.env.BREVO_SMTP_USER?.trim();
+  const pass = process.env.BREVO_SMTP_KEY?.trim();
+  const from = process.env.SMTP_FROM?.trim();
 
-      logger.error('[Email] Send failed', {
-        to: recipients.map(recipient => recipient.email),
-        subject,
-        attempt: attempt + 1,
-        message: errorMessage,
-        ...(axios.isAxiosError(err)
-          ? {
-              status: err.response?.status,
-              data: err.response?.data,
-            }
-          : {}),
-      });
-
-      if (attempt < RETRY_DELAYS_MS.length) {
-        await delay(RETRY_DELAYS_MS[attempt]);
-        continue;
-      }
-
-      return { success: false, error: errorMessage };
-    }
+  if (!host || !user || !pass) {
+    throw new Error('SMTP configuration (SMTP_HOST, BREVO_SMTP_USER, BREVO_SMTP_KEY) is incomplete');
   }
 
-  return { success: false, error: 'Email send failed after retries' };
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+
+  const senderString = sender.name ? `"${sender.name}" <${sender.email}>` : sender.email;
+
+  await transporter.sendMail({
+    from: from || senderString,
+    to: recipients.map(r => r.email).join(', '),
+    subject,
+    html,
+    ...(text ? { text } : {}),
+  });
+}
+
+export async function sendEmail({ to, subject, html, text }: SendEmailInput): Promise<SendEmailResult> {
+  const recipients = normalizeRecipients(to);
+  const sender = getConfiguredSender();
+  const recipientList = recipients.map(r => r.email).join(', ');
+
+  if (!recipients.length) {
+    return { success: false, error: 'At least one recipient is required' };
+  }
+
+  // --- Attempt 1: Brevo API (with retries) ---
+  const apiKey = getBrevoApiKey();
+  if (apiKey) {
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+      try {
+        await sendViaBrevoApi(recipients, sender, subject, html, text);
+        logger.info(`[Email] Sent via Brevo API to ${recipientList} | ${subject}`);
+        return { success: true };
+      } catch (err) {
+        const errorMessage = formatError(err);
+        logger.warn('[Email] Brevo API attempt failed', {
+          to: recipientList,
+          subject,
+          attempt: attempt + 1,
+          message: errorMessage,
+        });
+
+        if (attempt < RETRY_DELAYS_MS.length) {
+          await delay(RETRY_DELAYS_MS[attempt]);
+          continue;
+        }
+
+        logger.error(`[Email] Brevo API failed after ${RETRY_DELAYS_MS.length + 1} attempts, falling back to SMTP`);
+      }
+    }
+  } else {
+    logger.warn('[Email] BREVO_API_KEY not configured, skipping Brevo API — falling back to SMTP');
+  }
+
+  // --- Fallback: SMTP ---
+  try {
+    await sendViaSmtp(recipients, sender, subject, html, text);
+    logger.info(`[Email] Sent via SMTP fallback to ${recipientList} | ${subject}`);
+    return { success: true };
+  } catch (err) {
+    const errorMessage = formatError(err);
+    logger.error('[Email] SMTP fallback also failed', { to: recipientList, subject, message: errorMessage });
+    return { success: false, error: `Brevo API and SMTP both failed. Last error: ${errorMessage}` };
+  }
 }
 
 export async function verifyEmailService(): Promise<void> {
-  getBrevoApiKey();
-  logger.info('[Email] Brevo API email service configured');
+  const apiKey = getBrevoApiKey();
+  if (apiKey) {
+    logger.info('[Email] Brevo API email service configured');
+  } else {
+    logger.warn('[Email] BREVO_API_KEY not set — will use SMTP only');
+  }
 }
