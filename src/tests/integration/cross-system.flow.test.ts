@@ -624,9 +624,7 @@ describe('Cross-System Integration Tests — Full App', () => {
     });
 
     it('Lounge views queue: GET /v1/queues/agent/:agentId → 200', async () => {
-      const res = await request(server)
-        .get(`/v1/queues/agent/${testIds.agent}`)
-        .set('Authorization', bearerHeader(loungeToken()));
+      const res = await request(server).get(`/v1/queues/agent/${testIds.agent}`).set('Authorization', bearerHeader(loungeToken()));
       expect(res.status).toBe(200);
     });
 
@@ -656,9 +654,7 @@ describe('Cross-System Integration Tests — Full App', () => {
     });
 
     it('Client reads post: GET /v1/posts/:postId → 200', async () => {
-      const res = await request(server)
-        .get(`/v1/posts/${testIds.post}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/posts/${testIds.post}`).set('Authorization', bearerHeader(clientToken()));
       expect([200, 404]).toContain(res.status);
     });
 
@@ -679,16 +675,12 @@ describe('Cross-System Integration Tests — Full App', () => {
     });
 
     it('Admin can hide post: PUT /v1/posts/:postId/hide → 200', async () => {
-      const res = await request(server)
-        .put(`/v1/posts/${testIds.post}/hide`)
-        .set('Authorization', bearerHeader(adminToken()));
+      const res = await request(server).put(`/v1/posts/${testIds.post}/hide`).set('Authorization', bearerHeader(adminToken()));
       expect([200, 403, 404]).toContain(res.status);
     });
 
     it('Client cannot hide post → 403', async () => {
-      const res = await request(server)
-        .put(`/v1/posts/${testIds.post}/hide`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).put(`/v1/posts/${testIds.post}/hide`).set('Authorization', bearerHeader(clientToken()));
       expect(res.status).toBe(403);
     });
   });
@@ -726,9 +718,7 @@ describe('Cross-System Integration Tests — Full App', () => {
     });
 
     it('Client views cart: GET /v1/marketplace/cart → 200', async () => {
-      const res = await request(server)
-        .get('/v1/marketplace/cart')
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get('/v1/marketplace/cart').set('Authorization', bearerHeader(clientToken()));
       expect(res.status).toBe(200);
     });
 
@@ -758,9 +748,7 @@ describe('Cross-System Integration Tests — Full App', () => {
     });
 
     it('Client cannot get admin system dashboard → 403', async () => {
-      const res = await request(server)
-        .get('/v1/admin/system/dashboard')
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get('/v1/admin/system/dashboard').set('Authorization', bearerHeader(clientToken()));
       expect(res.status).toBe(403);
     });
 

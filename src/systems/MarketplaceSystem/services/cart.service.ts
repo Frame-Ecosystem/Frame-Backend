@@ -11,12 +11,11 @@ class CartService {
   /* ───────── Get Cart ───────── */
 
   public async getCart(userId: string): Promise<Cart> {
-    let cart = await this.carts.findOne({ userId })
-      .populate({
-        path: 'items.productId',
-        select: 'name slug price images stock variants status storeId',
-        populate: { path: 'storeId', select: 'name slug status' },
-      });
+    let cart = await this.carts.findOne({ userId }).populate({
+      path: 'items.productId',
+      select: 'name slug price images stock variants status storeId',
+      populate: { path: 'storeId', select: 'name slug status' },
+    });
 
     if (!cart) {
       cart = await this.carts.create({ userId, items: [] });
@@ -49,11 +48,7 @@ class CartService {
     }
 
     // Check if item already in cart
-    const existingIndex = cart.items.findIndex(
-      (item: any) =>
-        item.productId.toString() === productId &&
-        item.variantIndex === variantIndex,
-    );
+    const existingIndex = cart.items.findIndex((item: any) => item.productId.toString() === productId && item.variantIndex === variantIndex);
 
     if (existingIndex >= 0) {
       const newQuantity = (cart.items[existingIndex] as any).quantity + quantity;
@@ -85,11 +80,7 @@ class CartService {
     const cart = await this.carts.findOne({ userId });
     if (!cart) throw new NotFoundException('Cart not found', 'CART_NOT_FOUND');
 
-    const itemIndex = cart.items.findIndex(
-      (item: any) =>
-        item.productId.toString() === productId &&
-        item.variantIndex === variantIndex,
-    );
+    const itemIndex = cart.items.findIndex((item: any) => item.productId.toString() === productId && item.variantIndex === variantIndex);
 
     if (itemIndex === -1) throw new NotFoundException('Item not in cart', 'ITEM_NOT_FOUND');
 
@@ -123,10 +114,7 @@ class CartService {
     const cart = await this.carts.findOne({ userId });
     if (!cart) throw new NotFoundException('Cart not found', 'CART_NOT_FOUND');
 
-    cart.items = cart.items.filter(
-      (item: any) =>
-        !(item.productId.toString() === productId && item.variantIndex === variantIndex),
-    ) as any;
+    cart.items = cart.items.filter((item: any) => !(item.productId.toString() === productId && item.variantIndex === variantIndex)) as any;
 
     await cart.save();
     return this.getCart(userId);

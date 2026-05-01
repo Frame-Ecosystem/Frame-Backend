@@ -228,35 +228,26 @@ describe('UserManager — Route Tests', () => {
 
     describe('PUT /v1/me/location', () => {
       it('returns 200 updating user location', async () => {
-        const res = await request(server)
-          .put('/v1/me/location')
-          .set('Authorization', bearerHeader(clientToken()))
-          .send({
-            latitude: 36.8,
-            longitude: 10.1,
-            address: '123 Main Street, Tunis',
-            placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
-          });
+        const res = await request(server).put('/v1/me/location').set('Authorization', bearerHeader(clientToken())).send({
+          latitude: 36.8,
+          longitude: 10.1,
+          address: '123 Main Street, Tunis',
+          placeId: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
+        });
         expectRouteOk(res.status);
       });
     });
 
     describe('PUT /v1/me/theme', () => {
       it('returns 200 updating theme preference', async () => {
-        const res = await request(server)
-          .put('/v1/me/theme')
-          .set('Authorization', bearerHeader(clientToken()))
-          .send({ theme: 'dark' });
+        const res = await request(server).put('/v1/me/theme').set('Authorization', bearerHeader(clientToken())).send({ theme: 'dark' });
         expectRouteOk(res.status);
       });
     });
 
     describe('PUT /v1/me/language', () => {
       it('returns 200 updating language preference', async () => {
-        const res = await request(server)
-          .put('/v1/me/language')
-          .set('Authorization', bearerHeader(clientToken()))
-          .send({ language: 'ar' });
+        const res = await request(server).put('/v1/me/language').set('Authorization', bearerHeader(clientToken())).send({ language: 'ar' });
         expectRouteOk(res.status);
       });
     });
@@ -314,16 +305,12 @@ describe('UserManager — Route Tests', () => {
 
     describe('DELETE /v1/agents/:agentId', () => {
       it('returns 200 deleting agent (lounge token)', async () => {
-        const res = await request(server)
-          .delete(`/v1/agents/${testIds.agent}`)
-          .set('Authorization', bearerHeader(loungeToken()));
+        const res = await request(server).delete(`/v1/agents/${testIds.agent}`).set('Authorization', bearerHeader(loungeToken()));
         expectRouteOk(res.status);
       });
 
       it('returns 403 deleting agent with client token', async () => {
-        const res = await request(server)
-          .delete(`/v1/agents/${testIds.agent}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).delete(`/v1/agents/${testIds.agent}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });
@@ -359,9 +346,7 @@ describe('UserManager — Route Tests', () => {
   describe('Follows (/v1/follows)', () => {
     describe('POST /v1/follows/:targetId', () => {
       it('returns 200 following a user', async () => {
-        const res = await request(server)
-          .post(`/v1/follows/${testIds.lounge}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).post(`/v1/follows/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
 
@@ -373,9 +358,7 @@ describe('UserManager — Route Tests', () => {
 
     describe('DELETE /v1/follows/:targetId', () => {
       it('returns 200 unfollowing a user', async () => {
-        const res = await request(server)
-          .delete(`/v1/follows/${testIds.lounge}`)
-          .set('Authorization', bearerHeader(clientToken()));
+        const res = await request(server).delete(`/v1/follows/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
     });

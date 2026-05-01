@@ -48,7 +48,13 @@ class FeedRoute implements Routes {
      * @desc    Trending hashtags
      * @access  Private
      */
-    this.router.get('/hashtags/trending', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, generalRateLimiter, this.controller.getTrendingHashtags);
+    this.router.get(
+      '/hashtags/trending',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      generalRateLimiter,
+      this.controller.getTrendingHashtags,
+    );
 
     /**
      * @route   GET /v1/feed/hashtags/search

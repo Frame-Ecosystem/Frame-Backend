@@ -50,11 +50,7 @@ class ReviewController {
       if (!req.files || !(req.files as Express.Multer.File[]).length) {
         return res.status(400).json({ message: 'No files provided' });
       }
-      const review = await this.reviewService.uploadReviewImages(
-        req.user._id.toString(),
-        req.params.id,
-        req.files as Express.Multer.File[],
-      );
+      const review = await this.reviewService.uploadReviewImages(req.user._id.toString(), req.params.id, req.files as Express.Multer.File[]);
       res.status(200).json({ data: review, message: 'Images uploaded' });
     } catch (error) {
       next(error);

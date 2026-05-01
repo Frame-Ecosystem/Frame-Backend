@@ -22,13 +22,13 @@ export const SocketEvents = {
   NOTIFICATION_NEW: 'notification:new',
 
   // Chat events
-  CHAT_MESSAGE: 'chat:message',               // New message received in a conversation
+  CHAT_MESSAGE: 'chat:message', // New message received in a conversation
   CHAT_MESSAGE_DELETED: 'chat:message:deleted', // Message recalled / hidden
-  CHAT_READ: 'chat:read',                     // Messages marked as read
-  CHAT_TYPING: 'chat:typing',                 // Typing indicator (start/stop)
+  CHAT_READ: 'chat:read', // Messages marked as read
+  CHAT_TYPING: 'chat:typing', // Typing indicator (start/stop)
   CHAT_CONVERSATION_UPDATED: 'chat:conversation:updated', // lastMessage preview update
-  CHAT_MESSAGE_EDITED: 'chat:message:edited',             // Message text updated
-  CHAT_REACTION: 'chat:reaction',                         // Emoji reaction toggled
+  CHAT_MESSAGE_EDITED: 'chat:message:edited', // Message text updated
+  CHAT_REACTION: 'chat:reaction', // Emoji reaction toggled
 } as const;
 
 /**
@@ -256,13 +256,7 @@ class SocketService {
    * Broadcast a reaction-toggle event to the conversation room.
    * The full updated reactions array is included for optimistic reconciliation.
    */
-  public emitChatReaction(
-    conversationId: string,
-    messageId: string,
-    userId: string,
-    emoji: string,
-    reactions: any[],
-  ): void {
+  public emitChatReaction(conversationId: string, messageId: string, userId: string, emoji: string, reactions: any[]): void {
     this.emit([`chat:${conversationId}`], SocketEvents.CHAT_REACTION, { messageId, userId, emoji, reactions });
   }
 }

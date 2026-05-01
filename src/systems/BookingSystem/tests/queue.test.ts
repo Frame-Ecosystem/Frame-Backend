@@ -97,7 +97,10 @@ describe('QueueService', () => {
   // ─── getQueuesByLounge ────────────────────────────────────────
   describe('getQueuesByLounge', () => {
     it('should return all queues for a lounge', async () => {
-      (userModel.find as jest.Mock).mockResolvedValue([{ _id: 'agent1', type: 'agent' }, { _id: 'agent2', type: 'agent' }]);
+      (userModel.find as jest.Mock).mockResolvedValue([
+        { _id: 'agent1', type: 'agent' },
+        { _id: 'agent2', type: 'agent' },
+      ]);
 
       const populateChain = {
         populate: jest.fn().mockReturnThis(),

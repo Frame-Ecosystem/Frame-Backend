@@ -197,7 +197,7 @@ import WishlistRoute from '@systems/MarketplaceSystem/routes/wishlist.route';
 import AnalyticsRoute from '@systems/MarketplaceSystem/routes/analytics.route';
 import userModel from '@systems/UserManager/models/user.model';
 import { makeClientUser, makeAdminUser, testIds } from '../../../tests/helpers/factories';
-import { clientToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
+import { clientToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
 import { expectRouteOk } from '../../../tests/helpers/assertions';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -275,16 +275,12 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('GET /v1/marketplace/stores/:storeId/products → 200', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/stores/${testIds.store}/products`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/stores/${testIds.store}/products`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('DELETE /v1/marketplace/stores/:id → 200 (client/owner)', async () => {
-      const res = await request(server)
-        .delete(`/v1/marketplace/stores/${testIds.store}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/marketplace/stores/${testIds.store}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -301,16 +297,12 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('GET /v1/marketplace/products/search → 200 searching products', async () => {
-      const res = await request(server)
-        .get('/v1/marketplace/products/search?q=beauty')
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get('/v1/marketplace/products/search?q=beauty').set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/marketplace/products/:id → 200 single product', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/products/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/products/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
@@ -323,9 +315,7 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/marketplace/products/:id → 200 deleting product', async () => {
-      const res = await request(server)
-        .delete(`/v1/marketplace/products/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/marketplace/products/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -355,9 +345,7 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('DELETE /v1/marketplace/cart/items/:productId → 200 removing item', async () => {
-      const res = await request(server)
-        .delete(`/v1/marketplace/cart/items/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/marketplace/cart/items/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
@@ -384,23 +372,17 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('GET /v1/marketplace/orders/:id → 200 single order', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/orders/${testIds.order}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/orders/${testIds.order}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('PUT /v1/marketplace/orders/:id/cancel → 200 cancelling order', async () => {
-      const res = await request(server)
-        .put(`/v1/marketplace/orders/${testIds.order}/cancel`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).put(`/v1/marketplace/orders/${testIds.order}/cancel`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('GET /v1/marketplace/orders/store/:storeId → 200 store orders', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/orders/store/${testIds.store}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/orders/store/${testIds.store}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -417,9 +399,7 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('GET /v1/marketplace/reviews/:productId → 200 product reviews', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/reviews/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/reviews/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -433,16 +413,12 @@ describe('MarketplaceSystem — Route Tests', () => {
     });
 
     it('POST /v1/marketplace/wishlist/:productId → 200 adding to wishlist', async () => {
-      const res = await request(server)
-        .post(`/v1/marketplace/wishlist/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).post(`/v1/marketplace/wishlist/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
     it('DELETE /v1/marketplace/wishlist/:productId → 200 removing from wishlist', async () => {
-      const res = await request(server)
-        .delete(`/v1/marketplace/wishlist/${testIds.product}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).delete(`/v1/marketplace/wishlist/${testIds.product}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
@@ -451,9 +427,7 @@ describe('MarketplaceSystem — Route Tests', () => {
 
   describe('Analytics (/v1/marketplace/analytics)', () => {
     it('GET /v1/marketplace/analytics/store/:storeId → 200 store analytics', async () => {
-      const res = await request(server)
-        .get(`/v1/marketplace/analytics/store/${testIds.store}`)
-        .set('Authorization', bearerHeader(clientToken()));
+      const res = await request(server).get(`/v1/marketplace/analytics/store/${testIds.store}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 

@@ -51,7 +51,14 @@ class PostRoute implements Routes {
      * @desc    Update a post (text, hashtags)
      * @access  Private (owner only)
      */
-    this.router.put('/:postId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, generalRateLimiter, this.controller.updatePost);
+    this.router.put(
+      '/:postId',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      generalRateLimiter,
+      this.controller.updatePost,
+    );
 
     /**
      * @route   DELETE /v1/posts/:postId
@@ -65,14 +72,28 @@ class PostRoute implements Routes {
      * @desc    Like or unlike a post
      * @access  Private
      */
-    this.router.post('/:postId/like', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleLike);
+    this.router.post(
+      '/:postId/like',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      likeRateLimiter,
+      this.controller.toggleLike,
+    );
 
     /**
      * @route   POST /v1/posts/:postId/save
      * @desc    Save or unsave a post
      * @access  Private
      */
-    this.router.post('/:postId/save', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.controller.toggleSave);
+    this.router.post(
+      '/:postId/save',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      csrfMiddleware,
+      likeRateLimiter,
+      this.controller.toggleSave,
+    );
 
     /* ───────── Admin routes ───────── */
 

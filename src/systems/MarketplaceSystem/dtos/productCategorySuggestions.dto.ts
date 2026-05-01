@@ -12,24 +12,40 @@ export class CreateProductCategorySuggestionDto {
   @MaxLength(1000, { message: 'Description cannot exceed 1000 characters' })
   description: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(10)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(10)
   exampleProducts?: string[];
 
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   iconHint?: string;
 }
 
 export class UpdateProductCategorySuggestionDto {
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
-  @IsOptional() @IsString() @MinLength(10) @MaxLength(1000)
+  @IsOptional()
+  @IsString()
+  @MinLength(10)
+  @MaxLength(1000)
   description?: string;
 
-  @IsOptional() @IsArray() @IsString({ each: true }) @ArrayMaxSize(10)
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(10)
   exampleProducts?: string[];
 
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   iconHint?: string;
 }
 
@@ -45,20 +61,31 @@ export class UpdateProductCategorySuggestionStatusDto {
   })
   status: ProductCategorySuggestionStatus;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   adminNote?: string;
 
   // Overrides used only when implementing
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   description?: string;
 
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   icon?: string;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   displayOrder?: number;
 }
 
@@ -71,18 +98,29 @@ export class AdminApproveProductCategorySuggestionDto {
   @IsEnum(ProductCategorySuggestionStatus)
   status?: ProductCategorySuggestionStatus;
 
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   description?: string;
 
-  @IsOptional() @IsString() @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   icon?: string;
 
-  @IsOptional() @IsInt() @Min(0)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
   displayOrder?: number;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   adminNote?: string;
 }

@@ -29,7 +29,12 @@ class NotificationRoute implements Routes {
     this.router.patch('/read', csrfMiddleware, validationMiddleware(MarkNotificationsReadDto, 'body', true), this.notificationController.markAsRead);
 
     // Register device token for push notifications
-    this.router.post('/device-token', csrfMiddleware, validationMiddleware(RegisterDeviceTokenDto, 'body'), this.notificationController.registerDeviceToken);
+    this.router.post(
+      '/device-token',
+      csrfMiddleware,
+      validationMiddleware(RegisterDeviceTokenDto, 'body'),
+      this.notificationController.registerDeviceToken,
+    );
 
     // Unregister device token
     this.router.delete(

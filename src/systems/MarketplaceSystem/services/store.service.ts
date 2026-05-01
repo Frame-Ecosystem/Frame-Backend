@@ -1,6 +1,6 @@
 ﻿import mongoose from 'mongoose';
 import slugify from 'slugify';
-import { BadRequestException, NotFoundException, ForbiddenException, ConflictException } from '@exceptions/HttpException';
+import { BadRequestException, NotFoundException, ConflictException } from '@exceptions/HttpException';
 import storeModel from '@systems/MarketplaceSystem/models/store.model';
 import productModel from '@systems/MarketplaceSystem/models/product.model';
 import { Store, StoreStatus } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
@@ -87,13 +87,7 @@ class StoreService {
     if (query.sort === 'newest') sortOption = { createdAt: -1 };
 
     const [stores, total] = await Promise.all([
-      this.stores
-        .find(filter)
-        .populate('ownerId', 'firstName lastName profileImage type')
-        .sort(sortOption)
-        .skip(skip)
-        .limit(limit)
-        .lean(),
+      this.stores.find(filter).populate('ownerId', 'firstName lastName profileImage type').sort(sortOption).skip(skip).limit(limit).lean(),
       this.stores.countDocuments(filter),
     ]);
 
@@ -148,10 +142,7 @@ class StoreService {
     if (!store) throw new NotFoundException('Store not found', 'STORE_NOT_FOUND');
 
     // Archive all active products
-    await this.products.updateMany(
-      { storeId: store._id, status: { $ne: 'archived' } },
-      { $set: { status: 'archived' } },
-    );
+    await this.products.updateMany({ storeId: store._id, status: { $ne: 'archived' } }, { $set: { status: 'archived' } });
 
     store.status = StoreStatus.CLOSED;
     await store.save();
@@ -181,7 +172,7 @@ class StoreService {
     return { stores, total };
   }
 
-  public async adminUpdateStoreStatus(storeId: string, status: StoreStatus, reason?: string): Promise<Store> {
+  public async adminUpdateStoreStatus(storeId: string, status: StoreStatus, _reason?: string): Promise<Store> {
     if (!mongoose.Types.ObjectId.isValid(storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
 
     const store = await this.stores.findById(storeId);
@@ -190,10 +181,7 @@ class StoreService {
     store.status = status;
     if (status === StoreStatus.ACTIVE) store.isVerified = true;
     if (status === StoreStatus.SUSPENDED) {
-      await this.products.updateMany(
-        { storeId: store._id, status: 'active' },
-        { $set: { status: 'hidden' } },
-      );
+      await this.products.updateMany({ storeId: store._id, status: 'active' }, { $set: { status: 'hidden' } });
     }
 
     await store.save();

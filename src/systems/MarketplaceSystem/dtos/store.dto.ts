@@ -1,6 +1,4 @@
-import {
-  IsString, IsOptional, IsEnum, IsEmail, IsNumber, MaxLength, MinLength, IsUrl, ValidateNested, Min,
-} from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsEmail, IsNumber, MaxLength, MinLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { StoreCategory } from '@systems/MarketplaceSystem/interfaces/marketplace.interface';
 
@@ -18,48 +16,72 @@ class StorePoliciesDto {
 }
 
 export class CreateStoreDto {
-  @IsString() @MinLength(2) @MaxLength(100)
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name: string;
 
-  @IsOptional() @IsString() @MaxLength(1000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   description?: string;
 
   @IsEnum(StoreCategory, { message: 'Invalid store category' })
   category: StoreCategory;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   contactEmail?: string;
 
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   contactPhone?: string;
 
-  @IsOptional() @ValidateNested() @Type(() => StoreLocationDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StoreLocationDto)
   location?: StoreLocationDto;
 
-  @IsOptional() @ValidateNested() @Type(() => StorePoliciesDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StorePoliciesDto)
   policies?: StorePoliciesDto;
 }
 
 export class UpdateStoreDto {
-  @IsOptional() @IsString() @MinLength(2) @MaxLength(100)
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(100)
   name?: string;
 
-  @IsOptional() @IsString() @MaxLength(1000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
   description?: string;
 
-  @IsOptional() @IsEnum(StoreCategory, { message: 'Invalid store category' })
+  @IsOptional()
+  @IsEnum(StoreCategory, { message: 'Invalid store category' })
   category?: StoreCategory;
 
-  @IsOptional() @IsEmail()
+  @IsOptional()
+  @IsEmail()
   contactEmail?: string;
 
-  @IsOptional() @IsString() @MaxLength(20)
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
   contactPhone?: string;
 
-  @IsOptional() @ValidateNested() @Type(() => StoreLocationDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StoreLocationDto)
   location?: StoreLocationDto;
 
-  @IsOptional() @ValidateNested() @Type(() => StorePoliciesDto)
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => StorePoliciesDto)
   policies?: StorePoliciesDto;
 }
 
@@ -67,6 +89,8 @@ export class AdminUpdateStoreStatusDto {
   @IsEnum(['active', 'suspended', 'closed'], { message: 'Status must be active, suspended, or closed' })
   status: string;
 
-  @IsOptional() @IsString() @MaxLength(500)
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
   reason?: string;
 }

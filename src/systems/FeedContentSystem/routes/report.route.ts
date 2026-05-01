@@ -49,7 +49,14 @@ class ReportRoute implements Routes {
      * @desc    Review a report (mark reviewed/dismissed with optional note)
      * @access  Admin only
      */
-    this.router.put('/:reportId', authMiddleware, adminMiddleware, csrfMiddleware, validationMiddleware(ReviewReportDto, 'body'), this.controller.reviewReport);
+    this.router.put(
+      '/:reportId',
+      authMiddleware,
+      adminMiddleware,
+      csrfMiddleware,
+      validationMiddleware(ReviewReportDto, 'body'),
+      this.controller.reviewReport,
+    );
   }
 }
 

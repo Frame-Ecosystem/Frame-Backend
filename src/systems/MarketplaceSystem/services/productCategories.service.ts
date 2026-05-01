@@ -1,16 +1,8 @@
 import slugify from 'slugify';
 import productCategoryModel from '@systems/MarketplaceSystem/models/productCategory.model';
 import { ProductCategory } from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
-import {
-  CreateProductCategoryDto,
-  UpdateProductCategoryDto,
-} from '@systems/MarketplaceSystem/dtos/productCategories.dto';
-import {
-  HttpException,
-  BadRequestException,
-  NotFoundException,
-  ConflictException,
-} from '@exceptions/HttpException';
+import { CreateProductCategoryDto, UpdateProductCategoryDto } from '@systems/MarketplaceSystem/dtos/productCategories.dto';
+import { HttpException, BadRequestException, NotFoundException, ConflictException } from '@exceptions/HttpException';
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 

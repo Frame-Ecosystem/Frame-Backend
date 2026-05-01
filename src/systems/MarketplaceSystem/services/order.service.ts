@@ -49,8 +49,10 @@ class OrderService {
 
           const product = await this.products.findById(item.productId).session(session);
           if (!product) throw new NotFoundException(`Product not found: ${item.productId}`, 'PRODUCT_NOT_FOUND');
-          if (product.storeId.toString() !== dto.storeId) throw new BadRequestException('Product does not belong to this store', 'PRODUCT_STORE_MISMATCH');
-          if (product.status !== ProductStatus.ACTIVE) throw new BadRequestException(`Product is not available: ${product.name}`, 'PRODUCT_NOT_ACTIVE');
+          if (product.storeId.toString() !== dto.storeId)
+            throw new BadRequestException('Product does not belong to this store', 'PRODUCT_STORE_MISMATCH');
+          if (product.status !== ProductStatus.ACTIVE)
+            throw new BadRequestException(`Product is not available: ${product.name}`, 'PRODUCT_NOT_ACTIVE');
 
           let price = product.price;
           let availableStock = product.stock;
@@ -134,17 +136,9 @@ class OrderService {
 
         createdOrder = order as unknown as Order;
 
-        await this.stores.findByIdAndUpdate(
-          dto.storeId,
-          { $inc: { 'stats.totalOrders': 1 } },
-          { session },
-        );
+        await this.stores.findByIdAndUpdate(dto.storeId, { $inc: { 'stats.totalOrders': 1 } }, { session });
 
-        await this.carts.findOneAndUpdate(
-          { userId: buyerId },
-          { $pull: { items: { storeId: dto.storeId } } },
-          { session },
-        );
+        await this.carts.findOneAndUpdate({ userId: buyerId }, { $pull: { items: { storeId: dto.storeId } } }, { session });
       });
     } finally {
       await session.endSession();
@@ -158,12 +152,10 @@ class OrderService {
 
   /* ───────── Read ───────── */
 
-  public async getOrderById(id: string, userId: string, isAdmin: boolean = false): Promise<Order> {
+  public async getOrderById(id: string, userId: string, isAdmin = false): Promise<Order> {
     if (!mongoose.Types.ObjectId.isValid(id)) throw new BadRequestException('Invalid order ID', 'INVALID_ORDER_ID');
 
-    const order = await this.orders.findById(id)
-      .populate('buyerId', 'firstName lastName profileImage')
-      .populate('storeId', 'name slug logo ownerId');
+    const order = await this.orders.findById(id).populate('buyerId', 'firstName lastName profileImage').populate('storeId', 'name slug logo ownerId');
 
     if (!order) throw new NotFoundException('Order not found', 'ORDER_NOT_FOUND');
 
@@ -177,11 +169,14 @@ class OrderService {
     return order;
   }
 
-  public async getMyOrders(buyerId: string, query: {
-    page?: number;
-    limit?: number;
-    status?: string;
-  }): Promise<{ orders: Order[]; total: number }> {
+  public async getMyOrders(
+    buyerId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      status?: string;
+    },
+  ): Promise<{ orders: Order[]; total: number }> {
     const page = Math.max(1, query.page || 1);
     const limit = Math.min(50, Math.max(1, query.limit || 20));
     const skip = (page - 1) * limit;
@@ -197,11 +192,15 @@ class OrderService {
     return { orders, total };
   }
 
-  public async getStoreOrders(storeId: string, ownerId: string, query: {
-    page?: number;
-    limit?: number;
-    status?: string;
-  }): Promise<{ orders: Order[]; total: number }> {
+  public async getStoreOrders(
+    storeId: string,
+    ownerId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      status?: string;
+    },
+  ): Promise<{ orders: Order[]; total: number }> {
     if (!mongoose.Types.ObjectId.isValid(storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
 
     const store = await this.stores.findById(storeId);
@@ -225,11 +224,16 @@ class OrderService {
 
   /* ───────── Status Updates ───────── */
 
-  public async updateOrderStatus(orderId: string, userId: string, status: OrderStatus, data?: {
-    reason?: string;
-    trackingNumber?: string;
-    trackingUrl?: string;
-  }): Promise<Order> {
+  public async updateOrderStatus(
+    orderId: string,
+    userId: string,
+    status: OrderStatus,
+    data?: {
+      reason?: string;
+      trackingNumber?: string;
+      trackingUrl?: string;
+    },
+  ): Promise<Order> {
     if (!mongoose.Types.ObjectId.isValid(orderId)) throw new BadRequestException('Invalid order ID', 'INVALID_ORDER_ID');
 
     const order = await this.orders.findById(orderId).populate('storeId', 'ownerId');
@@ -333,10 +337,14 @@ class OrderService {
     if (query.storeId) filter.storeId = query.storeId;
 
     const [orders, total] = await Promise.all([
-      this.orders.find(filter)
+      this.orders
+        .find(filter)
         .populate('buyerId', 'firstName lastName email')
         .populate('storeId', 'name slug ownerId')
-        .sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.orders.countDocuments(filter),
     ]);
 

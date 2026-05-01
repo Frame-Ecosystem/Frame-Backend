@@ -1,8 +1,5 @@
 import { model, Schema, Document } from 'mongoose';
-import {
-  ProductCategorySuggestion,
-  ProductCategorySuggestionStatus,
-} from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
+import { ProductCategorySuggestion, ProductCategorySuggestionStatus } from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
 
 const productCategorySuggestionSchema: Schema = new Schema(
   {
@@ -27,9 +24,6 @@ productCategorySuggestionSchema.index({ status: 1, createdAt: -1 });
 productCategorySuggestionSchema.index({ suggestedBy: 1, createdAt: -1 });
 productCategorySuggestionSchema.index({ name: 1 });
 
-const productCategorySuggestionModel = model<ProductCategorySuggestion & Document>(
-  'ProductCategorySuggestion',
-  productCategorySuggestionSchema,
-);
+const productCategorySuggestionModel = model<ProductCategorySuggestion & Document>('ProductCategorySuggestion', productCategorySuggestionSchema);
 
 export default productCategorySuggestionModel;

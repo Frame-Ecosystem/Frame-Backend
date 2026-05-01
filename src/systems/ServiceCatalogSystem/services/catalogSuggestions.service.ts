@@ -219,16 +219,18 @@ class CatalogSuggestionsService {
         description: suggestion.description,
       });
 
-      const [createdLoungeService] = await loungeServicesService.bulkCreateLoungeServices([{
-        loungeId: (suggestion.loungeId as any)._id,
-        serviceId: createdService._id,
-        price: opts.price || suggestion.estimatedPrice || 0,
-        duration: opts.duration || suggestion.estimatedDuration || 30,
-        gender: opts.gender || suggestion.targetGender || 'unisex',
-        description: suggestion.description,
-        status: LoungeServiceStatus.ACTIVE,
-        isActive: true,
-      } as any]);
+      const [createdLoungeService] = await loungeServicesService.bulkCreateLoungeServices([
+        {
+          loungeId: (suggestion.loungeId as any)._id,
+          serviceId: createdService._id,
+          price: opts.price || suggestion.estimatedPrice || 0,
+          duration: opts.duration || suggestion.estimatedDuration || 30,
+          gender: opts.gender || suggestion.targetGender || 'unisex',
+          description: suggestion.description,
+          status: LoungeServiceStatus.ACTIVE,
+          isActive: true,
+        } as any,
+      ]);
 
       await this.serviceSuggestions.findByIdAndUpdate(suggestion._id, {
         status: ServiceSuggestionStatus.IMPLEMENTED,

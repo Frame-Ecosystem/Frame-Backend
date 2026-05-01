@@ -36,8 +36,7 @@
  *   2xx success, 4xx client errors (validation, auth, not found),
  * Unexpected server errors are never accepted here; they should fail smoke tests.
  */
-export const expectRouteOk = (status: number) =>
-  expect([200, 201, 202, 204, 400, 401, 403, 404, 409, 422]).toContain(status);
+export const expectRouteOk = (status: number) => expect([200, 201, 202, 204, 400, 401, 403, 404, 409, 422]).toContain(status);
 
 /** Assert that an authentication-protected route rejected an unauthenticated request. */
 export const expectUnauthorized = (status: number) => expect(status).toBe(401);

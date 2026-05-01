@@ -5,7 +5,13 @@ import bookingModel from '@systems/BookingSystem/models/booking.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { logger } from '@utils/logger';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
-import { getStartOfToday, populateBookingForNotify, finalizeQueuePerson, finalizeBooking, resolveLoungeInfo } from '@systems/BookingSystem/services/queue.helpers';
+import {
+  getStartOfToday,
+  populateBookingForNotify,
+  finalizeQueuePerson,
+  finalizeBooking,
+  resolveLoungeInfo,
+} from '@systems/BookingSystem/services/queue.helpers';
 
 /** Shared result shape for all cron operations. */
 export interface CronResult {
@@ -87,7 +93,9 @@ class QueueCronService {
 
     for (const queue of queues) {
       const cumulativeBase = await this.estimateInServiceRemaining(queue);
-      const waitingPersons = queue.persons.filter((p: any) => p.status === QueuePersonStatus.WAITING).sort((a: any, b: any) => a.position - b.position);
+      const waitingPersons = queue.persons
+        .filter((p: any) => p.status === QueuePersonStatus.WAITING)
+        .sort((a: any, b: any) => a.position - b.position);
 
       const durationMap = await this.buildDurationMap(waitingPersons);
       let cumulativeWait = cumulativeBase;

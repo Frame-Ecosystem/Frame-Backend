@@ -24,7 +24,14 @@ class RatingRoute implements Routes {
     this.router.get('/me/:loungeId', authMiddleware, clientMiddleware, this.ratingController.getMyRating);
 
     // Client-only — create or update
-    this.router.put('/', authMiddleware, clientMiddleware, csrfMiddleware, validationMiddleware(UpsertRatingDto, 'body'), this.ratingController.upsertRating);
+    this.router.put(
+      '/',
+      authMiddleware,
+      clientMiddleware,
+      csrfMiddleware,
+      validationMiddleware(UpsertRatingDto, 'body'),
+      this.ratingController.upsertRating,
+    );
 
     // Client-only — delete own rating
     this.router.delete('/:loungeId', authMiddleware, clientMiddleware, csrfMiddleware, this.ratingController.deleteRating);

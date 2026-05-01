@@ -59,11 +59,7 @@ class ProductController {
       if (!req.files || !(req.files as Express.Multer.File[]).length) {
         return res.status(400).json({ message: 'No files provided' });
       }
-      const product = await this.productService.uploadProductImages(
-        req.user._id.toString(),
-        req.params.id,
-        req.files as Express.Multer.File[],
-      );
+      const product = await this.productService.uploadProductImages(req.user._id.toString(), req.params.id, req.files as Express.Multer.File[]);
       res.status(200).json({ data: product, message: 'Images uploaded' });
     } catch (error) {
       next(error);
@@ -72,11 +68,7 @@ class ProductController {
 
   public deleteImage = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const product = await this.productService.deleteProductImage(
-        req.user._id.toString(),
-        req.params.id,
-        req.params.publicId,
-      );
+      const product = await this.productService.deleteProductImage(req.user._id.toString(), req.params.id, req.params.publicId);
       res.status(200).json({ data: product, message: 'Image deleted' });
     } catch (error) {
       next(error);

@@ -22,8 +22,7 @@ class AgentService {
   private queueService = new QueueService();
 
   /** Fields safe to send back to clients (never the password / refreshTokens). */
-  private static readonly PUBLIC_FIELDS =
-    '-password -refreshTokens -emailVerification -fcmTokens -failedLoginAttempts -lockUntil -oauth -__v';
+  private static readonly PUBLIC_FIELDS = '-password -refreshTokens -emailVerification -fcmTokens -failedLoginAttempts -lockUntil -oauth -__v';
 
   // --- Internal helpers --------------------------------------------
 
@@ -264,6 +263,4 @@ class AgentService {
   }
 }
 
-
 export default AgentService;
-

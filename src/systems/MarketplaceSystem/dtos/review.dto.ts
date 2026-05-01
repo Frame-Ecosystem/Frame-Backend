@@ -7,23 +7,36 @@ export class CreateReviewDto {
   @IsMongoId({ message: 'Invalid order ID' })
   orderId: string;
 
-  @IsNumber() @Min(1) @Max(5)
+  @IsNumber()
+  @Min(1)
+  @Max(5)
   rating: number;
 
-  @IsOptional() @IsString() @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   title?: string;
 
-  @IsOptional() @IsString() @MaxLength(2000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
   comment?: string;
 }
 
 export class UpdateReviewDto {
-  @IsOptional() @IsNumber() @Min(1) @Max(5)
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(5)
   rating?: number;
 
-  @IsOptional() @IsString() @MaxLength(200)
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
   title?: string;
 
-  @IsOptional() @IsString() @MaxLength(2000)
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
   comment?: string;
 }

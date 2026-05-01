@@ -55,7 +55,10 @@ class LoungeService {
   /**
    * Patch opening hours for a lounge
    */
-  public async patchLoungeOpeningHours(loungeId: string, openingHoursData: import('@systems/UserManager/dtos/user.dto').DayOpeningHoursDto): Promise<User> {
+  public async patchLoungeOpeningHours(
+    loungeId: string,
+    openingHoursData: import('@systems/UserManager/dtos/user.dto').DayOpeningHoursDto,
+  ): Promise<User> {
     try {
       if (isEmpty(loungeId) || isEmpty(openingHoursData)) {
         logger.warn('LoungeService.patchLoungeOpeningHours: empty loungeId or openingHoursData provided');

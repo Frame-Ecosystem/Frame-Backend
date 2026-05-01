@@ -115,10 +115,7 @@ class ChatService {
    * Returns `{ conversation, wasCreated }` so callers can set the correct
    * HTTP status (201 vs 200) without relying on a fragile time-based check.
    */
-  public async findOrCreateConversation(
-    requesterId: string,
-    recipientId: string,
-  ): Promise<{ conversation: any; wasCreated: boolean }> {
+  public async findOrCreateConversation(requesterId: string, recipientId: string): Promise<{ conversation: any; wasCreated: boolean }> {
     if (requesterId === recipientId) {
       throw new HttpException(400, 'You cannot start a conversation with yourself');
     }
@@ -158,10 +155,7 @@ class ChatService {
 
     // If the requester had previously soft-deleted the conversation, restore it
     if (!wasCreated && conversation.deletedFor.map(String).includes(requesterId)) {
-      await this.conversations.updateOne(
-        { _id: conversation._id },
-        { $pull: { deletedFor: new Types.ObjectId(requesterId) } },
-      );
+      await this.conversations.updateOne({ _id: conversation._id }, { $pull: { deletedFor: new Types.ObjectId(requesterId) } });
     }
 
     return { conversation, wasCreated };
@@ -172,11 +166,7 @@ class ChatService {
    * Returns a pagination envelope with `total` and `totalPages` for offset-based
    * navigation (conversation lists are typically small and don't need cursors).
    */
-  public async getConversations(
-    userId: string,
-    page = 1,
-    limit = 20,
-  ): Promise<{ conversations: any[]; total: number }> {
+  public async getConversations(userId: string, page = 1, limit = 20): Promise<{ conversations: any[]; total: number }> {
     const filter = {
       participants: new Types.ObjectId(userId),
       deletedFor: { $ne: new Types.ObjectId(userId) },
@@ -295,11 +285,7 @@ class ChatService {
 
     // 3. Parallel: populate message + update conversation
     const [populated] = await Promise.all([
-      this.messages
-        .findById(message._id)
-        .populate('senderId', SENDER_PROJECTION)
-        .populate('replyTo', `text contentType senderId createdAt`)
-        .lean(),
+      this.messages.findById(message._id).populate('senderId', SENDER_PROJECTION).populate('replyTo', `text contentType senderId createdAt`).lean(),
 
       this.conversations.updateOne(
         { _id: conversationId },
@@ -316,9 +302,7 @@ class ChatService {
           $inc: { 'unreadCounts.$[elem].count': 1 },
         },
         {
-          arrayFilters: [
-            { 'elem.userId': { $in: recipientIds.map(id => new Types.ObjectId(id)) } },
-          ],
+          arrayFilters: [{ 'elem.userId': { $in: recipientIds.map(id => new Types.ObjectId(id)) } }],
         },
       ),
     ]);
@@ -434,11 +418,7 @@ class ChatService {
    * - Emits a `chat:read` socket event so the other participant's UI updates
    *   the "seen" indicators immediately.
    */
-  public async markMessagesRead(
-    conversationId: string,
-    userId: string,
-    messageIds?: string[],
-  ): Promise<string[]> {
+  public async markMessagesRead(conversationId: string, userId: string, messageIds?: string[]): Promise<string[]> {
     const isMember = await this.conversations.exists({
       _id: conversationId,
       participants: new Types.ObjectId(userId),
@@ -486,18 +466,15 @@ class ChatService {
    * - `recallForEveryone = false` → hides the message for the requesting user
    *   only by adding their ID to `deletedFor`.
    */
-  public async deleteMessage(
-    conversationId: string,
-    messageId: string,
-    userId: string,
-    recallForEveryone = false,
-  ): Promise<void> {
+  public async deleteMessage(conversationId: string, messageId: string, userId: string, recallForEveryone = false): Promise<void> {
     // Single query: verify both existence and conversation membership
     const [message, isMember] = await Promise.all([
-      this.messages.findOne({
-        _id: messageId,
-        conversationId: new Types.ObjectId(conversationId),
-      }).lean(),
+      this.messages
+        .findOne({
+          _id: messageId,
+          conversationId: new Types.ObjectId(conversationId),
+        })
+        .lean(),
       this.conversations.exists({
         _id: conversationId,
         participants: new Types.ObjectId(userId),
@@ -511,15 +488,9 @@ class ChatService {
       if ((message as any).senderId.toString() !== userId) {
         throw new HttpException(403, 'Only the sender can recall a message for everyone');
       }
-      await this.messages.updateOne(
-        { _id: messageId },
-        { $set: { isDeleted: true, text: null, attachment: null } },
-      );
+      await this.messages.updateOne({ _id: messageId }, { $set: { isDeleted: true, text: null, attachment: null } });
     } else {
-      await this.messages.updateOne(
-        { _id: messageId },
-        { $addToSet: { deletedFor: new Types.ObjectId(userId) } },
-      );
+      await this.messages.updateOne({ _id: messageId }, { $addToSet: { deletedFor: new Types.ObjectId(userId) } });
     }
 
     this.socket.emitChatMessageDeleted(conversationId, messageId, recallForEveryone);
@@ -538,19 +509,16 @@ class ChatService {
    *  - If this message is the conversation's `lastMessage`, its preview is
    *    updated in the same round-trip.
    */
-  public async editMessage(
-    conversationId: string,
-    messageId: string,
-    userId: string,
-    newText: string,
-  ): Promise<any> {
-    const message = await this.messages.findOne({
-      _id: messageId,
-      conversationId: new Types.ObjectId(conversationId),
-      senderId: new Types.ObjectId(userId),
-      isDeleted: false,
-      contentType: 'text',
-    }).lean();
+  public async editMessage(conversationId: string, messageId: string, userId: string, newText: string): Promise<any> {
+    const message = await this.messages
+      .findOne({
+        _id: messageId,
+        conversationId: new Types.ObjectId(conversationId),
+        senderId: new Types.ObjectId(userId),
+        isDeleted: false,
+        contentType: 'text',
+      })
+      .lean();
 
     if (!message) throw new HttpException(404, 'Message not found or cannot be edited');
 
@@ -564,11 +532,7 @@ class ChatService {
     // Parallel: update message + update conversation lastMessage preview (if applicable)
     const [updated] = await Promise.all([
       this.messages
-        .findByIdAndUpdate(
-          messageId,
-          { $set: { text: trimmed, editedAt: new Date() } },
-          { new: true },
-        )
+        .findByIdAndUpdate(messageId, { $set: { text: trimmed, editedAt: new Date() } }, { new: true })
         .populate('senderId', SENDER_PROJECTION)
         .lean(),
 
@@ -596,12 +560,7 @@ class ChatService {
    * Returns the updated reactions array so the client can optimistically
    * reconcile without re-fetching the full message.
    */
-  public async reactToMessage(
-    conversationId: string,
-    messageId: string,
-    userId: string,
-    emoji: string,
-  ): Promise<any[]> {
+  public async reactToMessage(conversationId: string, messageId: string, userId: string, emoji: string): Promise<any[]> {
     // Verify the user is a conversation participant
     const isMember = await this.conversations.exists({
       _id: conversationId,
@@ -609,11 +568,13 @@ class ChatService {
     });
     if (!isMember) throw new HttpException(403, 'Access denied');
 
-    const message = await this.messages.findOne({
-      _id: messageId,
-      conversationId: new Types.ObjectId(conversationId),
-      isDeleted: false,
-    }).lean();
+    const message = await this.messages
+      .findOne({
+        _id: messageId,
+        conversationId: new Types.ObjectId(conversationId),
+        isDeleted: false,
+      })
+      .lean();
 
     if (!message) throw new HttpException(404, 'Message not found');
 
@@ -625,11 +586,7 @@ class ChatService {
     if (existingIdx !== -1 && reactions[existingIdx].emoji === emoji) {
       // Toggle off — remove the reaction
       updated = await this.messages
-        .findByIdAndUpdate(
-          messageId,
-          { $pull: { reactions: { userId: new Types.ObjectId(userId) } } },
-          { new: true },
-        )
+        .findByIdAndUpdate(messageId, { $pull: { reactions: { userId: new Types.ObjectId(userId) } } }, { new: true })
         .select('reactions')
         .lean();
     } else if (existingIdx !== -1) {
@@ -680,12 +637,7 @@ class ChatService {
    * Only `contentType === 'text'` messages are returned; the caller can use
    * a case-insensitive regex fallback if the text index is unavailable.
    */
-  public async searchMessages(
-    conversationId: string,
-    userId: string,
-    query: string,
-    limit = 20,
-  ): Promise<any[]> {
+  public async searchMessages(conversationId: string, userId: string, query: string, limit = 20): Promise<any[]> {
     const isMember = await this.conversations.exists({
       _id: conversationId,
       participants: new Types.ObjectId(userId),
@@ -719,6 +671,3 @@ class ChatService {
 }
 
 export default ChatService;
-
-
-

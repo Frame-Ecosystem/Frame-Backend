@@ -82,11 +82,14 @@ class ReviewService {
 
   /* ───────── Read ───────── */
 
-  public async getProductReviews(productId: string, query: {
-    page?: number;
-    limit?: number;
-    sort?: string;
-  }): Promise<{ reviews: ProductReview[]; total: number }> {
+  public async getProductReviews(
+    productId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      sort?: string;
+    },
+  ): Promise<{ reviews: ProductReview[]; total: number }> {
     if (!mongoose.Types.ObjectId.isValid(productId)) throw new BadRequestException('Invalid product ID', 'INVALID_PRODUCT_ID');
 
     const page = Math.max(1, query.page || 1);
@@ -108,10 +111,13 @@ class ReviewService {
     return { reviews, total };
   }
 
-  public async getStoreReviews(storeId: string, query: {
-    page?: number;
-    limit?: number;
-  }): Promise<{ reviews: ProductReview[]; total: number }> {
+  public async getStoreReviews(
+    storeId: string,
+    query: {
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{ reviews: ProductReview[]; total: number }> {
     if (!mongoose.Types.ObjectId.isValid(storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
 
     const page = Math.max(1, query.page || 1);
@@ -119,10 +125,14 @@ class ReviewService {
     const skip = (page - 1) * limit;
 
     const [reviews, total] = await Promise.all([
-      this.reviews.find({ storeId, status: ReviewStatus.ACTIVE })
+      this.reviews
+        .find({ storeId, status: ReviewStatus.ACTIVE })
         .populate('userId', 'firstName lastName profileImage')
         .populate('productId', 'name slug images')
-        .sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
       this.reviews.countDocuments({ storeId, status: ReviewStatus.ACTIVE }),
     ]);
 
@@ -192,11 +202,7 @@ class ReviewService {
   public async markHelpful(reviewId: string): Promise<ProductReview> {
     if (!mongoose.Types.ObjectId.isValid(reviewId)) throw new BadRequestException('Invalid review ID', 'INVALID_REVIEW_ID');
 
-    const review = await this.reviews.findByIdAndUpdate(
-      reviewId,
-      { $inc: { helpfulCount: 1 } },
-      { new: true },
-    );
+    const review = await this.reviews.findByIdAndUpdate(reviewId, { $inc: { helpfulCount: 1 } }, { new: true });
     if (!review) throw new NotFoundException('Review not found', 'REVIEW_NOT_FOUND');
     return review;
   }

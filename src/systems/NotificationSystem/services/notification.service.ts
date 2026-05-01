@@ -585,11 +585,7 @@ class NotificationService {
   /**
    * Notify the suggester that their product category suggestion was approved/implemented.
    */
-  public async notifyProductCategorySuggestionApproved(
-    userId: string,
-    suggestionName: string,
-    suggestionId: string,
-  ): Promise<void> {
+  public async notifyProductCategorySuggestionApproved(userId: string, suggestionName: string, suggestionId: string): Promise<void> {
     await this.create({
       userId,
       title: 'Category Suggestion Approved',
@@ -603,12 +599,7 @@ class NotificationService {
   /**
    * Notify the suggester that their product category suggestion was rejected.
    */
-  public async notifyProductCategorySuggestionRejected(
-    userId: string,
-    suggestionName: string,
-    suggestionId: string,
-    reason?: string,
-  ): Promise<void> {
+  public async notifyProductCategorySuggestionRejected(userId: string, suggestionName: string, suggestionId: string, reason?: string): Promise<void> {
     const body = reason
       ? `Your product category suggestion "${suggestionName}" was rejected: "${reason}"`
       : `Your product category suggestion "${suggestionName}" was rejected`;

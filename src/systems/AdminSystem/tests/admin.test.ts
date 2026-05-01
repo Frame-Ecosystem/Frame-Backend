@@ -10,23 +10,30 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
     countDocuments: jest.fn(),
     aggregate: jest.fn(),
   },
-  isAdmin: (u) => u?.type === 'admin',
-  isLounge: (u) => u?.type === 'lounge',
-  isClient: (u) => u?.type === 'client',
+  isAdmin: u => u?.type === 'admin',
+  isLounge: u => u?.type === 'lounge',
+  isClient: u => u?.type === 'client',
 }));
 
 import UserManagementService from '@systems/UserManager/services/userManagement.service';
-import { CreateUserDto, UpdateUserDto } from '@systems/UserManager/dtos/user.dto';
 import userModel from '@systems/UserManager/models/user.model';
 
 const adminService = new UserManagementService();
 
 describe('UserManagementService', () => {
-  beforeEach(() => { jest.clearAllMocks(); });
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   describe('findUsersPaginated', () => {
     it('returns paginated users', async () => {
-      const chain: any = { select: jest.fn().mockReturnThis(), skip: jest.fn().mockReturnThis(), limit: jest.fn().mockReturnThis(), lean: jest.fn().mockReturnThis(), exec: jest.fn().mockResolvedValue([{ _id: '1', email: 'a@e.com' }]) };
+      const chain: any = {
+        select: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        lean: jest.fn().mockReturnThis(),
+        exec: jest.fn().mockResolvedValue([{ _id: '1', email: 'a@e.com' }]),
+      };
       (userModel.find as jest.Mock).mockReturnValue(chain);
       (userModel.countDocuments as jest.Mock).mockReturnValue({ exec: jest.fn().mockResolvedValue(1) });
       const res = await adminService.findUsersPaginated('', 1, 20);

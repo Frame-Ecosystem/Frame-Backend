@@ -1,10 +1,6 @@
 import productCategorySuggestionModel from '@systems/MarketplaceSystem/models/productCategorySuggestion.model';
 import productCategoryModel from '@systems/MarketplaceSystem/models/productCategory.model';
-import {
-  ProductCategorySuggestion,
-  ProductCategorySuggestionStatus,
-  ProductCategory,
-} from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
+import { ProductCategorySuggestion, ProductCategorySuggestionStatus } from '@systems/MarketplaceSystem/interfaces/productCategory.interface';
 import {
   CreateProductCategorySuggestionDto,
   UpdateProductCategorySuggestionDto,
@@ -32,10 +28,7 @@ class ProductCategorySuggestionsService {
 
   /* ───────── Create ───────── */
 
-  public async createSuggestion(
-    suggestedBy: string,
-    data: CreateProductCategorySuggestionDto,
-  ): Promise<ProductCategorySuggestion> {
+  public async createSuggestion(suggestedBy: string, data: CreateProductCategorySuggestionDto): Promise<ProductCategorySuggestion> {
     try {
       if (isEmpty(data) || !data.name) {
         throw new BadRequestException('Suggestion name is required', 'MISSING_SUGGESTION_NAME');
@@ -63,10 +56,7 @@ class ProductCategorySuggestionsService {
         status: ProductCategorySuggestionStatus.PENDING,
       });
       if (dupePending) {
-        throw new ConflictException(
-          'A pending suggestion with this name already exists. Please wait for moderation.',
-          'SUGGESTION_ALREADY_EXISTS',
-        );
+        throw new ConflictException('A pending suggestion with this name already exists. Please wait for moderation.', 'SUGGESTION_ALREADY_EXISTS');
       }
 
       const created = await this.suggestions.create({
@@ -77,9 +67,7 @@ class ProductCategorySuggestionsService {
         status: ProductCategorySuggestionStatus.PENDING,
       });
 
-      logger.info(
-        `ProductCategorySuggestionsService.create: suggestion ${created._id} (${trimmedName}) by user ${suggestedBy}`,
-      );
+      logger.info(`ProductCategorySuggestionsService.create: suggestion ${created._id} (${trimmedName}) by user ${suggestedBy}`);
 
       // Notify all admins (fire-and-forget)
       try {
@@ -87,16 +75,9 @@ class ProductCategorySuggestionsService {
         const admins = await userModel.find({ type: 'admin' }).select('_id').lean().exec();
         const adminIds = admins.map(a => a._id.toString());
         if (adminIds.length > 0) {
-          const requester = await userModel
-            .findById(suggestedBy)
-            .select('firstName lastName loungeTitle email')
-            .lean()
-            .exec();
+          const requester = await userModel.findById(suggestedBy).select('firstName lastName loungeTitle email').lean().exec();
           const requesterName =
-            requester?.loungeTitle ||
-            [requester?.firstName, requester?.lastName].filter(Boolean).join(' ') ||
-            requester?.email ||
-            'A user';
+            requester?.loungeTitle || [requester?.firstName, requester?.lastName].filter(Boolean).join(' ') || requester?.email || 'A user';
           this.notificationService
             .notifyProductCategorySuggestionCreated(adminIds, requesterName, created._id.toString(), trimmedName)
             .catch(() => {});
@@ -185,11 +166,7 @@ class ProductCategorySuggestionsService {
 
   /* ───────── Update (suggester, pending only) ───────── */
 
-  public async updateSuggestion(
-    id: string,
-    requesterId: string,
-    data: UpdateProductCategorySuggestionDto,
-  ): Promise<ProductCategorySuggestion> {
+  public async updateSuggestion(id: string, requesterId: string, data: UpdateProductCategorySuggestionDto): Promise<ProductCategorySuggestion> {
     try {
       if (isEmpty(id) || isEmpty(data)) {
         throw new BadRequestException('Suggestion ID and update data are required', 'MISSING_REQUIRED_FIELDS');
@@ -203,10 +180,7 @@ class ProductCategorySuggestionsService {
       }
 
       if (suggestion.status !== ProductCategorySuggestionStatus.PENDING) {
-        throw new BadRequestException(
-          'Only pending suggestions can be edited',
-          'INVALID_STATUS_FOR_UPDATE',
-        );
+        throw new BadRequestException('Only pending suggestions can be edited', 'INVALID_STATUS_FOR_UPDATE');
       }
 
       const update: any = { ...data };

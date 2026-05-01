@@ -40,11 +40,7 @@ class OrderController {
 
   public getStoreOrders = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const { orders, total } = await this.orderService.getStoreOrders(
-        req.params.storeId,
-        req.user._id.toString(),
-        req.query as any,
-      );
+      const { orders, total } = await this.orderService.getStoreOrders(req.params.storeId, req.user._id.toString(), req.query as any);
       res.status(200).json({ data: orders, count: total, message: 'Orders retrieved' });
     } catch (error) {
       next(error);
@@ -55,16 +51,11 @@ class OrderController {
 
   public updateOrderStatus = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const order = await this.orderService.updateOrderStatus(
-        req.params.id,
-        req.user._id.toString(),
-        req.body.status as OrderStatus,
-        {
-          reason: req.body.reason,
-          trackingNumber: req.body.trackingNumber,
-          trackingUrl: req.body.trackingUrl,
-        },
-      );
+      const order = await this.orderService.updateOrderStatus(req.params.id, req.user._id.toString(), req.body.status as OrderStatus, {
+        reason: req.body.reason,
+        trackingNumber: req.body.trackingNumber,
+        trackingUrl: req.body.trackingUrl,
+      });
       res.status(200).json({ data: order, message: 'Order status updated' });
     } catch (error) {
       next(error);

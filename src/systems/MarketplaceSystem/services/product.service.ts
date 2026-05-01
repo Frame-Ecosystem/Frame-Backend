@@ -46,9 +46,7 @@ class ProductService {
 
     const slug = await this.generateUniqueSlug(dto.name, dto.storeId);
 
-    const totalStock = dto.variants?.length
-      ? dto.variants.reduce((sum, v) => sum + v.stock, 0)
-      : dto.stock || 0;
+    const totalStock = dto.variants?.length ? dto.variants.reduce((sum, v) => sum + v.stock, 0) : dto.stock || 0;
 
     const product = await this.products.create({
       ...dto,
@@ -75,13 +73,16 @@ class ProductService {
     return product;
   }
 
-  public async getStoreProducts(storeId: string, query: {
-    page?: number;
-    limit?: number;
-    status?: string;
-    categoryId?: string;
-    sort?: string;
-  }): Promise<{ products: Product[]; total: number }> {
+  public async getStoreProducts(
+    storeId: string,
+    query: {
+      page?: number;
+      limit?: number;
+      status?: string;
+      categoryId?: string;
+      sort?: string;
+    },
+  ): Promise<{ products: Product[]; total: number }> {
     if (!mongoose.Types.ObjectId.isValid(storeId)) throw new BadRequestException('Invalid store ID', 'INVALID_STORE_ID');
 
     const page = Math.max(1, query.page || 1);
@@ -236,10 +237,8 @@ class ProductService {
     if (!product) throw new NotFoundException('Product not found', 'PRODUCT_NOT_FOUND');
     await this.verifyStoreOwnership(product.storeId.toString(), ownerId);
 
-    // Delete all images from R2
-    for (const img of product.images) {
-      await cloudflareR2Service.deleteImage((img as any).publicId).catch(() => {});
-    }
+    // Delete all images from R2 (parallel fire-and-forget)
+    await Promise.all(product.images.map(img => cloudflareR2Service.deleteImage((img as any).publicId).catch(() => {})));
 
     // Remove from wishlists
     await this.wishlists.deleteMany({ productId });
@@ -250,7 +249,7 @@ class ProductService {
 
   /* ───────── Admin ───────── */
 
-  public async adminUpdateProductStatus(productId: string, status: string, reason?: string): Promise<Product> {
+  public async adminUpdateProductStatus(productId: string, status: string, _reason?: string): Promise<Product> {
     if (!mongoose.Types.ObjectId.isValid(productId)) throw new BadRequestException('Invalid product ID', 'INVALID_PRODUCT_ID');
 
     const product = await this.products.findById(productId);

@@ -137,11 +137,11 @@ class App {
 
         // Allow configured frontend origin(s) - split by comma for multiple origins
         if (FRONTEND_BASE_URL) {
-          const allowedFrontends = FRONTEND_BASE_URL.split(',').map((url) => url.trim());
+          const allowedFrontends = FRONTEND_BASE_URL.split(',').map(url => url.trim());
           if (allowedFrontends.includes(origin)) return callback(null, true);
         }
         if (ORIGIN) {
-          const allowedOrigins = ORIGIN.split(',').map((url) => url.trim());
+          const allowedOrigins = ORIGIN.split(',').map(url => url.trim());
           if (allowedOrigins.includes(origin)) return callback(null, true);
         }
 

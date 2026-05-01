@@ -141,4 +141,3 @@ export class ToggleAvailabilityDto {
   @IsBoolean()
   acceptQueueBooking: boolean;
 }
-

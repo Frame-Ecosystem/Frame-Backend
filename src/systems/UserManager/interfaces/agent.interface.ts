@@ -10,4 +10,3 @@
  * The standalone Agent collection (and its model) has been retired.
  */
 export { Agent } from '@systems/UserManager/interfaces/user.interface';
-
