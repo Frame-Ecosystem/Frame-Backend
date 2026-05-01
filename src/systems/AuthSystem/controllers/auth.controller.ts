@@ -5,7 +5,14 @@ import { LoginUserDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@systems/AuthSystem/interfaces/auth.interface';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import AuthService from '@systems/AuthSystem/services/auth.service';
-import { NODE_ENV, REFRESH_TOKEN_SECRET, FRONTEND_BASE_URL, REFRESH_TOKEN_COOKIE_DOMAIN, REFRESH_TOKEN_COOKIE_SAMESITE, REFRESH_TOKEN_COOKIE_SECURE } from '@config';
+import {
+  NODE_ENV,
+  REFRESH_TOKEN_SECRET,
+  FRONTEND_BASE_URL,
+  REFRESH_TOKEN_COOKIE_DOMAIN,
+  REFRESH_TOKEN_COOKIE_SAMESITE,
+  REFRESH_TOKEN_COOKIE_SECURE,
+} from '@config';
 import { setCsrfToken, clearCsrfToken } from '@middlewares/csrf.middleware';
 import { stripSensitiveFields } from '@utils/util';
 
@@ -14,6 +21,21 @@ const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 class AuthController {
   private authService = new AuthService();
+
+  /**
+   * Decode a refresh token payload with runtime validation.
+   */
+  private decodeRefreshTokenPayload(refreshToken: string): RefreshTokenPayload | null {
+    if (!REFRESH_TOKEN_SECRET) return null;
+
+    const decoded = verify(refreshToken, REFRESH_TOKEN_SECRET);
+    if (!decoded || typeof decoded !== 'object') return null;
+
+    const payload = decoded as Record<string, unknown>;
+    if (typeof payload._id !== 'string' || typeof payload.jti !== 'string') return null;
+
+    return payload as unknown as RefreshTokenPayload;
+  }
 
   /**
    * Extract device info from the request for session tracking.
@@ -31,27 +53,37 @@ class AuthController {
   }
 
   /**
-   * Set the refresh token HttpOnly cookie on the response.
+   * Resolve whether the request was made via HTTPS (including behind reverse proxy).
    */
-  private getRefreshTokenCookieOptions(sameSite?: 'strict' | 'lax' | 'none') {
-    const site = sameSite ?? (REFRESH_TOKEN_COOKIE_SAMESITE === 'auto' ? 'none' : REFRESH_TOKEN_COOKIE_SAMESITE);
-    const secure =
-      REFRESH_TOKEN_COOKIE_SECURE === 'auto'
-        ? NODE_ENV === 'production'
-        : REFRESH_TOKEN_COOKIE_SECURE === 'true';
+  private isSecureRequest(req: Request): boolean {
+    const forwardedProto = req.headers['x-forwarded-proto'];
+    const proto = Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto;
+    return req.secure || proto === 'https';
+  }
+
+  /**
+   * Set the refresh token HttpOnly cookie on the response.
+   * In local HTTP development, use SameSite=Lax to avoid invalid cookie rejection.
+   */
+  private getRefreshTokenCookieOptions(req: Request, sameSite?: 'strict' | 'lax' | 'none') {
+    const isProduction = NODE_ENV === 'production';
+    const isSecure = REFRESH_TOKEN_COOKIE_SECURE === 'auto' ? isProduction || this.isSecureRequest(req) : REFRESH_TOKEN_COOKIE_SECURE === 'true';
+
+    const autoSameSite = isSecure ? 'none' : 'lax';
+    const site = sameSite ?? (REFRESH_TOKEN_COOKIE_SAMESITE === 'auto' ? autoSameSite : REFRESH_TOKEN_COOKIE_SAMESITE);
 
     return {
       httpOnly: true,
-      secure,
-      sameSite: (site as any) || 'none',
+      secure: isSecure,
+      sameSite: (site as any) || 'lax',
       maxAge: REFRESH_TOKEN_MAX_AGE,
       path: '/',
-      ...(REFRESH_TOKEN_COOKIE_DOMAIN ? { domain: REFRESH_TOKEN_COOKIE_DOMAIN } : {}),
+      ...(isProduction && REFRESH_TOKEN_COOKIE_DOMAIN ? { domain: REFRESH_TOKEN_COOKIE_DOMAIN } : {}),
     };
   }
 
-  private setRefreshTokenCookie(res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
-    res.cookie('refreshToken', refreshToken, this.getRefreshTokenCookieOptions(sameSite));
+  private setRefreshTokenCookie(req: Request, res: Response, refreshToken: string, sameSite?: 'strict' | 'lax' | 'none'): void {
+    res.cookie('refreshToken', refreshToken, this.getRefreshTokenCookieOptions(req, sameSite));
   }
 
   /**
@@ -77,12 +109,17 @@ class AuthController {
         message,
       });
     } else {
-      this.setRefreshTokenCookie(res, refreshToken);
+      this.setRefreshTokenCookie(req, res, refreshToken);
       setCsrfToken(res);
+
+      const origin = req.headers.origin;
+      const isDevWebOrigin = NODE_ENV !== 'production' && typeof origin === 'string' && origin.startsWith('http://');
+
       res.status(200).json({
         data: stripSensitiveFields(userData),
         token: tokenData.token,
         expiresIn: tokenData.expiresIn,
+        ...(NODE_ENV !== 'production' && isDevWebOrigin ? { refreshToken } : {}),
         message,
       });
     }
@@ -170,8 +207,8 @@ class AuthController {
       let jti: string | undefined;
       if (refreshToken) {
         try {
-          const decoded = verify(refreshToken, REFRESH_TOKEN_SECRET) as RefreshTokenPayload;
-          jti = decoded.jti;
+          const decoded = this.decodeRefreshTokenPayload(refreshToken);
+          jti = decoded?.jti;
         } catch {
           // Token invalid, will logout from all devices
         }
@@ -221,11 +258,16 @@ class AuthController {
           message: 'Token refreshed',
         });
       } else {
-        this.setRefreshTokenCookie(res, newRefreshToken);
+        this.setRefreshTokenCookie(req, res, newRefreshToken);
         setCsrfToken(res);
+
+        const origin = req.headers.origin;
+        const isDevWebOrigin = NODE_ENV !== 'production' && typeof origin === 'string' && origin.startsWith('http://');
+
         res.status(200).json({
           token: tokenData.token,
           expiresIn: tokenData.expiresIn,
+          ...(NODE_ENV !== 'production' && isDevWebOrigin ? { refreshToken: newRefreshToken } : {}),
           message: 'Token refreshed',
         });
       }
@@ -254,7 +296,7 @@ class AuthController {
           message: 'google-auth',
         });
       } else {
-        this.setRefreshTokenCookie(res, refreshToken, 'lax');
+        this.setRefreshTokenCookie(req, res, refreshToken, 'lax');
         setCsrfToken(res);
         return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google`);
       }
