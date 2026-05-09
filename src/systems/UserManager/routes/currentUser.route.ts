@@ -48,10 +48,10 @@ class CurrentUserRoute implements Routes {
       validationMiddleware(LocationDto, 'body'),
       this.currentUserController.updateLocation,
     );
-    // PUT - Upload profile image
+    // PUT - Upload profile image (CSRF protection via header)
     this.router.put('/image', authMiddleware, csrfMiddleware, upload.single('image'), this.currentUserController.uploadProfileImage);
 
-    // PUT - Upload cover image
+    // PUT - Upload cover image (CSRF protection via header)
     this.router.put('/cover-image', authMiddleware, csrfMiddleware, upload.single('coverImage'), this.currentUserController.uploadCoverImage);
 
     // PUT - Update client profile (client users only)
