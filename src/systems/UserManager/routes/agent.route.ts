@@ -52,7 +52,7 @@ class AgentRoute implements Routes {
       this.agentController.toggleAvailability,
     );
 
-    this.router.put('/me/image', authMiddleware, agentMiddleware, upload.single('image'), this.agentController.uploadOwnImage);
+    this.router.put('/me/image', authMiddleware, agentMiddleware, csrfMiddleware, upload.single('image'), this.agentController.uploadOwnImage);
 
     this.router.get('/me/queue', authMiddleware, agentMiddleware, this.agentController.getMyQueue);
     this.router.get('/me/queue/stats', authMiddleware, agentMiddleware, this.agentController.getMyQueueStats);
@@ -106,7 +106,7 @@ class AgentRoute implements Routes {
       this.agentController.updateAgent,
     );
     this.router.delete('/:agentId', authMiddleware, adminOrLoungeMiddleware, csrfMiddleware, this.agentController.deleteAgent);
-    this.router.put('/:agentId/image', authMiddleware, adminOrLoungeMiddleware, upload.single('image'), this.agentController.uploadProfileImage);
+    this.router.put('/:agentId/image', authMiddleware, adminOrLoungeMiddleware, csrfMiddleware, upload.single('image'), this.agentController.uploadProfileImage);
   }
 }
 

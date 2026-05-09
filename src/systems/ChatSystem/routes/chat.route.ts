@@ -90,9 +90,9 @@ class ChatRoute implements Routes {
 
     this.router.post(
       '/conversations/:id/messages',
-      csrfMiddleware,
       generalRateLimiter, // 100 req / 15 min per IP
       optionalUpload('file'), // handles multipart for image/file/audio uploads
+      csrfMiddleware,
       validationMiddleware(SendMessageDto, 'body', true),
       this.chatController.sendMessage,
     );
