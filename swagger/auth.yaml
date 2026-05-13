@@ -141,3 +141,148 @@
     security: []
     responses:
       '302': { description: Redirect to frontend with tokens }
+
+/v1/auth/sessions:
+  get:
+    tags: [Auth, SessionSwitch]
+    summary: List all active sessions for current user
+    description: Returns a list of active sessions with masked PII (email/phone). Each session includes sessionId, device name, creation timestamp, and last-used timestamp. Indicates which session is current.
+    operationId: listSessions
+    parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema: { type: string, example: "Bearer eyJhbGc..." }
+    responses:
+      '200':
+        description: Sessions retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/SessionInfo'
+                message:
+                  type: string
+                  example: "Sessions retrieved successfully"
+      '401':
+        description: Unauthorized (invalid or expired access token)
+      '429':
+        description: Rate limit exceeded (100 requests per 15 minutes)
+
+/v1/auth/switch-session:
+  post:
+    tags: [Auth, SessionSwitch]
+    summary: Switch to a different active session
+    description: |
+      **Deterministic session switching** - switches to a specified session owned by the current user.
+      Requires CSRF token for security. Revokes old session to prevent token chain reuse.
+      Returns new access token + refresh token (web) or access token only (mobile).
+      Guarantes POST /v1/me after switch returns the switched user account.
+    operationId: switchSession
+    parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema: { type: string, example: "Bearer eyJhbGc..." }
+      - name: X-CSRF-Token
+        in: header
+        required: true
+        schema: { type: string }
+        description: CSRF token from GET /v1/auth/csrf-token
+      - name: x-client-type
+        in: header
+        required: false
+        schema: { type: string, enum: [web, mobile] }
+        description: Client type (web = no refresh token in response, mobile = includes refresh token)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SwitchSessionDto'
+    responses:
+      '200':
+        description: Session switched successfully
+        headers:
+          Set-Cookie:
+            schema: { type: string }
+            description: New refresh token (HttpOnly cookie), CSRF token (web only)
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  description: New access token for switched session
+                refreshToken:
+                  type: string
+                  description: New refresh token (mobile clients only)
+                expiresIn:
+                  type: integer
+                  example: 900
+                  description: Access token TTL in seconds
+                data:
+                  $ref: '#/components/schemas/User'
+                message:
+                  type: string
+                  example: "Session switched successfully"
+      '400':
+        description: Bad request (missing/invalid sessionId)
+      '401':
+        description: Unauthorized (invalid token or CSRF token)
+      '403':
+        description: Forbidden (CSRF mismatch, account blocked, or not session owner)
+      '404':
+        description: Session not found
+      '409':
+        description: Session expired
+      '429':
+        description: Rate limit exceeded (10 requests per 15 minutes - strict limit)
+
+/v1/auth/switch-session/verify:
+  post:
+    tags: [Auth, SessionSwitch]
+    summary: Verify current session after switch
+    description: Returns the current active sessionId and verifies the switch was successful. Optional endpoint for frontend assertion.
+    operationId: verifySwitchSession
+    parameters:
+      - name: Authorization
+        in: header
+        required: true
+        schema: { type: string, example: "Bearer eyJhbGc..." }
+    responses:
+      '200':
+        description: Session verified successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    sessionId:
+                      type: string
+                      format: uuid
+                      description: Current active session ID
+                    userId:
+                      type: string
+                      description: Current user ID
+                    isCurrentSession:
+                      type: boolean
+                      example: true
+                      description: Always true if successful
+                message:
+                  type: string
+                  example: "Session verified successfully"
+      '401':
+        description: Unauthorized (invalid or expired access token)
+      '404':
+        description: Current session not found
+      '429':
+        description: Rate limit exceeded (100 requests per 15 minutes)

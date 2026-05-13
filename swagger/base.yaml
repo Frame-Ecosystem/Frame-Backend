@@ -38,6 +38,8 @@ servers:
 tags:
   - name: Auth
     description: Authentication, registration, and session management
+  - name: SessionSwitch
+    description: Multi-account session switching for web clients
   - name: Current User
     description: Current authenticated user operations
   - name: Admin
@@ -259,6 +261,113 @@ components:
         isLiked: { type: boolean }
         isSaved: { type: boolean }
         createdAt: { type: string, format: date-time }
+
+    # ── Authentication & Session Management ──
+    SessionInfo:
+      type: object
+      description: Information about an active user session
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Stable server-managed identifier for this session
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        userId:
+          type: string
+          description: User ID owning this session
+          example: "6789abcd01234efgh5678901"
+        displayName:
+          type: string
+          description: Display name derived from firstName + lastName
+          example: "John Doe"
+        emailOrPhoneMasked:
+          type: string
+          description: PII masked (j***@example.com or +1***5678)
+          example: "j***@example.com"
+        deviceName:
+          type: string
+          description: Device type (parsed from user agent)
+          example: "iPhone 12"
+        createdAt:
+          type: string
+          format: date-time
+          description: Session creation timestamp
+          example: "2025-01-15T10:00:00Z"
+        lastUsedAt:
+          type: string
+          format: date-time
+          description: Last activity within this session
+          example: "2025-01-15T14:30:00Z"
+        isCurrent:
+          type: boolean
+          description: Whether this is the current active session
+          example: true
+
+    SwitchSessionDto:
+      type: object
+      description: Request payload for switching to a different session
+      required: [sessionId]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+          description: Target session ID to switch to (must be owned by current user)
+          example: "660e8400-e29b-41d4-a716-446655440001"
+
+    User:
+      type: object
+      description: User profile object
+      properties:
+        _id:
+          type: string
+          description: User ID (MongoDB ObjectId)
+          example: "6789abcd01234efgh5678901"
+        email:
+          type: string
+          format: email
+          description: User email
+          example: "john@example.com"
+        firstName:
+          type: string
+          description: First name
+          example: "John"
+        lastName:
+          type: string
+          description: Last name
+          example: "Doe"
+        phoneNumber:
+          type: string
+          description: Phone number
+          example: "12345678"
+        gender:
+          type: string
+          enum: [male, female, unisex, kids]
+          description: Gender preference
+        type:
+          type: string
+          enum: [user, client, lounge, admin]
+          description: User type
+        profileImage:
+          type: string
+          format: uri
+          description: Profile image URL
+        bio:
+          type: string
+          description: User bio
+        location:
+          $ref: '#/components/schemas/Location'
+        isVerified:
+          type: boolean
+          description: Email verification status
+        isBlocked:
+          type: boolean
+          description: Account block status
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
 
   parameters:
     idParam:
