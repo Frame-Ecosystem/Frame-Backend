@@ -14,6 +14,7 @@
 - [Authentication Flows](#authentication-flows)
 - [Database Schema](#database-schema)
 - [API Endpoints](#api-endpoints)
+- [Multi-Account Session Switching](#multi-account-session-switching)
 - [DTOs & Validation](#dtos--validation)
 - [Services](#services)
 - [Security Features](#security-features)
@@ -273,6 +274,214 @@ erDiagram
   "user": { "_id": "...", "email": "...", "type": "client", ... }
 }
 ```
+
+---
+
+## Multi-Account Session Switching
+
+**Use Case:** Web clients storing multiple account sessions locally can deterministically switch between accounts without re-login.
+
+**Behavioral Guarantee:** When a switch succeeds (200 response), the next GET /v1/me MUST return the switched user with no silent fallback.
+
+### Overview
+
+Multi-account session switching adds three endpoints to safely rotate between pre-authenticated accounts:
+
+1. **GET /v1/auth/sessions** — List active sessions (max 5 per user)
+2. **POST /v1/auth/switch-session** — Switch to a specific session (requires CSRF token)
+3. **POST /v1/auth/switch-session/verify** — Verify current session after switch
+
+### Session Identification
+
+Each session has two IDs:
+
+| ID | Purpose | Exposed |
+|---|---|---|
+| `sessionId` (UUID) | Stable frontend identifier | ✅ Yes (in switch responses) |
+| `jti` (JWT ID) | Token rotation tracking | ❌ No (internal only) |
+
+### Endpoints
+
+#### List Sessions (GET /v1/auth/sessions)
+
+Returns all active sessions with masked PII.
+
+**Example:**
+```bash
+curl -X GET http://localhost:3000/v1/auth/sessions \
+  -H "Authorization: Bearer <access-token>"
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "sessionId": "550e8400-e29b-41d4-a716-446655440000",
+      "userId": "user-123",
+      "displayName": "John Doe",
+      "emailOrPhoneMasked": "j***@example.com",
+      "deviceName": "iPhone 12",
+      "createdAt": "2025-01-15T10:00:00Z",
+      "lastUsedAt": "2025-01-15T14:30:00Z",
+      "isCurrent": true
+    }
+  ]
+}
+```
+
+#### Switch Session (POST /v1/auth/switch-session)
+
+Switch to a different active session. **Requires CSRF token.**
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/v1/auth/switch-session \
+  -H "Authorization: Bearer <access-token>" \
+  -H "X-CSRF-Token: <csrf-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"sessionId": "660e8400-e29b-41d4-a716-446655440001"}' \
+  -H "Cookie: csrf-token=xxx"
+```
+
+**Response (200):**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "expiresIn": 900,
+  "data": {
+    "_id": "user-456",
+    "email": "account2@example.com",
+    "firstName": "Jane",
+    "lastName": "Smith"
+  }
+}
+```
+
+**Error Codes:**
+- `400` — Invalid/missing sessionId
+- `401` — Invalid token or CSRF mismatch
+- `403` — Account blocked or not session owner
+- `404` — Session not found
+- `409` — Session expired
+- `429` — Rate limit (10 req/15 min)
+
+#### Verify Current Session (POST /v1/auth/switch-session/verify)
+
+Optional endpoint to verify the current active session ID.
+
+**Example:**
+```bash
+curl -X POST http://localhost:3000/v1/auth/switch-session/verify \
+  -H "Authorization: Bearer <access-token>"
+```
+
+**Response (200):**
+```json
+{
+  "data": {
+    "sessionId": "660e8400-e29b-41d4-a716-446655440001",
+    "userId": "user-456",
+    "isCurrentSession": true
+  }
+}
+```
+
+### Security Features
+
+**CSRF Protection:**
+- Switch endpoint requires X-CSRF-Token header (same as logout/logout-all)
+
+**Rate Limiting:**
+- GET /sessions: 100 req/15 min
+- POST /switch-session: **10 req/15 min** (stricter, prevents enumeration)
+- POST /verify: 100 req/15 min
+
+**Token Rotation:**
+- Old session jti immediately revoked on switch (prevents reuse chain)
+- New access + refresh tokens issued for target account
+- Refresh token set in HttpOnly cookie (web)
+
+**Audit Logging:**
+- All switch attempts logged (success + failure)
+- Includes source jti, target sessionId, device info, IP
+
+### Frontend Integration Example
+
+```javascript
+// 1. List accounts
+const sessions = await fetch('/v1/auth/sessions', {
+  headers: { 'Authorization': `Bearer ${accessToken}` }
+}).then(r => r.json());
+
+// 2. Get CSRF token
+const csrf = await fetch('/v1/auth/csrf-token')
+  .then(r => r.headers.get('Set-Cookie').match(/csrf-token=([^;]+)/)[1]);
+
+// 3. Switch to session
+const result = await fetch('/v1/auth/switch-session', {
+  method: 'POST',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'X-CSRF-Token': csrf,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ sessionId: sessions[1].sessionId })
+});
+
+if (result.ok) {
+  const { token: newToken } = await result.json();
+  // Update local state with new access token
+  localStorage.setItem('accessToken', newToken);
+  
+  // Verify switch
+  const verify = await fetch('/v1/auth/switch-session/verify', {
+    headers: { 'Authorization': `Bearer ${newToken}` }
+  }).then(r => r.json());
+  console.log('Now logged in as:', verify.data.userId);
+}
+```
+
+### Data Model Changes
+
+**RefreshTokenSession**
+```typescript
+{
+  sessionId: string;       // NEW: UUID, stable identifier
+  jti: string;             // JWT ID, changes on rotation
+  tokenHash: string;       // bcrypt hash
+  userAgent?: string;
+  ip?: string;
+  deviceName?: string;
+  createdAt: Date;
+  expiresAt: Date;
+  lastUsedAt?: Date;       // NEW: Last activity in session
+}
+```
+
+### Migration
+
+- `sessionId` generated on new logins/signups
+- Existing sessions gradually expire naturally
+- No manual migration needed
+- Backward compatible with old clients
+
+### Testing Checklist
+
+**Unit Tests:**
+- ✅ listSessions returns active sessions with masked email
+- ✅ switchSession validates session ownership
+- ✅ switchSession rejects expired/blocked sessions
+- ✅ verifyCurrentSession returns correct sessionId
+
+**Integration Tests:**
+- ✅ Create two accounts, get two sessionIds
+- ✅ Switch between accounts, verify /v1/me changes
+- ✅ Reject switch without CSRF token
+- ✅ Rate limiting enforcement
+- ✅ Old jti rejected after switch
+
+See [MULTI_SESSION_SWITCHING.md](../../MULTI_SESSION_SWITCHING.md) for detailed architecture and behavioral contract.
 
 ---
 
