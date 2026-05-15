@@ -1,176 +1,143 @@
 ###
-# ADMIN API Tests - REST Client for VS Code
-# ============================================
-# Install "REST Client" extension to use this file
-# Click "Send Request" above each request to execute
-# ============================================
+# Admin API requests (VS Code REST Client)
+# Install "REST Client" extension and click "Send Request".
 
-@baseURL = http://0.0.0.0:2000/v1/admin/users
+@api = http://0.0.0.0:2000
+@admin = {{api}}/v1/admin
+@accessToken = REPLACE_WITH_ADMIN_JWT
+@csrfToken = dev-bypass
+@userId = 507f1f77bcf86cd799439011
 
-
-# ============================================
-# GET ALL USERS
-# ============================================
 ###
-# Get all users (valid)
-GET {{baseURL}}
+# List users (paginated)
+GET {{admin}}/users?page=1&limit=20&search=
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 ###
-# Get all users (invalid endpoint)
-GET {{baseURL}}z
+# Get one user
+GET {{admin}}/users/{{userId}}
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 ###
-# Get all users (unauthorized)
-GET {{baseURL}}
-
-
-# ============================================
-# CREATE USER
-# ============================================
-###
-# Create user (valid)
-POST {{baseURL}}
+# Create user
+POST {{admin}}/users
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
 Content-Type: application/json
-X-CSRF-Token: dev-bypass
 
 {
-    "email": "admincreated@example.com",
-    "password": "AdminP@ss123",
-    "username": "admincreated",
-    "phoneNumber": "+21698765432",
-    "role": "user"
+    "email": "admin.created.user@example.com",
+    "password": "StrongP@ssword1",
+    "phoneNumber": "12345678",
+    "firstName": "Admin",
+    "lastName": "Created",
+    "type": "client"
 }
 
 ###
-# Create user (missing fields)
-POST {{baseURL}}
+# Update user
+PUT {{admin}}/users/{{userId}}
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
 Content-Type: application/json
-X-CSRF-Token: dev-bypass
 
 {
-    "email": "missingfields@example.com"
+    "firstName": "Updated",
+    "lastName": "User"
 }
 
 ###
-# Create user (invalid email)
-POST {{baseURL}}
+# Toggle block state
+PATCH {{admin}}/users/{{userId}}/block
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
 Content-Type: application/json
-X-CSRF-Token: dev-bypass
 
 {
-    "email": "not-an-email",
-    "password": "AdminP@ss123",
-    "username": "admincreated",
-    "phoneNumber": "+21698765432",
-    "role": "user"
+    "isBlocked": true
 }
 
 ###
-# Create user (weak password)
-POST {{baseURL}}
+# Delete user
+DELETE {{admin}}/users/{{userId}}
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
 Content-Type: application/json
-X-CSRF-Token: dev-bypass
+
+###
+# Session info
+GET {{admin}}/session-info
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# Lounge names
+GET {{admin}}/lounges/names
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# Admin stats
+GET {{admin}}/system/stats
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# System health
+GET {{admin}}/system/health
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# Activity log
+GET {{admin}}/system/activity-log?limit=50
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# Dashboard
+GET {{admin}}/system/dashboard
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+###
+# Clear user sessions
+POST {{admin}}/system/users/{{userId}}/clear-sessions
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
+Content-Type: application/json
+
+###
+# Reset user password
+POST {{admin}}/system/users/{{userId}}/reset-password
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
+Content-Type: application/json
 
 {
-    "email": "weakpass@example.com",
-    "password": "password",
-    "username": "weakuser",
-    "phoneNumber": "+21698765432",
-    "role": "user"
+    "newPassword": "NewStrongP@ssword2"
 }
 
-
-# ============================================
-# GET USER BY ID
-# ============================================
 ###
-# Get user by valid ID
-GET {{baseURL}}/693460380ab78aa43704bea9
+# Export user data
+GET {{admin}}/system/users/{{userId}}/export
+Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 ###
-# Get user by invalid ID
-GET {{baseURL}}/invalidid123
+# Create admin audit log
+POST {{admin}}/system/audit-log
+Authorization: Bearer {{accessToken}}
+X-CSRF-Token: {{csrfToken}}
 Content-Type: application/json
-
-###
-# Get user by non-existent ID
-GET {{baseURL}}/507f1f77bcf86cd799439012
-Content-Type: application/json
-
-
-# ============================================
-# UPDATE USER
-# ============================================
-###
-# Update user (valid)
-PUT {{baseURL}}/693460380ab78aa43704bea9
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
 
 {
-    "email": "updated@example.com",
-    "username": "updateduser",
-    "phoneNumber": "+21655555555"
+    "action": "ADMIN_USER_FORCE_LOGOUT",
+    "details": {
+        "targetUserId": "{{userId}}",
+        "reason": "Security review"
+    }
 }
-
-###
-# Update user (missing fields)
-PUT {{baseURL}}/693460380ab78aa43704bea9
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-
-{
-    "email": "updated@example.com"
-}
-
-###
-# Update user (invalid ID)
-PUT {{baseURL}}/invalidid123
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-
-{
-    "email": "updated@example.com",
-    "username": "updateduser",
-    "phoneNumber": "+21655555555"
-}
-
-
-# ============================================
-# DELETE USER
-# ============================================
-###
-# Delete user (valid)
-DELETE {{baseURL}}/507f1f77bcf86cd799439011
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-
-###
-# Delete user (invalid ID)
-DELETE {{baseURL}}/invalidid123
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-
-###
-# Delete user (non-existent ID)
-DELETE {{baseURL}}/507f1f77bcf86cd799439012
-Content-Type: application/json
-X-CSRF-Token: dev-bypass
-
-
-# ============================================
-# GET ONLINE USERS
-# ============================================
-###
-# Get online users (valid)
-GET {{baseURL}}/online/status
-Content-Type: application/json
-
-###
-# Get online users (invalid endpoint)
-GET {{baseURL}}/online/statuz
-Content-Type: application/json
 

@@ -1,71 +1,105 @@
-# Admin Services endpoints
-/v1/admin-services/stats:
+# Admin System Services endpoints
+/v1/admin/system/stats:
   get:
     tags: [Admin Services]
-    summary: Get all admin service stats
+    summary: Get admin-level user and platform counters
     responses:
-      '200': { description: Service stats }
+      '200': { description: Admin system statistics }
 
-/v1/admin-services/health:
+/v1/admin/system/health:
   get:
     tags: [Admin Services]
-    summary: System health check
+    summary: Get process and database health metrics
     responses:
-      '200': { description: Health info }
+      '200': { description: System health information }
 
-/v1/admin-services/activity-log:
+/v1/admin/system/activity-log:
   get:
     tags: [Admin Services]
-    summary: User activity log
+    summary: Get latest user activity snapshots
+    parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
     responses:
-      '200': { description: Activity entries }
+      '200': { description: User activity entries }
 
-/v1/admin-services/dashboard:
+/v1/admin/system/dashboard:
   get:
     tags: [Admin Services]
-    summary: Dashboard statistics
+    summary: Get dashboard KPIs for admin panel
     responses:
-      '200': { description: Dashboard data }
+      '200': { description: Dashboard statistics }
 
-/v1/admin-services/users/{userId}/clear-sessions:
+/v1/admin/system/users/{userId}/clear-sessions:
   post:
     tags: [Admin Services]
-    summary: Clear all sessions for a user
+    summary: Clear all active sessions for a user
     parameters:
       - name: userId
         in: path
         required: true
         schema: { type: string }
     responses:
-      '200': { description: Sessions cleared }
+      '200': { description: User sessions cleared }
 
-/v1/admin-services/users/{userId}/reset-password:
+/v1/admin/system/users/{userId}/reset-password:
   post:
     tags: [Admin Services]
-    summary: Force-reset user password
+    summary: Force-reset a user password and revoke sessions
     parameters:
       - name: userId
         in: path
         required: true
         schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [newPassword]
+            properties:
+              newPassword:
+                type: string
+                minLength: 8
+                maxLength: 128
     responses:
-      '200': { description: Password reset }
+      '200': { description: User password reset }
 
-/v1/admin-services/users/{userId}/export:
+/v1/admin/system/users/{userId}/export:
   get:
     tags: [Admin Services]
-    summary: Export user data
+    summary: Export user profile and session metadata
     parameters:
       - name: userId
         in: path
         required: true
         schema: { type: string }
     responses:
-      '200': { description: User data export }
+      '200': { description: User export payload }
 
-/v1/admin-services/audit-log:
+/v1/admin/system/audit-log:
   post:
     tags: [Admin Services]
-    summary: Create audit log entry
+    summary: Create a persisted admin audit log entry
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [action]
+            properties:
+              action:
+                type: string
+                maxLength: 120
+              details:
+                type: object
     responses:
       '201': { description: Audit log created }
