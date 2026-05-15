@@ -76,6 +76,7 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
   isAdmin: (user: any) => user?.type === 'admin',
   isLounge: (user: any) => user?.type === 'lounge',
   isClient: (user: any) => user?.type === 'client',
+  isAgent: (user: any) => user?.type === 'agent',
 }));
 
 // Service mocks
@@ -86,19 +87,24 @@ jest.mock('@systems/UserManager/services/userManagement.service', () => ({
     findUserById: jest.fn().mockResolvedValue({ _id: 'user1', email: 'user@test.com', type: 'client' }),
     createUser: jest.fn().mockResolvedValue({ _id: 'user2', email: 'new@test.com' }),
     updateUser: jest.fn().mockResolvedValue({ _id: 'user1', email: 'updated@test.com' }),
-    deleteUser: jest.fn().mockResolvedValue(undefined),
-    blockUser: jest.fn().mockResolvedValue({ _id: 'user1', isBlocked: true }),
-    unblockUser: jest.fn().mockResolvedValue({ _id: 'user1', isBlocked: false }),
+    deleteUser: jest.fn().mockResolvedValue({ _id: 'user1', email: 'deleted@test.com' }),
+    changeUserBlockedState: jest.fn().mockResolvedValue({ _id: 'user1', isBlocked: true }),
     getOnlineUsers: jest.fn().mockResolvedValue([]),
+    getAllLoungeNames: jest.fn().mockResolvedValue([]),
   })),
 }));
 
 jest.mock('@systems/AdminSystem/services/systemServices.service', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    getDashboard: jest.fn().mockResolvedValue({ totalUsers: 0, totalBookings: 0, totalOrders: 0 }),
-    getSystemStats: jest.fn().mockResolvedValue({ cpu: 0, memory: 0, uptime: 0 }),
-    getOnlineUsers: jest.fn().mockResolvedValue([]),
+    getAllAdminServices: jest.fn().mockResolvedValue({ totalUsers: 0, onlineUsers: 0, blockedUsers: 0, usersByType: {} }),
+    getSystemHealth: jest.fn().mockResolvedValue({ status: 'healthy' }),
+    getUserActivityLog: jest.fn().mockResolvedValue([]),
+    getDashboardStats: jest.fn().mockResolvedValue({ totalUsers: 0, newUsersThisMonth: 0, onlineUsers: 0, blockedUsers: 0, usersByType: {} }),
+    clearUserSessions: jest.fn().mockResolvedValue({ _id: 'user1' }),
+    resetUserPassword: jest.fn().mockResolvedValue({ _id: 'user1' }),
+    exportUserData: jest.fn().mockResolvedValue({ user: { _id: 'user1' }, exportedAt: new Date().toISOString(), metadata: {} }),
+    createAuditLog: jest.fn().mockResolvedValue({ _id: 'audit1', action: 'test', adminUserId: 'user1', createdAt: new Date().toISOString() }),
   })),
 }));
 
@@ -121,9 +127,15 @@ const mockAdmin = makeAdminUser();
 
 let server: Express.Application;
 
+const resolveUserById = (id: string) => {
+  if (id === testIds.admin) return mockAdmin;
+  if (id === testIds.lounge) return mockLounge;
+  return mockClient;
+};
+
 beforeAll(() => {
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.admin ? mockAdmin : id === testIds.lounge ? mockLounge : mockClient;
+    const user = resolveUserById(id);
     return { select: jest.fn().mockResolvedValue(user) };
   });
   server = new App([new IndexRoute(), new AdminRoute()]).getServer();
@@ -132,7 +144,7 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.admin ? mockAdmin : id === testIds.lounge ? mockLounge : mockClient;
+    const user = resolveUserById(id);
     return { select: jest.fn().mockResolvedValue(user) };
   });
 });

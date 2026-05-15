@@ -1,9 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import { RequestWithUser } from '@systems/AuthSystem/interfaces/auth.interface';
+import { BadRequestException } from '@exceptions/HttpException';
+import { CreateAuditLogDto, ResetUserPasswordDto } from '@systems/AdminSystem/dtos/systemServices.dto';
 import SystemServicesService from '@systems/AdminSystem/services/systemServices.service';
 
 class SystemServicesController {
-  private systemServicesService = new SystemServicesService();
+  private readonly systemServicesService = new SystemServicesService();
 
   /**
    * Get all admin services statistics
@@ -40,7 +42,7 @@ class SystemServicesController {
    */
   public getUserActivityLog = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const limit = parseInt(req.query.limit as string) || 100;
+      const limit = req.query.limit ? Number(req.query.limit) : 100;
       const activityLog = await this.systemServicesService.getUserActivityLog(limit);
       res.status(200).json({
         data: activityLog,
@@ -89,13 +91,7 @@ class SystemServicesController {
   public resetUserPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = req.params.userId;
-      const { newPassword } = req.body;
-
-      if (!newPassword) {
-        return res.status(400).json({
-          message: 'New password is required',
-        });
-      }
+      const { newPassword } = req.body as ResetUserPasswordDto;
 
       const user = await this.systemServicesService.resetUserPassword(userId, newPassword);
       res.status(200).json({
@@ -128,16 +124,16 @@ class SystemServicesController {
    */
   public createAuditLog = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const { action, details } = req.body;
-      const userId = req.user?._id;
-
-      if (!action) {
-        return res.status(400).json({
-          message: 'Action is required',
-        });
+      const { action, details } = req.body as CreateAuditLogDto;
+      const userId = req.user?._id ? String(req.user._id) : '';
+      if (!userId) {
+        throw new BadRequestException('Authenticated user id is required');
       }
 
-      const auditLog = await this.systemServicesService.createAuditLog(action, userId, details);
+      const auditLog = await this.systemServicesService.createAuditLog(action, userId, details, {
+        ipAddress: req.ip,
+        userAgent: req.get('user-agent'),
+      });
       res.status(201).json({
         data: auditLog,
         message: 'Audit log created successfully',
