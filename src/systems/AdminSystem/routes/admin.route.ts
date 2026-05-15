@@ -12,6 +12,12 @@ import { CreateUserDto, UpdateUserDto } from '@systems/UserManager/dtos/user.dto
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@systems/ServiceCatalogSystem/dtos/serviceCategories.dto';
 import { UpdateServiceSuggestionStatusDto, AdminApproveServiceSuggestionDto } from '@systems/ServiceCatalogSystem/dtos/serviceSuggestions.dto';
 import { ReviewReportDto } from '@systems/FeedContentSystem/dtos/report.dto';
+import {
+  AdminUserIdParamDto,
+  CreateAuditLogDto,
+  GetUserActivityLogQueryDto,
+  ResetUserPasswordDto,
+} from '@systems/AdminSystem/dtos/systemServices.dto';
 
 // Middlewares
 import authMiddleware from '@middlewares/auth.middleware';
@@ -23,10 +29,10 @@ class AdminRoute implements Routes {
   public path = '/v1/admin';
   public router = Router();
 
-  private userCtrl = new UserManagementController();
-  private systemCtrl = new SystemServicesController();
-  private moderationCtrl = new ContentModerationController();
-  private catalogCtrl = new CatalogManagementController();
+  private readonly userCtrl = new UserManagementController();
+  private readonly systemCtrl = new SystemServicesController();
+  private readonly moderationCtrl = new ContentModerationController();
+  private readonly catalogCtrl = new CatalogManagementController();
 
   constructor() {
     this.initializeRoutes();
@@ -39,11 +45,17 @@ class AdminRoute implements Routes {
     // ═══════════════════════════════════════════════════════════════
     // USER MANAGEMENT — /v1/admin/users/*
     // ═══════════════════════════════════════════════════════════════
-    this.router.get('/users', this.userCtrl.getUsers);
-    this.router.get('/users/:id', this.userCtrl.getUserById);
-    this.router.post('/users', csrfMiddleware, validationMiddleware(CreateUserDto, 'body'), this.userCtrl.createUser);
-    this.router.put('/users/:id', csrfMiddleware, validationMiddleware(UpdateUserDto, 'body', true), this.userCtrl.updateUser);
-    this.router.delete('/users/:id', csrfMiddleware, this.userCtrl.deleteUser);
+    this.router
+      .route('/users')
+      .get(this.userCtrl.getUsers)
+      .post(csrfMiddleware, validationMiddleware(CreateUserDto, 'body'), this.userCtrl.createUser);
+
+    this.router
+      .route('/users/:id')
+      .get(this.userCtrl.getUserById)
+      .put(csrfMiddleware, validationMiddleware(UpdateUserDto, 'body', true), this.userCtrl.updateUser)
+      .delete(csrfMiddleware, this.userCtrl.deleteUser);
+
     this.router.patch('/users/:id/block', csrfMiddleware, this.userCtrl.changeUserBlockedState);
 
     // Session info & lounge names
@@ -55,12 +67,23 @@ class AdminRoute implements Routes {
     // ═══════════════════════════════════════════════════════════════
     this.router.get('/system/stats', this.systemCtrl.getAllAdminServices);
     this.router.get('/system/health', this.systemCtrl.getSystemHealth);
-    this.router.get('/system/activity-log', this.systemCtrl.getUserActivityLog);
+    this.router.get('/system/activity-log', validationMiddleware(GetUserActivityLogQueryDto, 'query'), this.systemCtrl.getUserActivityLog);
     this.router.get('/system/dashboard', this.systemCtrl.getDashboardStats);
-    this.router.post('/system/users/:userId/clear-sessions', csrfMiddleware, this.systemCtrl.clearUserSessions);
-    this.router.post('/system/users/:userId/reset-password', csrfMiddleware, this.systemCtrl.resetUserPassword);
-    this.router.get('/system/users/:userId/export', this.systemCtrl.exportUserData);
-    this.router.post('/system/audit-log', csrfMiddleware, this.systemCtrl.createAuditLog);
+    this.router.post(
+      '/system/users/:userId/clear-sessions',
+      csrfMiddleware,
+      validationMiddleware(AdminUserIdParamDto, 'params'),
+      this.systemCtrl.clearUserSessions,
+    );
+    this.router.post(
+      '/system/users/:userId/reset-password',
+      csrfMiddleware,
+      validationMiddleware(AdminUserIdParamDto, 'params'),
+      validationMiddleware(ResetUserPasswordDto, 'body'),
+      this.systemCtrl.resetUserPassword,
+    );
+    this.router.get('/system/users/:userId/export', validationMiddleware(AdminUserIdParamDto, 'params'), this.systemCtrl.exportUserData);
+    this.router.post('/system/audit-log', csrfMiddleware, validationMiddleware(CreateAuditLogDto, 'body'), this.systemCtrl.createAuditLog);
 
     // ═══════════════════════════════════════════════════════════════
     // CONTENT MODERATION — /v1/admin/moderation/*
