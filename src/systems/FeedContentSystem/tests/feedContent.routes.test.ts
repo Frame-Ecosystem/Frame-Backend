@@ -70,6 +70,8 @@ jest.mock('@middlewares/rateLimit.middleware', () => ({
   contentCreateRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   commentRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   reportRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedReadLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedDiscoveryLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 jest.mock('@middlewares/contentUpload.middleware', () => ({
