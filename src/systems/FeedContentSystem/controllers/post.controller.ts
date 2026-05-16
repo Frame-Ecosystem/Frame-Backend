@@ -1,9 +1,10 @@
 import { NextFunction, Response } from 'express';
 import PostService from '@systems/FeedContentSystem/services/post.service';
 import { RequestWithUser } from '@systems/AuthSystem/interfaces/auth.interface';
+import { BadRequestException } from '@exceptions/HttpException';
 
 class PostController {
-  private postService = new PostService();
+  private readonly postService = new PostService();
 
   /** Create a post (images + text) */
   public createPost = async (req: RequestWithUser, res: Response, next: NextFunction) => {
@@ -13,7 +14,14 @@ class PostController {
       const files = req.files as Express.Multer.File[];
       const { text, hashtags } = req.body;
 
-      const parsedHashtags = hashtags ? (Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags)) : undefined;
+      let parsedHashtags: string[] | undefined;
+      if (hashtags) {
+        try {
+          parsedHashtags = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags);
+        } catch {
+          throw new BadRequestException('hashtags must be a valid JSON array', 'INVALID_HASHTAGS');
+        }
+      }
 
       const post = await this.postService.createPost(authorId, authorType, { text, hashtags: parsedHashtags }, files);
       res.status(201).json({ data: post, message: 'Post created successfully' });
@@ -36,8 +44,8 @@ class PostController {
   /** Get posts by user */
   public getUserPosts = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const page = Number.parseInt(req.query.page as string, 10) || 1;
+      const limit = Number.parseInt(req.query.limit as string, 10) || 10;
       const result = await this.postService.getUserPosts(req.params.userId, page, limit);
       res.status(200).json({ data: result.posts, pagination: { total: result.total, page, limit }, message: 'Posts retrieved successfully' });
     } catch (error) {
@@ -50,7 +58,14 @@ class PostController {
     try {
       const userId = req.user._id.toString();
       const { text, hashtags } = req.body;
-      const parsedHashtags = hashtags ? (Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags)) : undefined;
+      let parsedHashtags: string[] | undefined;
+      if (hashtags) {
+        try {
+          parsedHashtags = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags);
+        } catch {
+          throw new BadRequestException('hashtags must be a valid JSON array', 'INVALID_HASHTAGS');
+        }
+      }
 
       const post = await this.postService.updatePost(req.params.postId, userId, { text, hashtags: parsedHashtags });
       res.status(200).json({ data: post, message: 'Post updated successfully' });

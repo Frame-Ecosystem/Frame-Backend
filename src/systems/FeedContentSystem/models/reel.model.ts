@@ -10,7 +10,7 @@ const reelSchema = new Schema(
     videoPublicId: { type: String, required: true },
     thumbnailUrl: { type: String, default: '' },
     thumbnailPublicId: { type: String, default: '' },
-    duration: { type: Number, required: true, min: 1, max: 60 },
+    duration: { type: Number, required: true, min: 1, max: 300 },
     hashtags: { type: [String], default: [] },
     likeCount: { type: Number, default: 0 },
     commentCount: { type: Number, default: 0 },

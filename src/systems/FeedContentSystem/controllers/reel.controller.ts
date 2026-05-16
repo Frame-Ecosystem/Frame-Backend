@@ -1,9 +1,10 @@
 import { NextFunction, Response } from 'express';
 import ReelService from '@systems/FeedContentSystem/services/reel.service';
 import { RequestWithUser } from '@systems/AuthSystem/interfaces/auth.interface';
+import { BadRequestException } from '@exceptions/HttpException';
 
 class ReelController {
-  private reelService = new ReelService();
+  private readonly reelService = new ReelService();
 
   /** Create a reel (video + optional thumbnail) */
   public createReel = async (req: RequestWithUser, res: Response, next: NextFunction) => {
@@ -13,7 +14,14 @@ class ReelController {
       const files = req.files as { video?: Express.Multer.File[]; thumbnail?: Express.Multer.File[] };
       const { caption, duration, hashtags } = req.body;
 
-      const parsedHashtags = hashtags ? (Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags)) : undefined;
+      let parsedHashtags: string[] | undefined;
+      if (hashtags) {
+        try {
+          parsedHashtags = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags);
+        } catch {
+          throw new BadRequestException('hashtags must be a valid JSON array', 'INVALID_HASHTAGS');
+        }
+      }
 
       const reel = await this.reelService.createReel(authorId, authorType, { caption, duration: Number(duration), hashtags: parsedHashtags }, files);
       res.status(201).json({ data: reel, message: 'Reel created successfully' });
@@ -36,8 +44,8 @@ class ReelController {
   /** Get reels by user */
   public getUserReels = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const page = Number.parseInt(req.query.page as string, 10) || 1;
+      const limit = Number.parseInt(req.query.limit as string, 10) || 10;
       const result = await this.reelService.getUserReels(req.params.userId, page, limit);
       res.status(200).json({ data: result.reels, pagination: { total: result.total, page, limit }, message: 'Reels retrieved successfully' });
     } catch (error) {
@@ -48,8 +56,8 @@ class ReelController {
   /** Get reels by lounge */
   public getLoungeReels = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const page = parseInt(req.query.page as string) || 1;
-      const limit = parseInt(req.query.limit as string) || 10;
+      const page = Number.parseInt(req.query.page as string, 10) || 1;
+      const limit = Number.parseInt(req.query.limit as string, 10) || 10;
       const result = await this.reelService.getLoungeContent(req.params.loungeId, page, limit);
       res.status(200).json({
         data: {
@@ -72,7 +80,14 @@ class ReelController {
     try {
       const userId = req.user._id.toString();
       const { caption, hashtags } = req.body;
-      const parsedHashtags = hashtags ? (Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags)) : undefined;
+      let parsedHashtags: string[] | undefined;
+      if (hashtags) {
+        try {
+          parsedHashtags = Array.isArray(hashtags) ? hashtags : JSON.parse(hashtags);
+        } catch {
+          throw new BadRequestException('hashtags must be a valid JSON array', 'INVALID_HASHTAGS');
+        }
+      }
 
       const reel = await this.reelService.updateReel(req.params.reelId, userId, { caption, hashtags: parsedHashtags });
       res.status(200).json({ data: reel, message: 'Reel updated successfully' });
