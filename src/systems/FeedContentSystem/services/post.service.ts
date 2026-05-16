@@ -12,13 +12,15 @@ import { logger } from '@utils/logger';
 import { AuthorType } from '@systems/FeedContentSystem/interfaces/content.interface';
 
 class PostService {
-  private posts = postModel;
-  private hashtags = hashtagModel;
-  private contentLikes = contentLikeModel;
-  private contentSaves = contentSaveModel;
-  private comments = commentModel;
-  private users = userModel;
-  private notificationService = NotificationService.getInstance();
+  private static readonly MAX_POST_IMAGES = 20;
+
+  private readonly posts = postModel;
+  private readonly hashtags = hashtagModel;
+  private readonly contentLikes = contentLikeModel;
+  private readonly contentSaves = contentSaveModel;
+  private readonly comments = commentModel;
+  private readonly users = userModel;
+  private readonly notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
 
@@ -26,6 +28,10 @@ class PostService {
     try {
       if (!files?.length && !data.text) {
         throw new BadRequestException('A post must have at least text or an image', 'EMPTY_POST');
+      }
+
+      if ((files?.length || 0) > PostService.MAX_POST_IMAGES) {
+        throw new BadRequestException('A post can contain at most 20 images', 'POST_MEDIA_LIMIT_EXCEEDED');
       }
 
       // Upload images to R2 (parallel)
@@ -103,7 +109,7 @@ class PostService {
     if (post.authorId.toString() !== userId) throw new ForbiddenException('You can only edit your own posts');
 
     const oldHashtags = post.hashtags || [];
-    const newHashtags = data.hashtags !== undefined ? this.normalizeHashtags(data.hashtags) : oldHashtags;
+    const newHashtags = data.hashtags === undefined ? oldHashtags : this.normalizeHashtags(data.hashtags);
 
     if (data.text !== undefined) post.text = data.text;
     if (data.hashtags !== undefined) post.hashtags = newHashtags;

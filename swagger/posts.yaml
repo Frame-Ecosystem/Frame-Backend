@@ -17,7 +17,7 @@
               media:
                 type: array
                 items: { type: string, format: binary }
-                description: Up to 10 images (jpeg, png, gif, webp). Max 10 MB each.
+                description: Up to 20 images (jpeg, png, gif, webp). Max 10 MB each.
               text:
                 type: string
                 maxLength: 2200

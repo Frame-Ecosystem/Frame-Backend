@@ -12,13 +12,16 @@ import { logger } from '@utils/logger';
 import { AuthorType } from '@systems/FeedContentSystem/interfaces/content.interface';
 
 class ReelService {
-  private posts = postModel;
-  private reels = reelModel;
-  private hashtags = hashtagModel;
-  private contentLikes = contentLikeModel;
-  private contentSaves = contentSaveModel;
-  private comments = commentModel;
-  private notificationService = NotificationService.getInstance();
+  private static readonly MIN_REEL_DURATION_SECONDS = 1;
+  private static readonly MAX_REEL_DURATION_SECONDS = 300;
+
+  private readonly posts = postModel;
+  private readonly reels = reelModel;
+  private readonly hashtags = hashtagModel;
+  private readonly contentLikes = contentLikeModel;
+  private readonly contentSaves = contentSaveModel;
+  private readonly comments = commentModel;
+  private readonly notificationService = NotificationService.getInstance();
 
   /* ───────── Create ───────── */
 
@@ -32,8 +35,12 @@ class ReelService {
       const videoFile = files.video?.[0];
       if (!videoFile) throw new BadRequestException('Video file is required', 'VIDEO_REQUIRED');
 
-      if (data.duration < 1 || data.duration > 60) {
-        throw new BadRequestException('Duration must be between 1 and 60 seconds', 'INVALID_DURATION');
+      if (!Number.isFinite(data.duration)) {
+        throw new BadRequestException('Duration is required and must be numeric', 'INVALID_DURATION');
+      }
+
+      if (data.duration < ReelService.MIN_REEL_DURATION_SECONDS || data.duration > ReelService.MAX_REEL_DURATION_SECONDS) {
+        throw new BadRequestException('Duration must be between 1 and 300 seconds', 'INVALID_DURATION');
       }
 
       const tempId = `${authorId}-${Date.now()}`;
@@ -166,7 +173,7 @@ class ReelService {
     if (reel.authorId.toString() !== userId) throw new ForbiddenException('You can only edit your own reels');
 
     const oldHashtags = reel.hashtags || [];
-    const newHashtags = data.hashtags !== undefined ? this.normalizeHashtags(data.hashtags) : oldHashtags;
+    const newHashtags = data.hashtags === undefined ? oldHashtags : this.normalizeHashtags(data.hashtags);
 
     if (data.caption !== undefined) reel.caption = data.caption;
     if (data.hashtags !== undefined) reel.hashtags = newHashtags;

@@ -4,7 +4,7 @@
   post:
     tags: [Reels]
     summary: Create a new reel
-    description: Upload a video (max 50 MB, 60 seconds) with optional thumbnail, caption, and hashtags.
+    description: Upload a video (max 50 MB, 300 seconds) with optional thumbnail, caption, and hashtags.
     security:
       - bearerAuth: []
     requestBody:
@@ -29,7 +29,7 @@
               duration:
                 type: number
                 minimum: 1
-                maximum: 60
+                maximum: 300
                 description: Duration in seconds
               hashtags:
                 type: array
