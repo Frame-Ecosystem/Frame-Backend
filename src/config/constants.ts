@@ -52,3 +52,14 @@ export const COMMENT_RATE_LIMIT_WINDOW_MS = envInt('COMMENT_RATE_LIMIT_WINDOW_MS
 export const COMMENT_RATE_LIMIT_MAX = envInt('COMMENT_RATE_LIMIT_MAX', 30);
 export const REPORT_RATE_LIMIT_WINDOW_MS = envInt('REPORT_RATE_LIMIT_WINDOW_MS', 60 * 60 * 1000);
 export const REPORT_RATE_LIMIT_MAX = envInt('REPORT_RATE_LIMIT_MAX', 10);
+
+// ── Feed-specific rate limits (high-traffic read paths) ──
+// Keyed per authenticated user, not per IP, to prevent shared-carrier starvation.
+
+/** Core scroll feeds (GET /feed, GET /feed/explore) — 600 req / 15 min ≈ 40/min */
+export const FEED_READ_RATE_LIMIT_WINDOW_MS = envInt('FEED_READ_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
+export const FEED_READ_RATE_LIMIT_MAX = envInt('FEED_READ_RATE_LIMIT_MAX', 600);
+
+/** Discovery feeds (hashtag, trending, search, saved) — 300 req / 15 min ≈ 20/min */
+export const FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS = envInt('FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
+export const FEED_DISCOVERY_RATE_LIMIT_MAX = envInt('FEED_DISCOVERY_RATE_LIMIT_MAX', 300);

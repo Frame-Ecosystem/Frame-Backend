@@ -24,7 +24,21 @@ import {
   REPORT_RATE_LIMIT_MAX,
   FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS,
   FORGOT_PASSWORD_RATE_LIMIT_MAX,
+  FEED_READ_RATE_LIMIT_WINDOW_MS,
+  FEED_READ_RATE_LIMIT_MAX,
+  FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS,
+  FEED_DISCOVERY_RATE_LIMIT_MAX,
 } from '@config/constants';
+
+/**
+ * Key generator that identifies requests by authenticated user ID when available,
+ * falling back to IP for unauthenticated requests.
+ * This prevents shared-carrier / shared-WiFi IP starvation on social feed endpoints.
+ */
+const userOrIpKey = (req: Request): string => {
+  const user = (req as any).user;
+  return user?._id?.toString() || req.ip || req.socket?.remoteAddress || 'anonymous';
+};
 
 /* ───────── Factory ───────── */
 
@@ -131,4 +145,31 @@ export const forgotPasswordRateLimiter = createLimiter(
   FORGOT_PASSWORD_RATE_LIMIT_WINDOW_MS,
   FORGOT_PASSWORD_RATE_LIMIT_MAX,
   'Too many password reset requests. Please try again later.',
+);
+
+/**
+ * Core scroll feeds (GET /feed, GET /feed/explore)
+ * 600 requests / 15 min ≈ 40 req/min per user.
+ * Keyed by authenticated user ID to prevent shared-IP starvation on mobile networks.
+ */
+export const feedReadLimiter = createLimiter(
+  'feed-read',
+  FEED_READ_RATE_LIMIT_WINDOW_MS,
+  FEED_READ_RATE_LIMIT_MAX,
+  'Too many feed requests. Please slow down.',
+  { keyGenerator: userOrIpKey },
+);
+
+/**
+ * Discovery feeds (GET /feed/hashtag/:tag, GET /feed/hashtags/trending,
+ *                  GET /feed/hashtags/search, GET /feed/saved)
+ * 300 requests / 15 min ≈ 20 req/min per user.
+ * Keyed by authenticated user ID.
+ */
+export const feedDiscoveryLimiter = createLimiter(
+  'feed-discovery',
+  FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS,
+  FEED_DISCOVERY_RATE_LIMIT_MAX,
+  'Too many discovery requests. Please slow down.',
+  { keyGenerator: userOrIpKey },
 );
