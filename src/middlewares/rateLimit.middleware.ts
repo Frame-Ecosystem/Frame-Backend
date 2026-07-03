@@ -1,4 +1,4 @@
-import rateLimit, { Options } from 'express-rate-limit';
+import rateLimit, { Options, ipKeyGenerator } from 'express-rate-limit';
 import { Request, Response } from 'express';
 import { logger } from '@utils/logger';
 import {
@@ -28,6 +28,8 @@ import {
   FEED_READ_RATE_LIMIT_MAX,
   FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS,
   FEED_DISCOVERY_RATE_LIMIT_MAX,
+  SEARCH_RATE_LIMIT_WINDOW_MS,
+  SEARCH_RATE_LIMIT_MAX,
 } from '@config/constants';
 
 /**
@@ -37,7 +39,8 @@ import {
  */
 const userOrIpKey = (req: Request): string => {
   const user = (req as any).user;
-  return user?._id?.toString() || req.ip || req.socket?.remoteAddress || 'anonymous';
+  const ip = ipKeyGenerator(req);
+  return user?._id?.toString() || ip || req.socket?.remoteAddress || 'anonymous';
 };
 
 /* ───────── Factory ───────── */
@@ -171,5 +174,18 @@ export const feedDiscoveryLimiter = createLimiter(
   FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS,
   FEED_DISCOVERY_RATE_LIMIT_MAX,
   'Too many discovery requests. Please slow down.',
+  { keyGenerator: userOrIpKey },
+);
+
+/**
+ * UltraSearch — 60 requests / 15 min ≈ 4 req/min per user.
+ * Keyed by authenticated user ID. Search is intentionally kept lower
+ * than feed limits because the query fans out across 8+ collections.
+ */
+export const searchRateLimiter = createLimiter(
+  'search',
+  SEARCH_RATE_LIMIT_WINDOW_MS,
+  SEARCH_RATE_LIMIT_MAX,
+  'Too many search requests. Please slow down.',
   { keyGenerator: userOrIpKey },
 );

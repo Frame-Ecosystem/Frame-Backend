@@ -50,6 +50,18 @@ class ClientRoute implements Routes {
     );
 
     /**
+     * @route   GET /v1/client/lounges/:loungeId/extras
+     * @desc    Get all extras offered by a specific lounge (for clients, admins, and lounges to view available extras)
+     * @access  Private (Client, Admin, or Lounge)
+     */
+    this.router.get(
+      '/lounges/:loungeId/extras',
+      authMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
+      this.clientController.getLoungeExtrasById,
+    );
+
+    /**
      * @route   GET /v1/client/services/:serviceId/lounges
      * @desc    Filter lounges by service (for clients, admins, and lounges to find lounges offering specific services)
      * @access  Private (Client, Admin, or Lounge)

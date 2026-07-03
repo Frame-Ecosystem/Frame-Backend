@@ -1,7 +1,9 @@
 ﻿import { User } from '@systems/UserManager/interfaces/user.interface';
 import { LoungeService } from '@systems/ServiceCatalogSystem/interfaces/loungeService.interface';
+import { LoungeExtra } from '@systems/ExtrasSystem/interfaces/extra.interface';
 import userModel from '@systems/UserManager/models/user.model';
 import loungeServiceModel from '@systems/ServiceCatalogSystem/models/loungeService.model';
+import loungeExtraModel from '@systems/ExtrasSystem/models/loungeExtra.model';
 import { HttpException, BadRequestException, InternalServerException } from '@exceptions/HttpException';
 import { escapeRegex } from '@utils/util';
 import { logger } from '@utils/logger';
@@ -162,7 +164,7 @@ class ClientService {
   /**
    * Get lounge details by ID (for clients to view lounge profile)
    */
-  public async getLoungeById(loungeId: string): Promise<User> {
+  public async getLoungeById(loungeId: string): Promise<User & { extras: any[] }> {
     try {
       if (!loungeId) {
         logger.warn('ClientService.getLoungeById: empty loungeId provided');
@@ -184,8 +186,18 @@ class ClientService {
         throw new BadRequestException('Lounge not found or not available', 'LOUNGE_NOT_FOUND');
       }
 
-      logger.info(`ClientService.getLoungeById: retrieved lounge: ${loungeId}`);
-      return lounge as User;
+      const extras = await loungeExtraModel
+        .find({ loungeId, isActive: true })
+        .populate('extraId', 'name description free cost category image')
+        .lean()
+        .exec();
+
+      logger.info(`ClientService.getLoungeById: retrieved lounge: ${loungeId} with ${extras.length} extras`);
+
+      return {
+        ...lounge,
+        extras,
+      } as User & { extras: any[] };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       // Handle invalid ObjectId format
@@ -242,6 +254,51 @@ class ClientService {
       }
       logger.error(`ClientService.getLoungeServicesById error: ${error.message}`, { loungeId, stack: error.stack });
       throw new InternalServerException('Unable to retrieve lounge services at this time. Please try again later.');
+    }
+  }
+
+  /**
+   * Get all extras offered by a specific lounge (for clients to view available extras)
+   */
+  public async getLoungeExtrasById(loungeId: string): Promise<LoungeExtra[]> {
+    try {
+      if (!loungeId) {
+        logger.warn('ClientService.getLoungeExtrasById: empty loungeId provided');
+        throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
+      }
+
+      // Verify lounge exists and is not blocked
+      const lounge = await this.users.findOne({
+        _id: loungeId,
+        type: 'lounge',
+        isBlocked: { $ne: true },
+      });
+
+      if (!lounge) {
+        logger.info(`ClientService.getLoungeExtrasById: lounge not found or blocked: ${loungeId}`);
+        throw new BadRequestException('Lounge not found or not available', 'LOUNGE_NOT_FOUND');
+      }
+
+      // Get only active lounge extras and populate extra details
+      const extras = await loungeExtraModel
+        .find({
+          loungeId,
+          isActive: true,
+        })
+        .populate('extraId', 'name description free cost category image')
+        .lean()
+        .exec();
+
+      logger.info(`ClientService.getLoungeExtrasById: retrieved ${extras.length} extras for lounge ${loungeId}`);
+      return extras as LoungeExtra[];
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      if (error.name === 'CastError' && error.kind === 'ObjectId') {
+        logger.error(`ClientService.getLoungeExtrasById invalid ID format: ${loungeId}`, { stack: error.stack });
+        throw new BadRequestException('Invalid lounge ID format', 'INVALID_ID_FORMAT');
+      }
+      logger.error(`ClientService.getLoungeExtrasById error: ${error.message}`, { loungeId, stack: error.stack });
+      throw new InternalServerException('Unable to retrieve lounge extras at this time. Please try again later.');
     }
   }
 

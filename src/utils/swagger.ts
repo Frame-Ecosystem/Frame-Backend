@@ -31,6 +31,7 @@ const PATH_FILES = [
   'comments',
   'feed',
   'reports',
+  'search',
 ];
 
 /**

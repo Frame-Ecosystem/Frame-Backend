@@ -66,3 +66,11 @@ export class SessionIdDto {
   @IsNotEmpty({ message: 'Session ID is required' })
   public sessionId: string;
 }
+
+// SWITCH SESSION DTO (for multi-account session switching)
+
+export class SwitchSessionDto {
+  @IsString({ message: 'Session ID is required' })
+  @IsNotEmpty({ message: 'Session ID is required' })
+  public sessionId: string;
+}

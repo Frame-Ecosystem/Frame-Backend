@@ -88,6 +88,7 @@ class AuthTokenService {
 
   public async generateRefreshToken(user: User, deviceInfo?: { userAgent?: string; ip?: string; deviceName?: string }): Promise<string> {
     const jti = uuidv4();
+    const sessionId = uuidv4(); // Unique server-managed session identifier
     const refreshToken = sign({ _id: user._id, jti }, REFRESH_TOKEN_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRES_STRING });
     const hashedRefreshToken = await hash(refreshToken, BCRYPT_ROUNDS);
 
@@ -95,6 +96,7 @@ class AuthTokenService {
     const expiresAt = new Date(now.getTime() + REFRESH_TOKEN_EXPIRES_SECONDS * 1000);
 
     const newSession = {
+      sessionId,
       jti,
       tokenHash: hashedRefreshToken,
       userAgent: deviceInfo?.userAgent,
@@ -102,6 +104,7 @@ class AuthTokenService {
       deviceName: deviceInfo?.deviceName,
       createdAt: now,
       expiresAt,
+      lastUsedAt: now,
     };
 
     const currentUser = await this.users.findById(user._id);
