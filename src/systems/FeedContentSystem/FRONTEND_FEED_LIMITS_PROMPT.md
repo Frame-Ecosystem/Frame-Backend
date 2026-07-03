@@ -34,7 +34,14 @@ Implement the following backend-aligned constraints and error handling in the fr
 - Preserve server-side errors in a top-level alert area and map known codes to field-level errors.
 - Keep API payload shape unchanged.
 
-5. QA checklist
+5. Rate limit handling (feed routes)
+- Feed endpoints return `429` with `{ message, code: "RATE_LIMIT_EXCEEDED", retryAfter }` when the limit is exceeded.
+- Read the `retryAfter` value (seconds) from the response body and show a non-blocking banner: "Too many requests — please wait {retryAfter}s before refreshing the feed."
+- Disable the pull-to-refresh / load-more trigger for the duration of `retryAfter`.
+- Do not show a 429 as a generic error; map `RATE_LIMIT_EXCEEDED` to the feed-level banner only.
+- The `RateLimit-Remaining` response header can be used to proactively slow down polling before a 429 is reached.
+
+6. QA checklist
 - Reel at 300 seconds uploads successfully.
 - Reel at 301 seconds is blocked client-side and correctly handled if returned from backend.
 - Post with 20 images uploads successfully.

@@ -72,6 +72,24 @@ class ClientController {
   };
 
   /**
+   * Get all extras offered by a specific lounge (for clients)
+   */
+  public getLoungeExtrasById = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const { loungeId } = req.params;
+      const extras = await this.clientService.getLoungeExtrasById(loungeId);
+
+      res.status(200).json({
+        data: extras,
+        count: extras.length,
+        message: 'Lounge extras retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * Filter lounges by service (for clients to find lounges offering specific services)
    */
   public getLoungesByService = async (req: RequestWithUser, res: Response, next: NextFunction) => {

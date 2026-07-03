@@ -1,13 +1,16 @@
 import { Router } from 'express';
 import CatalogManagementController from '@systems/ServiceCatalogSystem/controllers/catalogManagement.controller';
+import ExtrasManagementController from '@systems/ExtrasSystem/controllers/extrasManagement.controller';
 import { CreateServiceCategoryDto, UpdateServiceCategoryDto } from '@systems/ServiceCatalogSystem/dtos/serviceCategories.dto';
 import { UpdateServiceSuggestionStatusDto, AdminApproveServiceSuggestionDto } from '@systems/ServiceCatalogSystem/dtos/serviceSuggestions.dto';
+import { CreateExtraDto, UpdateExtraDto } from '@systems/ExtrasSystem/dtos/extras.dto';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 
 export const createAdminCatalogRouter = (): Router => {
   const router = Router();
   const catalogCtrl = new CatalogManagementController();
+  const extrasCtrl = new ExtrasManagementController();
 
   router.get('/services', catalogCtrl.getServicesPaginated);
   router.get('/services/search', catalogCtrl.searchServices);
@@ -44,6 +47,12 @@ export const createAdminCatalogRouter = (): Router => {
   router.get('/lounge-services/search', catalogCtrl.searchLoungeServices);
 
   router.post('/queue/populate', csrfMiddleware, catalogCtrl.populateDailyQueues);
+
+  router.get('/extras', extrasCtrl.getAll);
+  router.get('/extras/:extraId', extrasCtrl.getById);
+  router.post('/extras', csrfMiddleware, validationMiddleware(CreateExtraDto, 'body'), extrasCtrl.create);
+  router.put('/extras/:extraId', csrfMiddleware, validationMiddleware(UpdateExtraDto, 'body', true), extrasCtrl.update);
+  router.delete('/extras/:extraId', csrfMiddleware, extrasCtrl.delete);
 
   return router;
 };

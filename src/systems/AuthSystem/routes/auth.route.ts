@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import AuthController from '@systems/AuthSystem/controllers/auth.controller';
 import { CreateUserDto } from '@systems/UserManager/dtos/user.dto';
-import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto } from '@systems/AuthSystem/dtos/auth.dto';
+import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto, SwitchSessionDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
@@ -12,6 +12,7 @@ import {
   forgotPasswordRateLimiter,
   generalRateLimiter,
   refreshTokenRateLimiter,
+  strictRateLimiter,
 } from '@middlewares/rateLimit.middleware';
 import passport from 'passport';
 import { FRONTEND_BASE_URL } from '@config';
@@ -36,6 +37,10 @@ class AuthRoute implements Routes {
     this.router.post('/logout-all', authMiddleware, csrfMiddleware, this.authController.logOutAllDevices);
     // Refresh token endpoint (no CSRF needed - refresh token cookie provides security)
     this.router.post('/refresh-token', refreshTokenRateLimiter, this.authController.refreshToken);
+    // Session switching endpoints (deterministic multi-account support)
+    this.router.get('/sessions', authMiddleware, generalRateLimiter, this.authController.listSessions);
+    this.router.post('/switch-session', authMiddleware, csrfMiddleware, strictRateLimiter, validationMiddleware(SwitchSessionDto, 'body'), this.authController.switchSession);
+    this.router.post('/switch-session/verify', authMiddleware, generalRateLimiter, this.authController.verifySwitchSession);
     this.router.post(
       '/forgot-password',
       forgotPasswordRateLimiter,

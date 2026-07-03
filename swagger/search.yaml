@@ -1,0 +1,286 @@
+##############################
+#  UltraSearch — OpenAPI 3.0
+##############################
+/v1/search:
+  get:
+    tags:
+      - Search
+    summary: UltraSearch — unified search across the entire platform
+    description: |
+      Search users, lounges, posts, reels, products, stores, hashtags,
+      and services in a single endpoint — modelled after Instagram/Facebook
+      global search.  Results are grouped by content type.
+    security:
+      - bearerAuth: []
+    parameters:
+      - in: query
+        name: q
+        required: true
+        schema:
+          type: string
+          minLength: 1
+        description: Search query
+        example: 'hair'
+      - in: query
+        name: type
+        required: false
+        schema:
+          type: string
+          enum: [all, users, lounges, posts, reels, products, stores, hashtags, services]
+          default: all
+        description: Scope the search to a specific content type
+    responses:
+      '200':
+        description: Search results grouped by type
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: object
+                  properties:
+                    query:
+                      type: string
+                      example: 'hair'
+                    type:
+                      type: string
+                      example: 'all'
+                    users:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchUserResult'
+                        total:
+                          type: integer
+                    lounges:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchLoungeResult'
+                        total:
+                          type: integer
+                    posts:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchContentResult'
+                        total:
+                          type: integer
+                    reels:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchContentResult'
+                        total:
+                          type: integer
+                    products:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchProductResult'
+                        total:
+                          type: integer
+                    stores:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchStoreResult'
+                        total:
+                          type: integer
+                    hashtags:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchHashtagResult'
+                        total:
+                          type: integer
+                    services:
+                      type: object
+                      properties:
+                        data:
+                          type: array
+                          items:
+                            $ref: '#/components/schemas/SearchServiceResult'
+                        total:
+                          type: integer
+                message:
+                  type: string
+                  example: 'Search completed'
+      '400':
+        description: Missing or invalid query parameters
+      '401':
+        description: Unauthorized — missing or invalid JWT
+      '429':
+        description: Rate limit exceeded
+components:
+  schemas:
+    SearchUserResult:
+      type: object
+      properties:
+        _id: { type: string }
+        type: { type: string, enum: [client, agent] }
+        firstName: { type: string }
+        lastName: { type: string }
+        agentName: { type: string }
+        profileImage:
+          type: object
+          properties:
+            url: { type: string }
+            publicId: { type: string }
+        bio: { type: string }
+        location:
+          type: object
+          properties:
+            address: { type: string }
+            placeName: { type: string }
+        followersCount: { type: integer }
+    SearchLoungeResult:
+      type: object
+      properties:
+        _id: { type: string }
+        type: { type: string, enum: [lounge] }
+        loungeTitle: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        profileImage:
+          type: object
+          properties:
+            url: { type: string }
+            publicId: { type: string }
+        bio: { type: string }
+        location:
+          type: object
+          properties:
+            address: { type: string }
+            placeName: { type: string }
+        averageRating: { type: number, format: float }
+        followersCount: { type: integer }
+    SearchContentResult:
+      type: object
+      properties:
+        _id: { type: string }
+        contentType: { type: string, enum: [post, reel] }
+        authorId:
+          type: object
+          properties:
+            _id: { type: string }
+            firstName: { type: string }
+            lastName: { type: string }
+            loungeTitle: { type: string }
+            profileImage:
+              type: object
+              properties:
+                url: { type: string }
+            type: { type: string }
+        text: { type: string }
+        caption: { type: string }
+        media:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              publicId: { type: string }
+        videoUrl: { type: string }
+        thumbnailUrl: { type: string }
+        hashtags:
+          type: array
+          items: { type: string }
+        likeCount: { type: integer }
+        commentCount: { type: integer }
+        saveCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        isLiked: { type: boolean }
+        isSaved: { type: boolean }
+    SearchProductResult:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        price: { type: number }
+        currency: { type: string }
+        images:
+          type: array
+          items:
+            type: object
+            properties:
+              url: { type: string }
+              publicId: { type: string }
+              isPrimary: { type: boolean }
+        status: { type: string }
+        stats:
+          type: object
+          properties:
+            averageRating: { type: number }
+            ratingCount: { type: integer }
+            totalSold: { type: integer }
+        storeId:
+          type: object
+          properties:
+            _id: { type: string }
+            name: { type: string }
+            slug: { type: string }
+        tags:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+    SearchStoreResult:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        logo:
+          type: object
+          properties:
+            url: { type: string }
+            publicId: { type: string }
+        category: { type: string }
+        badge: { type: string }
+        isVerified: { type: boolean }
+        stats:
+          type: object
+          properties:
+            averageRating: { type: number }
+            totalProducts: { type: integer }
+        location:
+          type: object
+          properties:
+            city: { type: string }
+            address: { type: string }
+        createdAt: { type: string, format: date-time }
+    SearchHashtagResult:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        postCount: { type: integer }
+    SearchServiceResult:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        categoryId:
+          type: object
+          properties:
+            _id: { type: string }
+            name: { type: string }

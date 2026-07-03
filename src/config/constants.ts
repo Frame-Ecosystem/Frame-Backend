@@ -63,3 +63,8 @@ export const FEED_READ_RATE_LIMIT_MAX = envInt('FEED_READ_RATE_LIMIT_MAX', 600);
 /** Discovery feeds (hashtag, trending, search, saved) — 300 req / 15 min ≈ 20/min */
 export const FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS = envInt('FEED_DISCOVERY_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
 export const FEED_DISCOVERY_RATE_LIMIT_MAX = envInt('FEED_DISCOVERY_RATE_LIMIT_MAX', 300);
+
+// ── Search rate limits ──
+/** UltraSearch — 60 requests / 15 min ≈ 4/min per user (search is expensive) */
+export const SEARCH_RATE_LIMIT_WINDOW_MS = envInt('SEARCH_RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
+export const SEARCH_RATE_LIMIT_MAX = envInt('SEARCH_RATE_LIMIT_MAX', 60);

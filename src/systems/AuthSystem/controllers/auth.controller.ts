@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
 import { verify } from 'jsonwebtoken';
 import { CreateUserDto } from '@systems/UserManager/dtos/user.dto';
-import { LoginUserDto } from '@systems/AuthSystem/dtos/auth.dto';
+import { LoginUserDto, SwitchSessionDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { RequestWithUser, RefreshTokenPayload } from '@systems/AuthSystem/interfaces/auth.interface';
 import { User } from '@systems/UserManager/interfaces/user.interface';
 import AuthService from '@systems/AuthSystem/services/auth.service';
+import SessionSwitchService from '@systems/AuthSystem/services/sessionSwitch.service';
 import {
   NODE_ENV,
   REFRESH_TOKEN_SECRET,
@@ -21,6 +22,7 @@ const REFRESH_TOKEN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 class AuthController {
   private authService = new AuthService();
+  private sessionSwitchService = new SessionSwitchService();
 
   /**
    * Decode a refresh token payload with runtime validation.
@@ -300,6 +302,135 @@ class AuthController {
         setCsrfToken(res);
         return res.redirect(`${FRONTEND_BASE_URL}/auth/google/callback?status=success&provider=google`);
       }
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * List all active sessions for the authenticated user.
+   * GET /v1/auth/sessions
+   *
+   * Response: array of {sessionId, userId, displayName, emailOrPhoneMasked, deviceName, createdAt, lastUsedAt, isCurrent}
+   */
+  public listSessions = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user;
+      const refreshToken = req.cookies['refreshToken'];
+      let currentJti: string | undefined;
+
+      if (refreshToken) {
+        try {
+          const decoded = this.decodeRefreshTokenPayload(refreshToken);
+          currentJti = decoded?.jti;
+        } catch {
+          // Ignore decode errors
+        }
+      }
+
+      const sessions = await this.sessionSwitchService.listSessions(user, currentJti);
+      res.status(200).json({
+        data: sessions,
+        message: 'Sessions retrieved successfully',
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Switch to a specific session.
+   * POST /v1/auth/switch-session
+   *
+   * Request: {sessionId: string}
+   * Response: {token, expiresIn, csrfToken, data: user}
+   *
+   * Behavior:
+   * 1. Verify sessionId belongs to user
+   * 2. Verify session is active and not expired
+   * 3. Issue new auth artifacts for target session
+   * 4. Set new refresh token cookie
+   * 5. Audit log the switch
+   */
+  public switchSession = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user;
+      const { sessionId } = req.body as SwitchSessionDto;
+      const refreshToken = req.cookies['refreshToken'];
+
+      if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token missing' });
+      }
+
+      let currentJti: string | undefined;
+      try {
+        const decoded = this.decodeRefreshTokenPayload(refreshToken);
+        currentJti = decoded?.jti;
+      } catch {
+        return res.status(401).json({ message: 'Invalid refresh token' });
+      }
+
+      const { userAgent, ip } = this.extractDeviceInfo(req);
+      const result = await this.sessionSwitchService.switchSession(user, sessionId, currentJti, { userAgent, ip });
+
+      // Generate new refresh token for the target session
+      const newRefreshToken = await this.authService.generateRefreshToken(user, { userAgent, ip });
+
+      const isMobile = req.headers['x-client-type'] === 'mobile';
+      if (isMobile) {
+        res.status(200).json({
+          token: result.token,
+          refreshToken: newRefreshToken,
+          expiresIn: result.expiresIn,
+          data: stripSensitiveFields(user),
+          message: 'Session switched successfully',
+        });
+      } else {
+        this.setRefreshTokenCookie(req, res, newRefreshToken);
+        setCsrfToken(res);
+
+        res.status(200).json({
+          token: result.token,
+          expiresIn: result.expiresIn,
+          data: stripSensitiveFields(user),
+          message: 'Session switched successfully',
+        });
+      }
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * Verify the current active session.
+   * POST /v1/auth/switch-session/verify
+   *
+   * Response: {sessionId, userId, isCurrentSession}
+   *
+   * Useful for frontend to assert post-switch correctness.
+   */
+  public verifySwitchSession = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const user = req.user;
+      const refreshToken = req.cookies['refreshToken'];
+
+      if (!refreshToken) {
+        return res.status(401).json({ message: 'Refresh token missing' });
+      }
+
+      let currentJti: string | undefined;
+      try {
+        const decoded = this.decodeRefreshTokenPayload(refreshToken);
+        currentJti = decoded?.jti;
+      } catch {
+        return res.status(401).json({ message: 'Invalid refresh token' });
+      }
+
+      const result = await this.sessionSwitchService.verifyCurrentSession(user, currentJti);
+      res.status(200).json({
+        data: result,
+        message: 'Session verified successfully',
+      });
     } catch (error) {
       next(error);
     }
