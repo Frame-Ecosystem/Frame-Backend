@@ -2,7 +2,7 @@
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
-import { loungeMiddleware, agentMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware, loungeMiddleware, agentMiddleware } from '@middlewares/role.middleware';
 import LoungeController from '@systems/ServiceCatalogSystem/controllers/lounge.controller';
 
 class LoungeRoute implements Routes {
@@ -15,7 +15,7 @@ class LoungeRoute implements Routes {
   }
 
   private initializeRoutes() {
-    this.router.get('/clients/:clientId', authMiddleware, loungeMiddleware, this.loungeController.getClientById);
+    this.router.get('/clients/:clientId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.loungeController.getClientById);
     this.router.patch(
       '/agents/:agentId/queue-booking',
       authMiddleware,

@@ -13,58 +13,58 @@ class LikeService {
   /* ───────── Commands ───────── */
 
   /** Toggle like: creates a like if it doesn't exist, removes it if it does. */
-  public async toggleLike(clientId: string, loungeId: string): Promise<{ liked: boolean }> {
+  public async toggleLike(userId: string, loungeId: string): Promise<{ liked: boolean }> {
     await assertLounge(loungeId);
 
-    const existing = await this.likes.findOne({ clientId, loungeId }).select('_id').lean().exec();
+    const existing = await this.likes.findOne({ clientId: userId, loungeId }).select('_id').lean().exec();
 
     if (existing) {
       await this.likes.deleteOne({ _id: existing._id });
       await this.refreshLoungeCount(loungeId);
-      logger.info(`LikeService.toggleLike: unlike client=${clientId} lounge=${loungeId}`);
+      logger.info(`LikeService.toggleLike: unlike user=${userId} lounge=${loungeId}`);
       return { liked: false };
     }
 
-    await this.likes.create({ clientId, loungeId });
+    await this.likes.create({ clientId: userId, loungeId });
     await this.refreshLoungeCount(loungeId);
 
     // Notify lounge about the new like
-    const client = await this.users.findById(clientId).select('firstName lastName profileImage type').lean().exec();
-    const clientName = this.notificationService.extractName(client);
-    const clientImage = client?.profileImage?.url;
-    this.notificationService.notifyLoungeLiked(loungeId, clientId, clientName, clientImage).catch(() => {});
+    const user = await this.users.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
+    const userName = this.notificationService.extractName(user);
+    const userImage = user?.profileImage?.url;
+    this.notificationService.notifyLoungeLiked(loungeId, userId, userName, userImage).catch(() => {});
 
-    logger.info(`LikeService.toggleLike: like client=${clientId} lounge=${loungeId}`);
+    logger.info(`LikeService.toggleLike: like user=${userId} lounge=${loungeId}`);
     return { liked: true };
   }
 
   /* ───────── Queries ───────── */
 
-  /** Check whether the authenticated client has liked a specific lounge. */
-  public async hasLiked(clientId: string, loungeId: string): Promise<boolean> {
+  /** Check whether the authenticated user has liked a specific lounge. */
+  public async hasLiked(userId: string, loungeId: string): Promise<boolean> {
     assertObjectId(loungeId, 'lounge');
-    const like = await this.likes.findOne({ clientId, loungeId }).select('_id').lean().exec();
+    const like = await this.likes.findOne({ clientId: userId, loungeId }).select('_id').lean().exec();
     return !!like;
   }
 
-  /** Get all lounges liked by the authenticated client (newest first, paginated). */
-  public async getMyLikes(clientId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
+  /** Get all lounges liked by the authenticated user (newest first, paginated). */
+  public async getMyLikes(userId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
     const [likes, total] = await Promise.all([
       this.likes
-        .find({ clientId })
+        .find({ clientId: userId })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .populate({ path: 'loungeId', select: 'firstName lastName loungeTitle profileImage coverImage averageRating ratingCount likeCount' })
         .lean()
         .exec(),
-      this.likes.countDocuments({ clientId }).exec(),
+      this.likes.countDocuments({ clientId: userId }).exec(),
     ]);
 
     return { likes, total };
   }
 
-  /** Get all clients who liked a specific lounge (newest first, paginated). */
+  /** Get all users who liked a specific lounge (newest first, paginated). */
   public async getLoungeLikers(loungeId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
     assertObjectId(loungeId, 'lounge');
 
@@ -74,7 +74,7 @@ class LikeService {
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate({ path: 'clientId', select: 'firstName lastName profileImage' })
+        .populate({ path: 'clientId', select: 'firstName lastName loungeTitle profileImage type' })
         .lean()
         .exec(),
       this.likes.countDocuments({ loungeId }).exec(),

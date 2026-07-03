@@ -7,13 +7,13 @@ import { logger } from '@utils/logger';
 class LikeController {
   private likeService = new LikeService();
 
-  /** POST /likes/:loungeId — toggle like/unlike for the authenticated client. */
+  /** POST /likes/:loungeId — toggle like/unlike for the authenticated user. */
   public toggleLike = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
+      const userId = req.user._id.toString();
       const { loungeId } = req.params;
 
-      const result = await this.likeService.toggleLike(clientId, loungeId);
+      const result = await this.likeService.toggleLike(userId, loungeId);
       res.status(200).json({ success: true, data: result, message: result.liked ? 'Lounge liked' : 'Lounge unliked' });
     } catch (error: any) {
       logger.error(`Error in toggleLike: ${error.message}`);
@@ -21,13 +21,13 @@ class LikeController {
     }
   };
 
-  /** GET /likes/me — all lounges liked by the authenticated client. */
+  /** GET /likes/me — all lounges liked by the authenticated user. */
   public getMyLikes = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
+      const userId = req.user._id.toString();
       const { page, limit } = parsePagination(req);
 
-      const { likes, total } = await this.likeService.getMyLikes(clientId, page, limit);
+      const { likes, total } = await this.likeService.getMyLikes(userId, page, limit);
       res.status(200).json({ success: true, data: likes, total, page, limit });
     } catch (error: any) {
       logger.error(`Error in getMyLikes: ${error.message}`);
@@ -35,13 +35,13 @@ class LikeController {
     }
   };
 
-  /** GET /likes/check/:loungeId — check if client has liked a lounge. */
+  /** GET /likes/check/:loungeId — check if user has liked a lounge. */
   public hasLiked = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
+      const userId = req.user._id.toString();
       const { loungeId } = req.params;
 
-      const liked = await this.likeService.hasLiked(clientId, loungeId);
+      const liked = await this.likeService.hasLiked(userId, loungeId);
       res.status(200).json({ success: true, data: { liked } });
     } catch (error: any) {
       logger.error(`Error in hasLiked: ${error.message}`);
@@ -49,7 +49,7 @@ class LikeController {
     }
   };
 
-  /** GET /likes/lounge/:loungeId — clients who liked this lounge (auth required). */
+  /** GET /likes/lounge/:loungeId — users who liked this lounge (auth required). */
   public getLoungeLikers = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const { loungeId } = req.params;

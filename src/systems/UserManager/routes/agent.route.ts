@@ -2,7 +2,7 @@ import { Router } from 'express';
 import AgentController from '@systems/UserManager/controllers/agent.controller';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
-import { adminOrLoungeMiddleware, adminOrLoungeOrClientMiddleware, agentMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeMiddleware, adminOrLoungeOrClientOrAgentMiddleware, agentMiddleware } from '@middlewares/role.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import upload, { optionalUpload } from '@middlewares/imageUpload.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
@@ -82,8 +82,8 @@ class AgentRoute implements Routes {
 
     // \u2500\u2500\u2500 Admin / Lounge management \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 
-    this.router.get('/', authMiddleware, adminOrLoungeOrClientMiddleware, this.agentController.getAllAgents);
-    this.router.get('/:agentId', authMiddleware, adminOrLoungeOrClientMiddleware, this.agentController.getAgentById);
+    this.router.get('/', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.agentController.getAllAgents);
+    this.router.get('/:agentId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.agentController.getAgentById);
 
     this.router.post(
       '/',
