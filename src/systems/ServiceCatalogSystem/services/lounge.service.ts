@@ -141,15 +141,11 @@ class LoungeService {
   /**
    * Get agents for a specific lounge
    */
-  public async getAgentsPerLounge(loungeId: string, requestingUser: any): Promise<any> {
+  public async getAgentsPerLounge(loungeId: string, _requestingUser?: any): Promise<any> {
     try {
       const lounge = await this.users.findOne({ _id: loungeId, type: 'lounge' });
       if (!lounge) {
         throw new NotFoundException('Lounge not found');
-      }
-
-      if (requestingUser.type === 'lounge' && requestingUser._id.toString() !== loungeId) {
-        throw new BadRequestException('You can only view your own agents');
       }
 
       const agents = await this.users.find({ type: 'agent', parentLounge: loungeId }).select('-password').lean();
