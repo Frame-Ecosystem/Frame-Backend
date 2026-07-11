@@ -1,4 +1,40 @@
 # Lounge endpoints
+/v1/lounge/most-booked:
+  get:
+    tags: [Lounge]
+    summary: Get all lounges ordered by most completed bookings
+    description: >
+      Returns every lounge sorted by the number of completed bookings in
+      descending order (most booked first). Lounges with zero completed
+      bookings appear at the bottom. Accessible to all authenticated
+      users (clients, lounges, agents, admins).
+    responses:
+      '200':
+        description: Lounges retrieved successfully, ordered by completed bookings
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                data:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/MostBookedLounge'
+                count:
+                  type: integer
+                  description: Number of lounges returned
+                  example: 11
+                message:
+                  type: string
+                  example: Lounges retrieved successfully, ordered by completed bookings
+      '401':
+        $ref: '#/components/responses/401'
+      '500':
+        $ref: '#/components/responses/500'
+
 /v1/lounge/clients/{clientId}:
   get:
     tags: [Lounge]

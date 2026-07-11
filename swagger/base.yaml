@@ -262,6 +262,46 @@ components:
         isSaved: { type: boolean }
         createdAt: { type: string, format: date-time }
 
+    MostBookedLounge:
+      type: object
+      description: A lounge ranked by its number of completed bookings
+      properties:
+        _id:
+          type: string
+          description: Lounge user ID
+        completedBookings:
+          type: integer
+          description: Total number of completed bookings
+          example: 42
+        totalRevenue:
+          type: number
+          description: Sum of total prices from completed bookings
+          example: 1250.50
+        loungeTitle:
+          type: string
+          example: "Beauty Lounge Cairo"
+        email:
+          type: string
+          format: email
+        profileImage:
+          type: string
+          format: uri
+        coverImage:
+          type: string
+          format: uri
+        location:
+          $ref: '#/components/schemas/Location'
+        openingHours:
+          $ref: '#/components/schemas/DayOpeningHours'
+        averageRating:
+          type: number
+        ratingCount:
+          type: integer
+        likeCount:
+          type: integer
+        followersCount:
+          type: integer
+
     # ── Authentication & Session Management ──
     SessionInfo:
       type: object
