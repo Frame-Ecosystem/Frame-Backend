@@ -1,11 +1,14 @@
 ﻿import { NotFoundException, BadRequestException, HttpException, InternalServerException } from '@exceptions/HttpException';
 import { User } from '@systems/UserManager/interfaces/user.interface';
+import { BookingStatus } from '@systems/BookingSystem/interfaces/booking.interface';
 import userModel from '@systems/UserManager/models/user.model';
+import bookingModel from '@systems/BookingSystem/models/booking.model';
 import mongoose from 'mongoose';
 import { isEmpty, handleMongooseError } from '@utils/util';
 import { logger } from '@utils/logger';
 
 const CLIENT_PUBLIC_FIELDS = 'firstName lastName email profileImage coverImage location';
+const BOOKING_COLLECTION = bookingModel.collection.name;
 
 class LoungeService {
   private users = userModel;
@@ -135,6 +138,56 @@ class LoungeService {
         fallbackMessage: 'Unable to update lounge profile at this time. Please try again later.',
         logMeta: { loungeId },
       });
+    }
+  }
+
+  /**
+   * Get all lounges ordered by the number of completed bookings (most booked first).
+   * Starts from the users collection (type='lounge') so every lounge is included,
+   * then left-joins completed bookings to count them. Lounges with zero bookings
+   * appear at the bottom of the list.
+   */
+  public async getMostBookedLounges(): Promise<any[]> {
+    try {
+      const result = await this.users.aggregate([
+        { $match: { type: 'lounge' } },
+        {
+          $lookup: {
+            from: BOOKING_COLLECTION,
+            let: { loungeId: '$_id' },
+            pipeline: [
+              { $match: { $expr: { $eq: ['$loungeId', '$$loungeId'] }, status: BookingStatus.COMPLETED } },
+              { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: { $ifNull: ['$totalPrice', 0] } } } },
+            ],
+            as: 'bookingStats',
+          },
+        },
+        {
+          $addFields: {
+            completedBookings: { $ifNull: [{ $arrayElemAt: ['$bookingStats.count', 0] }, 0] },
+            totalRevenue: { $ifNull: [{ $arrayElemAt: ['$bookingStats.revenue', 0] }, 0] },
+          },
+        },
+        { $sort: { completedBookings: -1 } },
+        {
+          $project: {
+            password: 0,
+            refreshTokens: 0,
+            sessionTrack: 0,
+            fcmTokens: 0,
+            oauth: 0,
+            failedLoginAttempts: 0,
+            lockUntil: 0,
+            passwordChangedAt: 0,
+            bookingStats: 0,
+          },
+        },
+      ]);
+
+      return result;
+    } catch (error) {
+      logger.error(`Error fetching most booked lounges: ${error.message}`);
+      throw new InternalServerException('Failed to fetch most booked lounges');
     }
   }
 

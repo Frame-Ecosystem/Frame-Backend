@@ -290,6 +290,63 @@ erDiagram
 | `GET` | `/followers/:userId` | Get user's followers list |
 | `GET` | `/counts/:userId` | Get follower/following counts |
 
+### Lounge Routes — `/v1/lounge` (auth required)
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/most-booked` | auth (all users) | Get all lounges ordered by most completed bookings |
+| `GET` | `/clients/:clientId` | auth + adminOrLoungeOrClientOrAgent | Get client info (lounge context) |
+| `PATCH` | `/agents/:agentId/queue-booking` | auth + lounge | Toggle agent queue-booking acceptance |
+| `PATCH` | `/me/queue-booking` | auth + agent | Agent toggles own queue-booking acceptance |
+
+#### `GET /v1/lounge/most-booked`
+
+Returns **all lounges** sorted by the number of completed bookings in descending order (most booked first). Lounges with zero completed bookings appear at the bottom. Accessible to **all authenticated users** (clients, lounges, agents, admins).
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "_id": "64a1b2c3d4e5f6a7b8c9d0e1",
+      "completedBookings": 42,
+      "totalRevenue": 1250.50,
+      "loungeTitle": "Beauty Lounge Cairo",
+      "email": "lounge@example.com",
+      "profileImage": "https://r2.example.com/profile.jpg",
+      "coverImage": "https://r2.example.com/cover.jpg",
+      "location": {
+        "type": "Point",
+        "coordinates": [31.2357, 30.0444],
+        "address": "Cairo, Egypt",
+        "placeName": "Beauty Lounge Cairo"
+      },
+      "averageRating": 4.7,
+      "ratingCount": 35,
+      "likeCount": 120,
+      "followersCount": 340
+    },
+    {
+      "_id": "64a1b2c3d4e5f6a7b8c9d0e2",
+      "completedBookings": 28,
+      "totalRevenue": 870.00,
+      "loungeTitle": "Style Hub",
+      "email": "style@example.com",
+      "averageRating": 4.2,
+      "ratingCount": 18,
+      "likeCount": 65,
+      "followersCount": 210
+    }
+  ],
+  "count": 2,
+  "message": "Lounges retrieved successfully, ordered by completed bookings"
+}
+```
+
+The array includes every lounge in the platform, ordered from most completed bookings to fewest. Lounges with zero bookings have `completedBookings: 0` and `totalRevenue: 0`.
+
 ---
 
 ## DTOs & Validation

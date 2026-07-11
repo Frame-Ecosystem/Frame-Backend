@@ -250,6 +250,7 @@ erDiagram
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
+| `GET` | `/most-booked` | auth (all users) | Get all lounges ordered by most completed bookings |
 | `GET` | `/clients/:clientId` | auth | Get client info (lounge context) |
 | `PATCH` | `/agents/:agentId/queue-booking` | auth + lounge | Toggle agent queue-booking acceptance |
 

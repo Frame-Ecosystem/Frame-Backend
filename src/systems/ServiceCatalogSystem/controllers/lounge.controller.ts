@@ -49,6 +49,22 @@ class LoungeController {
     }
   };
 
+  public getMostBookedLounges = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const mostBookedLounges = await this.loungeService.getMostBookedLounges();
+
+      res.status(200).json({
+        success: true,
+        data: mostBookedLounges,
+        count: mostBookedLounges.length,
+        message: 'Lounges retrieved successfully, ordered by completed bookings',
+      });
+    } catch (error) {
+      logger.error(`Error in getMostBookedLounges: ${error.message}`);
+      next(error);
+    }
+  };
+
   public updateAgentQueueBooking = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const loungeId = req.user._id.toString();
