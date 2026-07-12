@@ -7,21 +7,21 @@ import { logger } from '@utils/logger';
 class LikeController {
   private likeService = new LikeService();
 
-  /** POST /likes/:loungeId — toggle like/unlike for the authenticated user. */
+  /** POST /likes/:targetId — toggle like/unlike for the authenticated user. */
   public toggleLike = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();
-      const { loungeId } = req.params;
+      const { targetId } = req.params;
 
-      const result = await this.likeService.toggleLike(userId, loungeId);
-      res.status(200).json({ success: true, data: result, message: result.liked ? 'Lounge liked' : 'Lounge unliked' });
+      const result = await this.likeService.toggleLike(userId, targetId);
+      res.status(200).json({ success: true, data: result, message: result.liked ? 'Liked' : 'Unliked' });
     } catch (error: any) {
       logger.error(`Error in toggleLike: ${error.message}`);
       next(error);
     }
   };
 
-  /** GET /likes/me — all lounges liked by the authenticated user. */
+  /** GET /likes/me — all targets liked by the authenticated user. */
   public getMyLikes = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();
@@ -35,13 +35,13 @@ class LikeController {
     }
   };
 
-  /** GET /likes/check/:loungeId — check if user has liked a lounge. */
+  /** GET /likes/check/:targetId — check if user has liked a target. */
   public hasLiked = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const userId = req.user._id.toString();
-      const { loungeId } = req.params;
+      const { targetId } = req.params;
 
-      const liked = await this.likeService.hasLiked(userId, loungeId);
+      const liked = await this.likeService.hasLiked(userId, targetId);
       res.status(200).json({ success: true, data: { liked } });
     } catch (error: any) {
       logger.error(`Error in hasLiked: ${error.message}`);
@@ -49,16 +49,16 @@ class LikeController {
     }
   };
 
-  /** GET /likes/lounge/:loungeId — users who liked this lounge (auth required). */
-  public getLoungeLikers = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+  /** GET /likes/target/:targetId — users who liked this target (auth required). */
+  public getTargetLikers = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const { loungeId } = req.params;
+      const { targetId } = req.params;
       const { page, limit } = parsePagination(req);
 
-      const { likes, total } = await this.likeService.getLoungeLikers(loungeId, page, limit);
+      const { likes, total } = await this.likeService.getTargetLikers(targetId, page, limit);
       res.status(200).json({ success: true, data: likes, total, page, limit });
     } catch (error: any) {
-      logger.error(`Error in getLoungeLikers: ${error.message}`);
+      logger.error(`Error in getTargetLikers: ${error.message}`);
       next(error);
     }
   };

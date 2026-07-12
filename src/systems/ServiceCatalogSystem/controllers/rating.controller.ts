@@ -8,13 +8,13 @@ import { logger } from '@utils/logger';
 class RatingController {
   private ratingService = new RatingService();
 
-  /** PUT /ratings — create or update the authenticated client's rating for a lounge. */
+  /** PUT /ratings — create or update the authenticated user's rating for a target. */
   public upsertRating = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
+      const raterId = req.user._id.toString();
       const dto: UpsertRatingDto = req.body;
 
-      const rating = await this.ratingService.upsertRating(clientId, dto);
+      const rating = await this.ratingService.upsertRating(raterId, dto);
       res.status(200).json({ success: true, data: rating, message: 'Rating saved successfully' });
     } catch (error: any) {
       logger.error(`Error in upsertRating: ${error.message}`);
@@ -22,13 +22,13 @@ class RatingController {
     }
   };
 
-  /** DELETE /ratings/:loungeId — remove the authenticated client's rating for a lounge. */
+  /** DELETE /ratings/:targetId — remove the authenticated user's rating for a target. */
   public deleteRating = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
-      const { loungeId } = req.params;
+      const raterId = req.user._id.toString();
+      const { targetId } = req.params;
 
-      await this.ratingService.deleteRating(clientId, loungeId);
+      await this.ratingService.deleteRating(raterId, targetId);
       res.status(200).json({ success: true, message: 'Rating deleted successfully' });
     } catch (error: any) {
       logger.error(`Error in deleteRating: ${error.message}`);
@@ -36,13 +36,13 @@ class RatingController {
     }
   };
 
-  /** GET /ratings/lounge/:loungeId — paginated ratings for a lounge (public). */
-  public getLoungeRatings = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+  /** GET /ratings/target/:targetId — paginated ratings for a target user (public). */
+  public getTargetRatings = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const { loungeId } = req.params;
+      const { targetId } = req.params;
       const { page, limit } = parsePagination(req);
 
-      const { ratings, total } = await this.ratingService.getLoungeRatings(loungeId, page, limit);
+      const { ratings, total } = await this.ratingService.getTargetRatings(targetId, page, limit);
       res.status(200).json({
         success: true,
         data: ratings,
@@ -50,21 +50,21 @@ class RatingController {
         page,
         limit,
         totalPages: Math.ceil(total / limit),
-        message: 'Lounge ratings retrieved successfully',
+        message: 'Ratings retrieved successfully',
       });
     } catch (error: any) {
-      logger.error(`Error in getLoungeRatings: ${error.message}`);
+      logger.error(`Error in getTargetRatings: ${error.message}`);
       next(error);
     }
   };
 
-  /** GET /ratings/me/:loungeId — the authenticated client's rating for a lounge. */
+  /** GET /ratings/me/:targetId — the authenticated user's rating for a target. */
   public getMyRating = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
-      const clientId = req.user._id.toString();
-      const { loungeId } = req.params;
+      const raterId = req.user._id.toString();
+      const { targetId } = req.params;
 
-      const rating = await this.ratingService.getMyRating(clientId, loungeId);
+      const rating = await this.ratingService.getMyRating(raterId, targetId);
       res.status(200).json({ success: true, data: rating, message: rating ? 'Rating found' : 'No rating yet' });
     } catch (error: any) {
       logger.error(`Error in getMyRating: ${error.message}`);

@@ -153,18 +153,18 @@ class ClientVisitorProfileService {
 
       const [likes, total] = await Promise.all([
         this.likes
-          .find({ clientId })
-          .populate('loungeId', 'loungeTitle profileImage coverImage averageRating ratingCount location')
+          .find({ likerId: clientId, targetType: 'lounge' })
+          .populate('targetId', 'loungeTitle profileImage coverImage averageRating ratingCount location')
           .sort({ createdAt: -1 })
           .skip((page - 1) * limit)
           .limit(limit)
           .lean()
           .exec(),
-        this.likes.countDocuments({ clientId }).exec(),
+        this.likes.countDocuments({ likerId: clientId, targetType: 'lounge' }).exec(),
       ]);
 
       return {
-        lounges: likes.map(l => l.loungeId).filter(Boolean),
+        lounges: likes.map(l => l.targetId).filter(Boolean),
         total,
         page,
         limit,
@@ -185,14 +185,14 @@ class ClientVisitorProfileService {
 
       const [ratings, total] = await Promise.all([
         this.ratings
-          .find({ clientId })
-          .populate('loungeId', 'loungeTitle profileImage')
+          .find({ raterId: clientId })
+          .populate('targetId', 'loungeTitle profileImage')
           .sort({ createdAt: -1 })
           .skip((page - 1) * limit)
           .limit(limit)
           .lean()
           .exec(),
-        this.ratings.countDocuments({ clientId }).exec(),
+        this.ratings.countDocuments({ raterId: clientId }).exec(),
       ]);
 
       return { ratings, total, page, limit };

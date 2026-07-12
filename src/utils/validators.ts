@@ -26,6 +26,51 @@ export async function assertLounge(loungeId: string): Promise<void> {
 }
 
 /**
+ * Validate that an ObjectId references a user document with a rateable type (lounge or agent).
+ * @throws BadRequestException if invalid or not a rateable type
+ */
+export async function assertRateableTarget(targetId: string): Promise<string> {
+  assertObjectId(targetId, 'target');
+  const user = await userModel.findById(targetId).select('type isBlocked').lean();
+  if (!user || user.isBlocked) {
+    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
+  }
+  if (user.type !== 'lounge' && user.type !== 'agent') {
+    throw new BadRequestException('Target user is not rateable', 'INVALID_RATEABLE_TARGET');
+  }
+  return user.type;
+}
+
+/**
+ * Validate that an ObjectId references a user document with a likeable type (lounge or agent).
+ * @throws BadRequestException if invalid or not a likeable type
+ */
+export async function assertLikeableTarget(targetId: string): Promise<string> {
+  assertObjectId(targetId, 'target');
+  const user = await userModel.findById(targetId).select('type isBlocked').lean();
+  if (!user || user.isBlocked) {
+    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
+  }
+  if (user.type !== 'lounge' && user.type !== 'agent') {
+    throw new BadRequestException('Target user is not likeable', 'INVALID_LIKEABLE_TARGET');
+  }
+  return user.type;
+}
+
+/**
+ * Validate that an ObjectId references an existing user of any type.
+ * @throws BadRequestException if invalid or not found
+ */
+export async function assertExistingUser(userId: string): Promise<string> {
+  assertObjectId(userId, 'user');
+  const user = await userModel.findById(userId).select('type isBlocked').lean();
+  if (!user || user.isBlocked) {
+    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
+  }
+  return user.type;
+}
+
+/**
  * Extract pagination parameters from an Express request.
  * Clamps page ≥ 1 and 1 ≤ limit ≤ maxLimit.
  */

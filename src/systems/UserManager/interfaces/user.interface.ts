@@ -77,9 +77,9 @@ export interface User {
   language?: string; // User language preference (e.g. 'en', 'ar', 'fr')
   loungeTitle?: string; // Lounge-specific
   openingHours?: DayOpeningHours; // Lounge-specific
-  averageRating?: number; // Lounge-specific — denormalized from ratings
-  ratingCount?: number; // Lounge-specific — denormalized from ratings
-  likeCount?: number; // Lounge-specific — denormalized from likes
+  averageRating?: number; // Denormalized from ratings (lounges and agents)
+  ratingCount?: number; // Denormalized from ratings (lounges and agents)
+  likeCount?: number; // Denormalized from likes (lounges and agents)
   followersCount?: number; // Denormalized from follows
   followingCount?: number; // Denormalized from follows
   location?: Location;

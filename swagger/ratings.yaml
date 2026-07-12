@@ -1,28 +1,37 @@
-# Rating endpoints
+# Rating endpoints — generalized for client/lounge/agent
 /v1/ratings:
   put:
     tags: [Ratings]
-    summary: Create or update rating (client only)
+    summary: Create or update rating (client, lounge, or agent)
+    description: |
+      Rate a target user. Allowed rating pairs:
+      - Client → Lounge
+      - Client → Agent
+      - Agent → Lounge
+      - Lounge → Agent
+
+      Self-ratings are rejected.
     requestBody:
       required: true
       content:
         application/json:
           schema:
             type: object
-            required: [loungeId, score]
+            required: [targetId, score]
             properties:
-              loungeId: { type: string }
+              targetId: { type: string, description: ID of the user being rated }
               score: { type: integer, minimum: 1, maximum: 5 }
               comment: { type: string, maxLength: 1000 }
     responses:
       '200': { description: Rating saved }
+      '400': { description: Invalid rating pair or self-rating }
 
-/v1/ratings/lounge/{loungeId}:
+/v1/ratings/target/{targetId}:
   get:
     tags: [Ratings]
-    summary: Get paginated ratings for a lounge
+    summary: Get paginated ratings for a target user (lounge or agent)
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }
@@ -35,24 +44,24 @@
     responses:
       '200': { description: Rating list with pagination }
 
-/v1/ratings/me/{loungeId}:
+/v1/ratings/me/{targetId}:
   get:
     tags: [Ratings]
-    summary: Get my rating for a lounge (client only)
+    summary: Get my rating for a target (client, lounge, or agent)
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }
     responses:
       '200': { description: My rating or null }
 
-/v1/ratings/{loungeId}:
+/v1/ratings/{targetId}:
   delete:
     tags: [Ratings]
-    summary: Delete my rating for a lounge (client only)
+    summary: Delete my rating for a target (client, lounge, or agent)
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }

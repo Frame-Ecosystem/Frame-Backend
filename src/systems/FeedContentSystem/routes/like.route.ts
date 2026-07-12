@@ -16,17 +16,33 @@ class LikeRoute implements Routes {
   }
 
   private initializeRoutes() {
-    // Auth required — toggle like/unlike for a lounge (rate-limited to prevent spam)
-    this.router.post('/:loungeId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.likeController.toggleLike);
+    /**
+     * @route   POST /v1/likes/:targetId
+     * @desc    Toggle like/unlike for a target user (lounge or agent)
+     * @access  Private (Client, Lounge, or Agent) — rate-limited
+     */
+    this.router.post('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, likeRateLimiter, this.likeController.toggleLike);
 
-    // Auth required — all lounges I liked (paginated)
+    /**
+     * @route   GET /v1/likes/me
+     * @desc    All targets liked by the authenticated user (paginated)
+     * @access  Private (Client, Lounge, or Agent)
+     */
     this.router.get('/me', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.likeController.getMyLikes);
 
-    // Auth required — check if I liked a specific lounge
-    this.router.get('/check/:loungeId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.likeController.hasLiked);
+    /**
+     * @route   GET /v1/likes/check/:targetId
+     * @desc    Check if the authenticated user has liked a specific target
+     * @access  Private (Client, Lounge, or Agent)
+     */
+    this.router.get('/check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.likeController.hasLiked);
 
-    // Auth required — clients who liked a lounge (paginated)
-    this.router.get('/lounge/:loungeId', authMiddleware, this.likeController.getLoungeLikers);
+    /**
+     * @route   GET /v1/likes/target/:targetId
+     * @desc    Users who liked a specific target (paginated)
+     * @access  Private (all authenticated users)
+     */
+    this.router.get('/target/:targetId', authMiddleware, this.likeController.getTargetLikers);
   }
 }
 

@@ -2,7 +2,7 @@
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
-import { clientMiddleware } from '@middlewares/role.middleware';
+import { adminOrLoungeOrClientOrAgentMiddleware } from '@middlewares/role.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
 import RatingController from '@systems/ServiceCatalogSystem/controllers/rating.controller';
@@ -17,24 +17,40 @@ class RatingRoute implements Routes {
   }
 
   private initializeRoutes() {
-    // Public — paginated ratings for a lounge (auth still required for consistency)
-    this.router.get('/lounge/:loungeId', authMiddleware, this.ratingController.getLoungeRatings);
-
-    // Client-only — own rating for a lounge
-    this.router.get('/me/:loungeId', authMiddleware, clientMiddleware, this.ratingController.getMyRating);
-
-    // Client-only — create or update
+    /**
+     * @route   PUT /v1/ratings
+     * @desc    Create or update the authenticated user's rating for a target (client, lounge, or agent)
+     * @access  Private (Client, Lounge, or Agent) — rate-limited
+     */
     this.router.put(
       '/',
       authMiddleware,
-      clientMiddleware,
+      adminOrLoungeOrClientOrAgentMiddleware,
       csrfMiddleware,
       validationMiddleware(UpsertRatingDto, 'body'),
       this.ratingController.upsertRating,
     );
 
-    // Client-only — delete own rating
-    this.router.delete('/:loungeId', authMiddleware, clientMiddleware, csrfMiddleware, this.ratingController.deleteRating);
+    /**
+     * @route   DELETE /v1/ratings/:targetId
+     * @desc    Delete the authenticated user's own rating for a target
+     * @access  Private (Client, Lounge, or Agent)
+     */
+    this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, this.ratingController.deleteRating);
+
+    /**
+     * @route   GET /v1/ratings/target/:targetId
+     * @desc    Paginated ratings for a target user (lounge or agent)
+     * @access  Private (all authenticated users)
+     */
+    this.router.get('/target/:targetId', authMiddleware, this.ratingController.getTargetRatings);
+
+    /**
+     * @route   GET /v1/ratings/me/:targetId
+     * @desc    The authenticated user's own rating for a target
+     * @access  Private (Client, Lounge, or Agent)
+     */
+    this.router.get('/me/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.ratingController.getMyRating);
   }
 }
 

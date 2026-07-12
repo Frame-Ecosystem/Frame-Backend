@@ -468,6 +468,22 @@ class NotificationService {
   }
 
   /**
+   * Notify an agent that a client or lounge liked them.
+   */
+  public async notifyAgentLiked(agentId: string, likerId: string, likerName: string, likerImage?: string): Promise<void> {
+    await this.create({
+      userId: agentId,
+      actorId: likerId,
+      title: 'New Like',
+      body: `${likerName} liked you`,
+      type: NotificationType.AGENT_LIKED,
+      metadata: { agentId, clientId: likerId },
+      actionUrl: `/profile/${likerId}`,
+      imageUrl: likerImage,
+    });
+  }
+
+  /**
    * Notify a lounge that a client rated them.
    */
   public async notifyLoungeRated(loungeId: string, clientId: string, clientName: string, score: number, clientImage?: string): Promise<void> {
@@ -480,6 +496,44 @@ class NotificationService {
       metadata: { clientId, loungeId, ratingScore: score },
       actionUrl: `/profile/${clientId}`,
       imageUrl: clientImage,
+    });
+  }
+
+  /**
+   * Notify an agent that a client rated them.
+   */
+  public async notifyAgentRated(agentId: string, clientId: string, clientName: string, score: number, clientImage?: string): Promise<void> {
+    await this.create({
+      userId: agentId,
+      actorId: clientId,
+      title: 'New Rating',
+      body: `${clientName} rated you ${score}/5`,
+      type: NotificationType.AGENT_RATED,
+      metadata: { agentId, clientId, ratingScore: score },
+      actionUrl: `/profile/${clientId}`,
+      imageUrl: clientImage,
+    });
+  }
+
+  /**
+   * Notify a lounge that an agent rated them, or an agent that a lounge rated them.
+   */
+  public async notifyRatingReceived(
+    targetId: string,
+    raterId: string,
+    raterName: string,
+    score: number,
+    raterImage?: string,
+  ): Promise<void> {
+    await this.create({
+      userId: targetId,
+      actorId: raterId,
+      title: 'New Rating',
+      body: `${raterName} rated you ${score}/5`,
+      type: NotificationType.RATING_RECEIVED,
+      metadata: { raterId, ratingScore: score },
+      actionUrl: `/profile/${raterId}`,
+      imageUrl: raterImage,
     });
   }
 

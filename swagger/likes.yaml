@@ -1,18 +1,24 @@
-# ── Likes ──
+# Like endpoints — generalized for client/lounge/agent
 
-/v1/likes/{loungeId}:
+/v1/likes/{targetId}:
   post:
     tags: [Likes]
-    summary: Toggle like / unlike a lounge
-    description: If the client has not liked the lounge, a like is created. If the client has already liked the lounge, the like is removed (unlike).
+    summary: Toggle like / unlike a target user
+    description: |
+      Toggle like on a target user (lounge or agent). Allowed like pairs:
+      - Client → Lounge
+      - Client → Agent
+      - Lounge → Agent
+
+      Self-likes are rejected.
     security:
       - bearerAuth: []
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }
-        description: ID of the lounge to like/unlike
+        description: ID of the user to like/unlike (lounge or agent)
     responses:
       '200':
         description: Like toggled successfully
@@ -26,9 +32,9 @@
                   type: object
                   properties:
                     liked: { type: boolean, example: true }
-                message: { type: string, example: Lounge liked }
+                message: { type: string, example: Liked }
       '400':
-        description: Invalid lounge ID or lounge not found
+        description: Invalid target, self-like, or invalid like pair
         content:
           application/json:
             schema: { $ref: '#/components/schemas/Error' }
@@ -40,8 +46,8 @@
 /v1/likes/me:
   get:
     tags: [Likes]
-    summary: Get all lounges liked by the current client
-    description: Returns a paginated list of lounges the authenticated client has liked, newest first.
+    summary: Get all targets liked by the current user
+    description: Returns a paginated list of users the authenticated user has liked, newest first.
     security:
       - bearerAuth: []
     parameters:
@@ -53,7 +59,7 @@
         schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
     responses:
       '200':
-        description: List of liked lounges
+        description: List of liked users
         content:
           application/json:
             schema:
@@ -66,10 +72,10 @@
                     type: object
                     properties:
                       _id: { type: string }
-                      clientId: { type: string }
-                      loungeId:
+                      likerId: { type: string }
+                      targetId:
                         type: object
-                        description: Populated lounge summary
+                        description: Populated target user summary
                         properties:
                           _id: { type: string }
                           firstName: { type: string }
@@ -83,6 +89,7 @@
                           averageRating: { type: number }
                           ratingCount: { type: integer }
                           likeCount: { type: integer }
+                          type: { type: string, enum: [client, lounge, agent] }
                       createdAt: { type: string, format: date-time }
                 total: { type: integer }
                 page: { type: integer }
@@ -92,15 +99,15 @@
       '403':
         $ref: '#/components/responses/403'
 
-/v1/likes/check/{loungeId}:
+/v1/likes/check/{targetId}:
   get:
     tags: [Likes]
-    summary: Check if client liked a lounge
-    description: Returns whether the authenticated client has liked the specified lounge.
+    summary: Check if user liked a target
+    description: Returns whether the authenticated user has liked the specified target.
     security:
       - bearerAuth: []
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }
@@ -122,15 +129,15 @@
       '403':
         $ref: '#/components/responses/403'
 
-/v1/likes/lounge/{loungeId}:
+/v1/likes/target/{targetId}:
   get:
     tags: [Likes]
-    summary: Get clients who liked a lounge
-    description: Returns a paginated list of clients who liked a specific lounge, newest first.
+    summary: Get users who liked a target
+    description: Returns a paginated list of users who liked a specific target, newest first.
     security:
       - bearerAuth: []
     parameters:
-      - name: loungeId
+      - name: targetId
         in: path
         required: true
         schema: { type: string }
@@ -142,7 +149,7 @@
         schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
     responses:
       '200':
-        description: List of clients who liked the lounge
+        description: List of users who liked the target
         content:
           application/json:
             schema:
@@ -155,9 +162,9 @@
                     type: object
                     properties:
                       _id: { type: string }
-                      clientId:
+                      likerId:
                         type: object
-                        description: Populated client summary
+                        description: Populated liker summary
                         properties:
                           _id: { type: string }
                           firstName: { type: string }
@@ -167,7 +174,8 @@
                             properties:
                               url: { type: string }
                               publicId: { type: string }
-                      loungeId: { type: string }
+                          type: { type: string, enum: [client, lounge, agent] }
+                      targetId: { type: string }
                       createdAt: { type: string, format: date-time }
                 total: { type: integer }
                 page: { type: integer }

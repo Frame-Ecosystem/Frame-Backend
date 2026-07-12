@@ -4150,18 +4150,28 @@ paths:
   # ==================================================================
   #  RATINGS
   # ==================================================================
-  /v1/ratings/lounge/{loungeId}:
+  /v1/ratings/target/{targetId}:
     get:
       tags: [ratings]
-      summary: Get ratings for a lounge
-      operationId: getLoungeRatings
+      summary: Get ratings for a target user (lounge or agent)
+      operationId: getTargetRatings
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the user being rated (lounge or agent)
+        - name: page
+          in: query
+          type: integer
+          minimum: 1
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 50
       responses:
         200:
           description: Ratings retrieved
@@ -4172,7 +4182,13 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Rating'
-              count:
+              total:
+                type: integer
+              page:
+                type: integer
+              limit:
+                type: integer
+              totalPages:
                 type: integer
               message:
                 type: string
@@ -4181,19 +4197,20 @@ paths:
         500:
           description: Server error
 
-  /v1/ratings/me/{loungeId}:
+  /v1/ratings/me/{targetId}:
     get:
       tags: [ratings]
-      summary: Get my rating for a lounge
+      summary: Get my rating for a target
       operationId: getMyRating
-      description: Get the current client's rating for a specific lounge.
+      description: Get the current user's rating for a specific target (lounge or agent).
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the target user
       responses:
         200:
           description: Rating retrieved (null if not rated)
@@ -4206,8 +4223,6 @@ paths:
                 type: string
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         500:
           description: Server error
 
@@ -4217,8 +4232,15 @@ paths:
       summary: Create or update rating
       operationId: upsertRating
       description: |
-        Upsert a rating for a lounge (1-5 stars with optional comment).
-        One rating per client-lounge pair. Updates if already exists.
+        Upsert a rating for a target user (1-5 stars with optional comment).
+        Allowed rating pairs:
+        - Client → Lounge
+        - Client → Agent
+        - Agent → Lounge
+        - Lounge → Agent
+
+        One rating per rater-target pair. Updates if already exists.
+        Self-ratings are rejected.
       security:
         - bearerAuth: []
       parameters:
@@ -4238,15 +4260,13 @@ paths:
               message:
                 type: string
         400:
-          description: Validation error
+          description: Validation error or invalid rating pair
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         500:
           description: Server error
 
-  /v1/ratings/{loungeId}:
+  /v1/ratings/{targetId}:
     delete:
       tags: [ratings]
       summary: Delete my rating
@@ -4254,10 +4274,11 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the target user
       responses:
         200:
           description: Rating deleted
@@ -4268,29 +4289,35 @@ paths:
                 type: string
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         404:
           description: Rating not found
         500:
           description: Server error
 
   # ==================================================================
-  #  LIKES (Lounge Likes)
+  #  LIKES
   # ==================================================================
-  /v1/likes/{loungeId}:
+  /v1/likes/{targetId}:
     post:
       tags: [likes]
-      summary: Toggle like on a lounge
+      summary: Toggle like on a target user
       operationId: toggleLike
-      description: Like or unlike a lounge. Rate limited (30/min).
+      description: |
+        Like or unlike a target user (lounge or agent). Rate limited (30/min).
+        Allowed like pairs:
+        - Client → Lounge
+        - Client → Agent
+        - Lounge → Agent
+
+        Self-likes are rejected.
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the user to like/unlike (lounge or agent)
       responses:
         200:
           description: Like toggled
@@ -4305,11 +4332,11 @@ paths:
                     example: true
               message:
                 type: string
-                example: "Lounge liked"
+                example: "Liked"
+        400:
+          description: Validation error, self-like, or invalid like pair
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         429:
           description: Too many requests
         500:
@@ -4318,13 +4345,24 @@ paths:
   /v1/likes/me:
     get:
       tags: [likes]
-      summary: Get my liked lounges
+      summary: Get my liked users
       operationId: getMyLikes
+      description: Returns all users (lounges/agents) liked by the authenticated user.
       security:
         - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          type: integer
+          minimum: 1
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 50
       responses:
         200:
-          description: Liked lounges retrieved
+          description: Liked users retrieved
           schema:
             type: object
             properties:
@@ -4332,29 +4370,32 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Like'
-              count:
+              total:
+                type: integer
+              page:
+                type: integer
+              limit:
                 type: integer
               message:
                 type: string
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         500:
           description: Server error
 
-  /v1/likes/check/{loungeId}:
+  /v1/likes/check/{targetId}:
     get:
       tags: [likes]
-      summary: Check if I liked a lounge
+      summary: Check if I liked a target
       operationId: hasLiked
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the target user
       responses:
         200:
           description: Like status
@@ -4370,23 +4411,32 @@ paths:
                 type: string
         401:
           description: Unauthorized
-        403:
-          description: Forbidden  -  client only
         500:
           description: Server error
 
-  /v1/likes/lounge/{loungeId}:
+  /v1/likes/target/{targetId}:
     get:
       tags: [likes]
-      summary: Get lounge likers
-      operationId: getLoungeLikers
+      summary: Get likers of a target
+      operationId: getTargetLikers
+      description: Returns users who liked a specific target user.
       security:
         - bearerAuth: []
       parameters:
-        - name: loungeId
+        - name: targetId
           in: path
           required: true
           type: string
+          description: ID of the target user
+        - name: page
+          in: query
+          type: integer
+          minimum: 1
+        - name: limit
+          in: query
+          type: integer
+          minimum: 1
+          maximum: 50
       responses:
         200:
           description: Likers retrieved
@@ -4397,7 +4447,11 @@ paths:
                 type: array
                 items:
                   $ref: '#/definitions/Like'
-              count:
+              total:
+                type: integer
+              page:
+                type: integer
+              limit:
                 type: integer
               message:
                 type: string
@@ -9775,10 +9829,22 @@ definitions:
     properties:
       _id:
         type: string
-      clientId:
+      raterId:
+        oneOf:
+          - type: string
+          - $ref: '#/definitions/User'
+        description: Populated with rater details on read
+      targetId:
+        oneOf:
+          - type: string
+          - $ref: '#/definitions/User'
+        description: Populated with target details on read
+      raterType:
         type: string
-      loungeId:
+        enum: [client, lounge, agent]
+      targetType:
         type: string
+        enum: [client, lounge, agent]
       score:
         type: integer
         minimum: 1
@@ -9797,11 +9863,12 @@ definitions:
   UpsertRatingDto:
     type: object
     required:
-      - loungeId
+      - targetId
       - score
     properties:
-      loungeId:
+      targetId:
         type: string
+        description: ID of the user being rated (lounge or agent)
       score:
         type: integer
         minimum: 1
@@ -9812,17 +9879,29 @@ definitions:
         maxLength: 1000
 
   # ------------------------------------------------------------------
-  #  Like (Lounge)
+  #  Like
   # ------------------------------------------------------------------
   Like:
     type: object
     properties:
       _id:
         type: string
-      clientId:
+      likerId:
+        oneOf:
+          - type: string
+          - $ref: '#/definitions/User'
+        description: Populated with liker details on read
+      targetId:
+        oneOf:
+          - type: string
+          - $ref: '#/definitions/User'
+        description: Populated with target details on read
+      likerType:
         type: string
-      loungeId:
+        enum: [client, lounge, agent]
+      targetType:
         type: string
+        enum: [client, lounge, agent]
       createdAt:
         type: string
         format: date-time

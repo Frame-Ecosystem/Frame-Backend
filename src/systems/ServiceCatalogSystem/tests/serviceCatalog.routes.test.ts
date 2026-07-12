@@ -17,10 +17,10 @@
  *   POST /v1/lounge-services                  (lounge only)
  *   PUT  /v1/lounge-services/:id              (lounge only)
  *   DELETE /v1/lounge-services/:id            (lounge only)
- *   GET  /v1/ratings/lounge/:loungeId         (public)
- *   POST /v1/ratings/lounge/:loungeId         (client only)
- *   PUT  /v1/ratings/lounge/:loungeId         (client only)
- *   DELETE /v1/ratings/lounge/:loungeId       (client only)
+ *   GET  /v1/ratings/target/:targetId     (public)
+ *   GET  /v1/ratings/me/:targetId         (client/lounge/agent)
+ *   PUT  /v1/ratings                      (client/lounge/agent)
+ *   DELETE /v1/ratings/:targetId          (client/lounge/agent)
  *   GET  /v1/service-suggestions              (admin/lounge)
  *   POST /v1/service-suggestions              (client only)
  *   PUT  /v1/service-suggestions/:id          (admin only)
@@ -138,9 +138,9 @@ jest.mock('@systems/ServiceCatalogSystem/services/loungeServices.service', () =>
 jest.mock('@systems/ServiceCatalogSystem/services/rating.service', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    getLoungeRatings: jest.fn().mockResolvedValue({ ratings: [], average: 0, total: 0 }),
-    createRating: jest.fn().mockResolvedValue({ _id: 'rating1', value: 5, comment: 'Excellent!' }),
-    updateRating: jest.fn().mockResolvedValue({ _id: 'rating1', value: 4, comment: 'Updated' }),
+    getTargetRatings: jest.fn().mockResolvedValue({ ratings: [], total: 0 }),
+    getMyRating: jest.fn().mockResolvedValue(null),
+    upsertRating: jest.fn().mockResolvedValue({ _id: 'rating1', score: 5, comment: 'Excellent!' }),
     deleteRating: jest.fn().mockResolvedValue(undefined),
   })),
 }));
@@ -349,37 +349,28 @@ describe('ServiceCatalogSystem — Route Tests', () => {
   // ── Rating routes (/v1/ratings) ──────────────────────────────────────────
 
   describe('Ratings (/v1/ratings)', () => {
-    it('GET /v1/ratings/lounge/:loungeId → 200 (public)', async () => {
-      const res = await request(server).get(`/v1/ratings/lounge/${testIds.lounge}`);
+    it('GET /v1/ratings/target/:targetId → 200 (public)', async () => {
+      const res = await request(server).get(`/v1/ratings/target/${testIds.lounge}`);
       expectRouteOk(res.status);
     });
 
-    it('POST /v1/ratings/lounge/:loungeId → 201 rating a lounge (client)', async () => {
+    it('PUT /v1/ratings → 200 rating a lounge (client)', async () => {
       const res = await request(server)
-        .post(`/v1/ratings/lounge/${testIds.lounge}`)
+        .put('/v1/ratings')
         .set('Authorization', bearerHeader(clientToken()))
-        .send({ value: 5, comment: 'Excellent service!' });
+        .send({ targetId: testIds.lounge, score: 5, comment: 'Excellent service!' });
       expectRouteOk(res.status);
     });
 
-    it('POST /v1/ratings/lounge/:loungeId → 403 for lounge user', async () => {
+    it('GET /v1/ratings/me/:targetId → 200 (client)', async () => {
       const res = await request(server)
-        .post(`/v1/ratings/lounge/${testIds.lounge}`)
-        .set('Authorization', bearerHeader(loungeToken()))
-        .send({ value: 5, comment: 'Self rating attempt' });
+        .get(`/v1/ratings/me/${testIds.lounge}`)
+        .set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
 
-    it('PUT /v1/ratings/lounge/:loungeId → 200 updating rating (client)', async () => {
-      const res = await request(server)
-        .put(`/v1/ratings/lounge/${testIds.lounge}`)
-        .set('Authorization', bearerHeader(clientToken()))
-        .send({ value: 4, comment: 'Updated feedback' });
-      expectRouteOk(res.status);
-    });
-
-    it('DELETE /v1/ratings/lounge/:loungeId → 200 deleting rating (client)', async () => {
-      const res = await request(server).delete(`/v1/ratings/lounge/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
+    it('DELETE /v1/ratings/:targetId → 200 deleting rating (client)', async () => {
+      const res = await request(server).delete(`/v1/ratings/${testIds.lounge}`).set('Authorization', bearerHeader(clientToken()));
       expectRouteOk(res.status);
     });
   });
