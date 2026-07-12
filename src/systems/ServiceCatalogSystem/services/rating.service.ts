@@ -1,14 +1,15 @@
 ﻿import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
-import { Rating, RateableUserType, isAllowedRatingPair } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
+import { Rating, RatingUserType } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
 import ratingModel from '@systems/ServiceCatalogSystem/models/rating.model';
 import userModel from '@systems/UserManager/models/user.model';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
-import { assertObjectId, assertRateableTarget, assertExistingUser } from '@utils/validators';
+import { assertObjectId, assertSocialTarget, assertExistingUser } from '@utils/validators';
+import { isAllowedSocialPair, POPULATE_ACTOR_BASIC } from '@utils/social-matrix';
 import { logger } from '@utils/logger';
 import mongoose from 'mongoose';
 
-const POPULATE_RATER = { path: 'raterId', select: 'firstName lastName loungeTitle profileImage type' };
+const POPULATE_RATER = { path: 'raterId', select: POPULATE_ACTOR_BASIC };
 
 class RatingService {
   private ratings = ratingModel;
@@ -19,9 +20,8 @@ class RatingService {
 
   /**
    * Create or update a user's rating for a target.
-   * Enforces the rating matrix:
+   * Enforces the social interaction matrix:
    *   any user type → lounge | agent
-   *   (clients, lounges, agents can all rate lounges and agents)
    * After persisting, recalculates the target's denormalized averageRating / ratingCount.
    */
   public async upsertRating(raterId: string, dto: UpsertRatingDto): Promise<Rating> {
@@ -34,15 +34,15 @@ class RatingService {
     // Look up both users in parallel
     const [rater, targetType] = await Promise.all([
       this.users.findById(raterId).select('type firstName lastName loungeTitle profileImage').lean(),
-      assertRateableTarget(dto.targetId),
+      assertSocialTarget(dto.targetId, 'rateable', 'INVALID_RATEABLE_TARGET'),
     ]);
 
     if (!rater) throw new NotFoundException('Rater not found', 'USER_NOT_FOUND');
 
-    const raterType = rater.type as RateableUserType;
+    const raterType = rater.type as RatingUserType;
 
-    // Enforce the rating matrix
-    if (!isAllowedRatingPair(raterType, targetType)) {
+    // Enforce the social interaction matrix
+    if (!isAllowedSocialPair(raterType, targetType)) {
       throw new BadRequestException(
         `A ${raterType} cannot rate a ${targetType}`,
         'INVALID_RATING_PAIR',
@@ -67,9 +67,11 @@ class RatingService {
     const raterImage = rater?.profileImage?.url;
 
     if (targetType === 'lounge') {
-      this.notificationService.notifyLoungeRated(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
+      this.notificationService.notifyLoungeRated(dto.targetId, raterId, raterName, dto.score, raterImage)
+        .catch((err) => logger.error(`RatingService: failed to send lounge rated notification: ${err.message}`));
     } else {
-      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
+      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage)
+        .catch((err) => logger.error(`RatingService: failed to send agent rated notification: ${err.message}`));
     }
 
     logger.info(`RatingService.upsertRating: ${raterType}=${raterId} → ${targetType}=${dto.targetId} score=${dto.score}`);

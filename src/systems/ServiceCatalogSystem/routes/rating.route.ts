@@ -3,6 +3,7 @@ import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
 import { adminOrLoungeOrClientOrAgentMiddleware } from '@middlewares/role.middleware';
+import { ratingRateLimiter } from '@middlewares/rateLimit.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
 import RatingController from '@systems/ServiceCatalogSystem/controllers/rating.controller';
@@ -27,6 +28,7 @@ class RatingRoute implements Routes {
       authMiddleware,
       adminOrLoungeOrClientOrAgentMiddleware,
       csrfMiddleware,
+      ratingRateLimiter,
       validationMiddleware(UpsertRatingDto, 'body'),
       this.ratingController.upsertRating,
     );
@@ -36,7 +38,7 @@ class RatingRoute implements Routes {
      * @desc    Delete the authenticated user's own rating for a target
      * @access  Private (Client, Lounge, or Agent)
      */
-    this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, this.ratingController.deleteRating);
+    this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, ratingRateLimiter, this.ratingController.deleteRating);
 
     /**
      * @route   GET /v1/ratings/target/:targetId

@@ -4,6 +4,7 @@ import NotificationService from '@systems/NotificationSystem/services/notificati
 import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
+import { POPULATE_FOLLOW_USER } from '@utils/social-matrix';
 
 /** Allowed follow relationships between client, lounge, and agent user types. */
 const ALLOWED_FOLLOW_PAIRS = new Set([
@@ -17,9 +18,6 @@ const ALLOWED_FOLLOW_PAIRS = new Set([
   'agent→lounge',
   'agent→agent',
 ]);
-
-/** Fields populated on follow user references. */
-const FOLLOW_USER_SELECT = 'firstName lastName loungeTitle profileImage bio type';
 
 interface PaginateFollowsOpts {
   filterField: 'followerId' | 'followingId';
@@ -87,7 +85,8 @@ class FollowService {
     const follower = await this.users.findById(followerId).select('firstName lastName loungeTitle profileImage type').lean().exec();
     const followerName = this.notificationService.extractName(follower);
     const followerImage = follower?.profileImage?.url;
-    this.notificationService.notifyNewFollower(targetId, followerId, followerName, followerImage).catch(() => {});
+    this.notificationService.notifyNewFollower(targetId, followerId, followerName, followerImage)
+      .catch((err) => logger.error(`FollowService: failed to send new follower notification: ${err.message}`));
 
     logger.info(`FollowService.follow: ${followerType} ${followerId} → ${targetType} ${targetId}`);
     return { following: true };
@@ -210,7 +209,7 @@ class FollowService {
     const skip = (page - 1) * limit;
 
     const [follows, total] = await Promise.all([
-      this.follows.find(filter).populate(populateField, FOLLOW_USER_SELECT).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
+      this.follows.find(filter).populate(populateField, POPULATE_FOLLOW_USER).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec(),
       this.follows.countDocuments(filter).exec(),
     ]);
 

@@ -1,28 +1,21 @@
-/** User types that can rate or be rated. */
-export type RateableUserType = 'client' | 'lounge' | 'agent';
+import { SocialUserType, isAllowedSocialPair } from '@utils/social-matrix';
 
-/** Allowed rater→target combinations.
- *  Any user type can rate any lounge or agent (not clients, not admins, not self). */
-const ALLOWED_RATING_PAIRS = new Set([
-  'client→lounge',
-  'client→agent',
-  'lounge→lounge',
-  'lounge→agent',
-  'agent→lounge',
-  'agent→agent',
-]);
+/** @deprecated Use `SocialUserType` from `@utils/social-matrix`. */
+export type RateableUserType = SocialUserType;
 
-export function isAllowedRatingPair(raterType: string, targetType: string): boolean {
-  return ALLOWED_RATING_PAIRS.has(`${raterType}→${targetType}`);
-}
+/** Proper alias — prefer this over the deprecated `RateableUserType`. */
+export type RatingUserType = SocialUserType;
+
+/** @deprecated Use `isAllowedSocialPair` from `@utils/social-matrix` directly. */
+export const isAllowedRatingPair = isAllowedSocialPair;
 
 export interface Rating {
   _id?: string;
-  raterId: string; // User who rates
-  targetId: string; // User being rated
-  raterType: RateableUserType;
-  targetType: RateableUserType;
-  score: number; // 1–5
+  raterId: string;
+  targetId: string;
+  raterType: SocialUserType;
+  targetType: SocialUserType;
+  score: number;
   comment?: string;
   createdAt?: Date;
   updatedAt?: Date;

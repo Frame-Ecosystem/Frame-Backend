@@ -126,6 +126,7 @@ export interface NotificationMetadata {
 
   // Social
   followerId?: string;
+  actorId?: string;
   ratingScore?: number;
   raterId?: string;
 

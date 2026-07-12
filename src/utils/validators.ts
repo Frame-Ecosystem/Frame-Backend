@@ -26,36 +26,41 @@ export async function assertLounge(loungeId: string): Promise<void> {
 }
 
 /**
- * Validate that an ObjectId references a user document with a rateable type (lounge or agent).
- * @throws BadRequestException if invalid or not a rateable type
+ * Unified validator: ensure an ObjectId references a social-interaction target (lounge or agent).
+ * @param verb  Human-readable action name for the error message (e.g. "rateable", "likeable")
+ * @param code  Error code for the rejection (e.g. "INVALID_RATEABLE_TARGET")
+ * @returns The target's user type ("lounge" | "agent")
+ * @throws BadRequestException if the user does not exist, is blocked, or is not a lounge/agent
  */
-export async function assertRateableTarget(targetId: string): Promise<string> {
+export async function assertSocialTarget(
+  targetId: string,
+  verb: string,
+  code: string,
+): Promise<string> {
   assertObjectId(targetId, 'target');
   const user = await userModel.findById(targetId).select('type isBlocked').lean();
   if (!user || user.isBlocked) {
     throw new BadRequestException('User not found', 'USER_NOT_FOUND');
   }
   if (user.type !== 'lounge' && user.type !== 'agent') {
-    throw new BadRequestException('Target user is not rateable', 'INVALID_RATEABLE_TARGET');
+    throw new BadRequestException(`Target user is not ${verb}`, code);
   }
   return user.type;
 }
 
 /**
- * Validate that an ObjectId references a user document with a likeable type (lounge or agent).
- * @throws BadRequestException if invalid or not a likeable type
+ * Validate that an ObjectId references a rateable target (lounge or agent).
+ * @deprecated Use `assertSocialTarget(id, 'rateable', 'INVALID_RATEABLE_TARGET')` instead.
  */
-export async function assertLikeableTarget(targetId: string): Promise<string> {
-  assertObjectId(targetId, 'target');
-  const user = await userModel.findById(targetId).select('type isBlocked').lean();
-  if (!user || user.isBlocked) {
-    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
-  }
-  if (user.type !== 'lounge' && user.type !== 'agent') {
-    throw new BadRequestException('Target user is not likeable', 'INVALID_LIKEABLE_TARGET');
-  }
-  return user.type;
-}
+export const assertRateableTarget = (targetId: string) =>
+  assertSocialTarget(targetId, 'rateable', 'INVALID_RATEABLE_TARGET');
+
+/**
+ * Validate that an ObjectId references a likeable target (lounge or agent).
+ * @deprecated Use `assertSocialTarget(id, 'likeable', 'INVALID_LIKEABLE_TARGET')` instead.
+ */
+export const assertLikeableTarget = (targetId: string) =>
+  assertSocialTarget(targetId, 'likeable', 'INVALID_LIKEABLE_TARGET');
 
 /**
  * Validate that an ObjectId references an existing user of any type.

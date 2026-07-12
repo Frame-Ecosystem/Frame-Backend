@@ -1,26 +1,19 @@
-/** User types that can like or be liked. */
-export type LikelikeUserType = 'client' | 'lounge' | 'agent';
+import { SocialUserType, isAllowedSocialPair } from '@utils/social-matrix';
 
-/** Allowed liker→target combinations.
- *  Any user type can like any lounge or agent (not clients, not admins, not self). */
-const ALLOWED_LIKE_PAIRS = new Set([
-  'client→lounge',
-  'client→agent',
-  'lounge→lounge',
-  'lounge→agent',
-  'agent→lounge',
-  'agent→agent',
-]);
+/** @deprecated Use `SocialUserType` from `@utils/social-matrix`. */
+export type LikelikeUserType = SocialUserType;
 
-export function isAllowedLikePair(likerType: string, targetType: string): boolean {
-  return ALLOWED_LIKE_PAIRS.has(`${likerType}→${targetType}`);
-}
+/** Proper alias — prefer this over the deprecated `LikelikeUserType`. */
+export type LikeUserType = SocialUserType;
+
+/** @deprecated Use `isAllowedSocialPair` from `@utils/social-matrix` directly. */
+export const isAllowedLikePair = isAllowedSocialPair;
 
 export interface Like {
   _id?: string;
   likerId: string;
   targetId: string;
-  likerType: LikelikeUserType;
-  targetType: LikelikeUserType;
+  likerType: SocialUserType;
+  targetType: SocialUserType;
   createdAt?: Date;
 }
