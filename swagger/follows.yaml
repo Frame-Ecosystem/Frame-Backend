@@ -115,6 +115,46 @@
       '400': { description: Invalid ObjectId }
       '401': { $ref: '#/components/responses/401' }
 
+/v1/follows/mutual-check/{targetId}:
+  get:
+    tags: [Follows]
+    summary: Check mutual follow status
+    description: |
+      Returns whether the authenticated user and the target user mutually follow each other.
+      This is required before messaging — the backend blocks DM creation/sending if mutual follow is missing.
+      Admins always return true (bypass the mutual follow requirement).
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: targetId
+        in: path
+        required: true
+        schema: { type: string }
+        description: ID of the other user
+    responses:
+      '200':
+        description: Mutual follow status
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    mutualFollow:
+                      type: boolean
+                      description: True if both users follow each other (or either is an admin)
+                    aFollowsB:
+                      type: boolean
+                      description: True if the authenticated user follows the target
+                    bFollowsA:
+                      type: boolean
+                      description: True if the target follows the authenticated user
+      '400': { description: Invalid ObjectId }
+      '401': { $ref: '#/components/responses/401' }
+
 /v1/follows/following/{userId}:
   get:
     tags: [Follows]

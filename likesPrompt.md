@@ -1,54 +1,85 @@
 # Likes Module — Frontend Integration Prompt
 
-## Overview
-
-The Likes Module allows users to like other users (Lounges and Agents) using a toggle pattern — tap once to like, tap again to unlike. Likes are **generalized** — any supported user type can like any supported target, as long as the combination is allowed by the backend matrix. The backend maintains a denormalized `likeCount` on every target user document.
-
-**Base URL:** `/v1/likes`
-**Auth:** All endpoints require a valid JWT via `Authorization: Bearer <token>` header.
-**Write endpoints** also require a valid CSRF token via `X-CSRF-Token` header or `csrf-token` form field.
-**Rate limit:** Toggle endpoint is limited to **30 requests per 15 minutes** per user.
+> **Purpose:** This document is the single source of truth for the frontend agent working on the Frame Beauty application. It covers every Like API endpoint, the data model, the like matrix rules, error codes, notification payloads, and recommended frontend patterns. Reference this before implementing any like/heart functionality.
 
 ---
 
-## Like Matrix
+## 1. Overview
 
-The backend enforces a strict like matrix. Only these combinations are allowed:
+The Likes Module lets a user **heart** (like) another user's profile. It follows a **toggle** pattern — the same request creates or removes a like. There is no separate "unlike" endpoint.
 
-| Liker (you) | Can Like | Cannot Like |
+The backend enforces a **like matrix** that controls which user-type combinations are allowed. The frontend should mirror this matrix for UX (hide the heart button when a like is not possible), but the backend is the source of truth and will reject invalid pairs with `400 INVALID_LIKE_PAIR`.
+
+Every target user document carries a denormalized `likeCount` field that is recalculated on every toggle — read this field directly from user objects in search results, profiles, or detail views; no extra API call is needed to display a count.
+
+**Base path:** `/v1/likes`
+
+---
+
+## 2. Authentication & Security
+
+| Requirement | Details |
+|---|---|
+| **JWT** | `Authorization: Bearer <token>` header on every request |
+| **CSRF** | Write endpoints (`POST`) require a valid CSRF token via `X-CSRF-Token` header **or** `csrf-token` form field |
+| **Rate limit** | `POST /v1/likes/:targetId` is limited to **30 requests per 15-minute window** per user. Exceeding returns `429` with `"Too many like requests. Please slow down."` |
+| **Role access** | `POST` (toggle), `GET /me`, `GET /check/:targetId` → Client, Lounge, or Agent. `GET /target/:targetId` → any authenticated user. |
+
+---
+
+## 3. Like Matrix
+
+The backend uses the following allowed pairs. Any combination not listed is rejected.
+
+| Liker (authenticated user) | Can Like | Cannot Like |
 |---|---|---|
 | **Client** | Lounge, Agent | Other Clients, Admins |
 | **Lounge** | Agent | Clients, other Lounges, Admins |
-| **Agent** | *(none)* | Everyone |
+| **Agent** | *(nothing)* | Everyone |
 
-**Self-likes are always rejected.** You cannot like yourself regardless of your type.
+**Self-likes are always rejected** regardless of type — returns `400 SELF_LIKE`.
 
-If a frontend user attempts to like a target outside this matrix, the backend returns a `400` with code `INVALID_LIKE_PAIR`.
+### 3.1 Client-Side Matrix Check
+
+Implement this helper to decide whether to show the heart button:
+
+```typescript
+// Allowed combinations — keep in sync with backend ALLOWED_LIKE_PAIRS
+const ALLOWED_LIKE_PAIRS = new Set([
+  'client→lounge',
+  'client→agent',
+  'lounge→agent',
+]);
+
+function canLike(likerType: string, targetType: string): boolean {
+  return ALLOWED_LIKE_PAIRS.has(`${likerType}→${targetType}`);
+}
+
+// Usage in a profile view component:
+const showHeartButton =
+  currentUser._id !== profileUser._id &&            // not own profile
+  canLike(currentUser.type, profileUser.type);       // matrix allows it
+```
 
 ---
 
-## Endpoints
+## 4. Endpoints
 
-### 1. Toggle Like / Unlike
+### 4.1 Toggle Like / Unlike
 
 ```
 POST /v1/likes/:targetId
 ```
 
-Toggle a like on a target user. If you haven't liked them, a like is created. If you already liked them, the like is removed (unlike). This is a **toggle** — there is no separate like/unlike endpoint.
+Creates a like if none exists; removes it if one does. This is the **only** write endpoint — there is no separate unlike.
 
-**Auth:** Client, Lounge, or Agent
-**CSRF:** Required
-**Rate limit:** 30 requests / 15 min
+**Middleware chain:** `authMiddleware` → `adminOrLoungeOrClientOrAgentMiddleware` → `csrfMiddleware` → `likeRateLimiter`
 
-#### Path Parameters
+| Parameter | In | Type | Required | Description |
+|---|---|---|---|---|
+| `targetId` | path | ObjectId | yes | ID of the user to like/unlike (must be a Lounge or Agent) |
 
-| Parameter | Type | Description |
-|---|---|---|
-| `targetId` | string (ObjectId) | ID of the user to like/unlike (must be a Lounge or Agent) |
-
-#### Response (200) — Liked
-
+**200 Response (liked):**
 ```json
 {
   "success": true,
@@ -57,8 +88,7 @@ Toggle a like on a target user. If you haven't liked them, a like is created. If
 }
 ```
 
-#### Response (200) — Unliked
-
+**200 Response (unliked):**
 ```json
 {
   "success": true,
@@ -67,39 +97,35 @@ Toggle a like on a target user. If you haven't liked them, a like is created. If
 }
 ```
 
-#### Error Responses
+**Error responses:**
 
-| Status | Code | When |
+| Status | `code` | Trigger |
 |---|---|---|
-| 400 | `SELF_LIKE` | Trying to like yourself |
-| 400 | `INVALID_LIKE_PAIR` | Liker type cannot like target type (e.g., Agent → Lounge) |
-| 400 | `INVALID_LIKEABLE_TARGET` | Target is not a Lounge or Agent (e.g., liking a Client or Admin) |
-| 400 | `USER_NOT_FOUND` | Target user not found or is blocked |
-| 401 | — | No token or invalid token |
-| 403 | — | CSRF token missing/invalid, or user role not allowed |
+| 400 | `SELF_LIKE` | `targetId === userId` |
+| 400 | `INVALID_LIKE_PAIR` | Matrix disallows this liker→target combo |
+| 400 | `INVALID_LIKEABLE_TARGET` | Target is a Client or Admin (not lounge/agent) |
+| 400 | `USER_NOT_FOUND` | Target user does not exist or is blocked |
+| 400 | `INVALID_TARGET_ID` | Malformed ObjectId |
+| 401 | — | Missing or invalid JWT |
+| 403 | — | CSRF token missing/invalid, or role not in allowed list |
 | 429 | — | Rate limit exceeded (30 / 15 min) |
 
 ---
 
-### 2. Get My Likes
+### 4.2 Get My Likes
 
 ```
 GET /v1/likes/me?page=1&limit=20
 ```
 
-Fetch paginated list of all users (Lounges and Agents) you have liked. Returns the target user's profile populated on each like. Sorted newest-first.
+Returns every user (Lounges and Agents) the authenticated user has liked. Sorted newest-first. The `targetId` field is **populated** with the target's user profile summary.
 
-**Auth:** Client, Lounge, or Agent
+| Parameter | In | Type | Default | Description |
+|---|---|---|---|---|
+| `page` | query | integer | 1 | Page number, min 1 |
+| `limit` | query | integer | 20 | Items per page, max 50 |
 
-#### Query Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | 1 | Page number (min 1) |
-| `limit` | integer | 20 | Items per page (max 50) |
-
-#### Response (200)
-
+**200 Response:**
 ```json
 {
   "success": true,
@@ -112,7 +138,14 @@ Fetch paginated list of all users (Lounges and Agents) you have liked. Returns t
         "firstName": "Sara",
         "lastName": "Alami",
         "loungeTitle": "Beauty Studio",
-        "profileImage": { "url": "https://cdn.framebeauty.com/avatars/sara.jpg" },
+        "profileImage": {
+          "url": "https://cdn.framebeauty.com/avatars/sara.jpg",
+          "publicId": "avatars/sara"
+        },
+        "coverImage": {
+          "url": "https://cdn.framebeauty.com/covers/sara-cover.jpg",
+          "publicId": "covers/sara-cover"
+        },
         "averageRating": 4.5,
         "ratingCount": 28,
         "likeCount": 142,
@@ -129,26 +162,23 @@ Fetch paginated list of all users (Lounges and Agents) you have liked. Returns t
 }
 ```
 
+**Populated `targetId` fields:** `_id`, `firstName`, `lastName`, `loungeTitle`, `profileImage`, `coverImage`, `averageRating`, `ratingCount`, `likeCount`, `type`
+
 ---
 
-### 3. Check If I Liked a Target
+### 4.3 Check If I Liked a Target
 
 ```
 GET /v1/likes/check/:targetId
 ```
 
-Check whether the authenticated user has liked a specific target. Returns a boolean.
+Returns a boolean. Use this to render a filled vs outline heart on profile pages.
 
-**Auth:** Client, Lounge, or Agent
+| Parameter | In | Type | Required | Description |
+|---|---|---|---|---|
+| `targetId` | path | ObjectId | yes | ID of the target user |
 
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `targetId` | string (ObjectId) | ID of the target user |
-
-#### Response (200)
-
+**200 Response:**
 ```json
 {
   "success": true,
@@ -158,31 +188,21 @@ Check whether the authenticated user has liked a specific target. Returns a bool
 
 ---
 
-### 4. Get Likers of a Target
+### 4.4 Get Likers of a Target
 
 ```
 GET /v1/likes/target/:targetId?page=1&limit=20
 ```
 
-Fetch paginated list of all users who liked a specific target. Returns the liker's profile populated on each like. Sorted newest-first.
+Returns every user who has liked the given target. Sorted newest-first. The `likerId` field is **populated** with the liker's profile summary. Any authenticated user can call this (no role restriction).
 
-**Auth:** Any authenticated user
+| Parameter | In | Type | Default | Description |
+|---|---|---|---|---|
+| `targetId` | path | ObjectId | — | ID of the target user |
+| `page` | query | integer | 1 | Page number, min 1 |
+| `limit` | query | integer | 20 | Items per page, max 50 |
 
-#### Path Parameters
-
-| Parameter | Type | Description |
-|---|---|---|
-| `targetId` | string (ObjectId) | ID of the target user |
-
-#### Query Parameters
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `page` | integer | 1 | Page number (min 1) |
-| `limit` | integer | 20 | Items per page (max 50) |
-
-#### Response (200)
-
+**200 Response:**
 ```json
 {
   "success": true,
@@ -193,7 +213,11 @@ Fetch paginated list of all users who liked a specific target. Returns the liker
         "_id": "665f1a2b3c4d5e6f7a8b9c0f",
         "firstName": "Sara",
         "lastName": "Alami",
-        "profileImage": { "url": "https://cdn.framebeauty.com/avatars/sara.jpg" },
+        "loungeTitle": "Beauty Studio",
+        "profileImage": {
+          "url": "https://cdn.framebeauty.com/avatars/sara.jpg",
+          "publicId": "avatars/sara"
+        },
         "type": "client"
       },
       "targetId": "665f1a2b3c4d5e6f7a8b9c0d",
@@ -208,195 +232,249 @@ Fetch paginated list of all users who liked a specific target. Returns the liker
 }
 ```
 
+**Populated `likerId` fields:** `_id`, `firstName`, `lastName`, `loungeTitle`, `profileImage`, `type`
+
 ---
 
-## Denormalized Like Count
+## 5. Data Model
 
-Every Lounge and Agent user document contains a denormalized `likeCount` field that is automatically recalculated by the backend whenever a like is toggled:
-
-```json
-{
-  "_id": "665f1a2b3c4d5e6f7a8b9c0d",
-  "type": "lounge",
-  "loungeTitle": "Beauty Studio",
-  "likeCount": 142
-}
-```
+### 5.1 Like Document (MongoDB)
 
 | Field | Type | Description |
 |---|---|---|
-| `likeCount` | integer | Total number of likes received. 0 if none. |
+| `_id` | ObjectId | Auto-generated |
+| `likerId` | ObjectId → User | The user who liked |
+| `targetId` | ObjectId → User | The user who was liked |
+| `likerType` | `'client' \| 'lounge' \| 'agent'` | Denormalized type of liker |
+| `targetType` | `'client' \| 'lounge' \| 'agent'` | Denormalized type of target |
+| `createdAt` | Date | Auto-set on creation (no `updatedAt`) |
 
-**This field is already included** in user profiles when fetched via other endpoints (search, likes, profiles). You do not need to call the like endpoints separately to display a like count on a Lounge or Agent card — just read `likeCount` from the user object.
+**Unique constraint:** `{ likerId, targetId }` — one like per pair.
+
+**Indexes:**
+- `{ likerId: 1, targetId: 1 }` unique
+- `{ targetId: 1, createdAt: -1 }`
+- `{ likerId: 1, createdAt: -1 }`
+- `{ targetId: 1, targetType: 1, createdAt: -1 }`
+- `{ likerId: 1, targetType: 1, createdAt: -1 }`
+
+### 5.2 Denormalized `likeCount` on User Documents
+
+Every Lounge and Agent user document has a `likeCount` field (number, defaults to 0). It is automatically recalculated by the backend after every toggle. **Read this field directly** from any user object returned by other endpoints (search, profiles, booking details, etc.) — no separate API call is needed.
+
+```typescript
+// From any user object (lounge or agent):
+const likes = user.likeCount; // e.g., 142
+```
 
 ---
 
-## Frontend Usage Guide
+## 6. Frontend Implementation Patterns
 
-### Displaying Like Count on a Lounge/Agent Card
-
-When rendering a Lounge or Agent in a list, read the `likeCount` field directly from the user object:
+### 6.1 Heart Button on a Profile Page
 
 ```typescript
-// From any user object (lounge or agent)
-const likes = user.likeCount; // e.g., 142
+import { useState, useEffect } from 'react';
 
-// Render: ❤ 142
-```
+function HeartButton({ profileUser, currentUser, csrfToken, authToken }) {
+  const [liked, setLiked] = useState(false);
+  const [likeCount, setLikeCount] = useState(profileUser.likeCount ?? 0);
+  const [loading, setLoading] = useState(false);
 
-No API call needed — this is already denormalized on the user document.
+  // Determine if heart button should be shown at all
+  const isOwnProfile = currentUser._id === profileUser._id;
+  const ALLOWED = new Set(['client→lounge', 'client→agent', 'lounge→agent']);
+  const showHeart = !isOwnProfile && ALLOWED.has(`${currentUser.type}→${profileUser.type}`);
 
-### Showing Heart State on a Profile Page
+  // Fetch current like status on mount
+  useEffect(() => {
+    if (!showHeart) return;
+    fetch(`/v1/likes/check/${profileUser._id}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(res => res.json())
+      .then(({ data }) => setLiked(data.liked))
+      .catch(console.error);
+  }, [profileUser._id, showHeart]);
 
-Check if the current user has already liked this target:
+  const toggleLike = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/v1/likes/${profileUser._id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+          'X-CSRF-Token': csrfToken,
+        },
+      });
+      const result = await res.json();
+      if (result.success) {
+        setLiked(result.data.liked);
+        setLikeCount(prev => result.data.liked ? prev + 1 : prev - 1);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
-```typescript
-// GET /v1/likes/check/:targetId
-const response = await fetch(`/v1/likes/check/${targetId}`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const { data: { liked } } = await response.json();
+  if (!showHeart) return null;
 
-// Render filled heart if liked, outline heart if not
-```
-
-### Toggling a Like (Heart Button)
-
-```typescript
-// POST /v1/likes/:targetId
-const response = await fetch(`/v1/likes/${targetId}`, {
-  method: 'POST',
-  headers: {
-    Authorization: `Bearer ${token}`,
-    'X-CSRF-Token': csrfToken,
-  },
-});
-
-const result = await response.json();
-if (result.success) {
-  const isNowLiked = result.data.liked;
-  // Update heart icon: filled if isNowLiked, outline if not
-  // Update likeCount display: increment or decrement by 1
+  return (
+    <button onClick={toggleLike} disabled={loading} aria-label={liked ? 'Unlike' : 'Like'}>
+      {liked ? '❤️' : '🤍'} {likeCount}
+    </button>
+  );
 }
 ```
 
-### Showing the Likers List on a Profile Page
+### 6.2 "My Likes" List Page
 
 ```typescript
-// GET /v1/likes/target/:targetId?page=1&limit=20
-const response = await fetch(`/v1/likes/target/${targetId}?page=1&limit=20`, {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const { data: likers, total } = await response.json();
+function MyLikesPage({ authToken }) {
+  const [likes, setLikes] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const limit = 20;
+
+  useEffect(() => {
+    fetch(`/v1/likes/me?page=${page}&limit=${limit}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(res => res.json())
+      .then(({ data, total: t }) => { setLikes(data); setTotal(t); })
+      .catch(console.error);
+  }, [page]);
+
+  return (
+    <div>
+      <h2>My Likes ({total})</h2>
+      {likes.map(like => {
+        const target = like.targetId; // populated user object
+        return (
+          <div key={like._id}>
+            <img src={target.profileImage?.url} alt="" />
+            <span>{target.firstName} {target.lastName}</span>
+            <span>{target.type === 'lounge' ? target.loungeTitle : ''}</span>
+            <span>⭐ {target.averageRating ?? '—'} ({target.ratingCount ?? 0})</span>
+            <span>❤️ {target.likeCount ?? 0}</span>
+          </div>
+        );
+      })}
+      {total > limit && <Pagination current={page} total={total} limit={limit} onChange={setPage} />}
+    </div>
+  );
+}
 ```
 
-### Showing "My Likes" List
+### 6.3 "Likers" List on a Profile Page
 
 ```typescript
-// GET /v1/likes/me?page=1&limit=20
-const response = await fetch('/v1/likes/me?page=1&limit=20', {
-  headers: { Authorization: `Bearer ${token}` },
-});
-const { data: likedUsers, total } = await response.json();
+function LikersList({ targetId, authToken }) {
+  const [likers, setLikers] = useState([]);
+  const [total, setTotal] = useState(0);
+
+  useEffect(() => {
+    fetch(`/v1/likes/target/${targetId}?page=1&limit=50`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
+      .then(res => res.json())
+      .then(({ data, total: t }) => { setLikers(data); setTotal(t); })
+      .catch(console.error);
+  }, [targetId]);
+
+  return (
+    <div>
+      <h3>Liked by ({total})</h3>
+      {likers.map(like => {
+        const user = like.likerId; // populated user object
+        return (
+          <div key={like._id}>
+            <img src={user.profileImage?.url} alt="" />
+            <span>{user.firstName} {user.lastName}</span>
+            <span>{user.type}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 ```
 
 ---
 
-## Error Handling Guide
+## 7. Error Handling
 
-All errors follow the standard Frame Backend error format:
+Every error follows the standard Frame Backend shape:
 
 ```json
 {
   "success": false,
-  "message": "Human-readable error message",
+  "message": "Human-readable description",
   "code": "MACHINE_READABLE_CODE"
 }
 ```
 
-### Common Error Codes
-
-| HTTP Status | Code | Meaning | Frontend Action |
+| HTTP | `code` | Meaning | Suggested frontend action |
 |---|---|---|---|
-| 400 | `SELF_LIKE` | User trying to like themselves | Hide/disable like button on own profile |
-| 400 | `INVALID_LIKE_PAIR` | Forbidden combination (e.g., Agent → Lounge) | Don't show like button if matrix disallows |
-| 400 | `INVALID_LIKEABLE_TARGET` | Target is a Client or Admin | Don't show like button on non-likeable profiles |
-| 400 | `USER_NOT_FOUND` | Target doesn't exist or is blocked | Show "User not available" message |
-| 400 | `INVALID_TARGET_ID` | Malformed ObjectId | Validate ID format before sending |
-| 401 | — | Missing or expired JWT | Redirect to login |
-| 403 | — | CSRF token invalid or missing | Retry with fresh CSRF token |
-| 429 | — | Rate limit exceeded (30/15 min) | Show "Try again later" toast |
+| 400 | `SELF_LIKE` | Liker is target | Hide/disable heart on own profile |
+| 400 | `INVALID_LIKE_PAIR` | Matrix violation (e.g., Agent → Lounge) | Don't show heart button; fall back gracefully |
+| 400 | `INVALID_LIKEABLE_TARGET` | Target is a Client or Admin | Don't show heart on non-likeable profiles |
+| 400 | `USER_NOT_FOUND` | Target missing or blocked | Show "User unavailable" state |
+| 400 | `INVALID_TARGET_ID` | Bad ObjectId format | Validate IDs client-side before calling |
+| 401 | — | No JWT / expired | Redirect to login |
+| 403 | — | CSRF invalid or role denied | Retry with fresh CSRF token or re-auth |
+| 429 | — | 30 toggles / 15 min exceeded | Show "Try again later" toast; disable button briefly |
 
 ---
 
-## Like Matrix Logic for Frontend
+## 8. Notifications
 
-To determine whether to show the like button on a profile page, implement this client-side check:
+On successful like creation (not on unlike), the backend sends a push notification to the target:
 
-```typescript
-function canLike(likerType: string, targetType: string): boolean {
-  const allowedPairs = new Set([
-    'client→lounge',
-    'client→agent',
-    'lounge→agent',
-  ]);
-  return allowedPairs.has(`${likerType}→${targetType}`);
-}
+| Liker type | Target type | Notification title | Notification body |
+|---|---|---|---|
+| Client | Lounge | "New Like" | `"{likerName} liked your lounge"` |
+| Client | Agent | "New Like" | `"{likerName} liked you"` |
+| Lounge | Agent | "New Like" | `"{likerName} liked you"` |
 
-// Usage
-const currentUserType = currentUser.type; // 'client' | 'lounge' | 'agent'
-const profileUserType = profileUser.type; // 'client' | 'lounge' | 'agent'
+Notification type identifiers:
+- `social:loungeLiked` (client → lounge)
+- `social:agentLiked` (client → agent, or lounge → agent)
 
-if (currentUser._id === profileUser._id) {
-  // Own profile — never show like button
-} else if (!canLike(currentUserType, profileUserType)) {
-  // Not a valid pair — don't show like button
-} else {
-  // Show like button (heart icon)
-  // Fetch check status to show filled/outline state
-}
-```
-
-**Note:** Always implement this check client-side for UX, but the backend independently validates and rejects invalid pairs. The client-side check prevents wasted API calls and provides a cleaner user experience.
+The notification includes `actorId` (the liker), `actionUrl` (liker's profile path), and `imageUrl` (liker's profile image). Frontend should subscribe to real-time notification events to show toast/banner when received.
 
 ---
 
-## Notifications
+## 9. Complete Route Reference
 
-When a like is created, the backend sends a push notification to the target user:
-
-| Liker → Target | Notification Title | Notification Body |
-|---|---|---|
-| Client → Lounge | "New Like" | "{name} liked your lounge" |
-| Client → Agent | "New Like" | "{name} liked you" |
-| Lounge → Agent | "New Like" | "{name} liked you" |
-
-No notification is sent on unlike.
-
-Frontend should subscribe to real-time notification events to show toast/banner notifications when a new like is received.
+| Method | Path | Auth roles | CSRF | Rate limit | Description |
+|---|---|---|---|---|---|
+| `POST` | `/v1/likes/:targetId` | Client, Lounge, Agent | **Yes** | 30 / 15 min | Toggle like/unlike |
+| `GET` | `/v1/likes/me` | Client, Lounge, Agent | No | No | Paginated list of users I liked |
+| `GET` | `/v1/likes/check/:targetId` | Client, Lounge, Agent | No | No | Boolean: have I liked this target? |
+| `GET` | `/v1/likes/target/:targetId` | Any authenticated | No | No | Paginated list of users who liked this target |
 
 ---
 
-## Swagger / OpenAPI
+## 10. Swagger / OpenAPI
 
-Full API specification is available at:
-- **Standalone:** `swagger/likes.yaml`
-- **Combined:** `swagger.yaml` (search for `LIKES` section)
+- **Standalone spec:** `swagger/likes.yaml`
+- **Combined spec:** `swagger.yaml` — search for the `LIKES` tag
 
 ---
 
-## Summary of Changes (from Client-Only to Multi-Type)
+## 11. Summary of Changes (Client-Only → Multi-Type)
 
 | Aspect | Before | After |
 |---|---|---|
 | Liker types | Client only | Client, Lounge, Agent |
 | Target types | Lounge only | Lounge, Agent |
-| Unique constraint | `{clientId, loungeId}` | `{likerId, targetId}` |
-| Route path (toggle) | `POST /v1/likes/:loungeId` | `POST /v1/likes/:targetId` |
-| Route path (check) | `GET /v1/likes/check/:loungeId` | `GET /v1/likes/check/:targetId` |
-| Route path (likers) | `GET /v1/likes/lounge/:loungeId` | `GET /v1/likes/target/:targetId` |
-| Route path (my likes) | `GET /v1/likes/me` | `GET /v1/likes/me` (unchanged) |
-| Write auth middleware | `clientMiddleware` | `adminOrLoungeOrClientOrAgentMiddleware` |
-| Aggregation | `refreshLoungeCount` | `refreshTargetCount` (generic) |
-| Notifications | `notifyLoungeLiked` only | Context-aware (lounge or agent) |
-| Interface fields | `clientId`, `loungeId` | `likerId`, `targetId`, `likerType`, `targetType` |
+| Unique key | `{ clientId, loungeId }` | `{ likerId, targetId }` |
+| Toggle route | `POST /likes/:loungeId` | `POST /likes/:targetId` |
+| Check route | `GET /likes/check/:loungeId` | `GET /likes/check/:targetId` |
+| Likers route | `GET /likes/lounge/:loungeId` | `GET /likes/target/:targetId` |
+| My likes route | `GET /likes/me` | *(unchanged)* |
+| Write auth | `clientMiddleware` | `adminOrLoungeOrClientOrAgentMiddleware` |
+| Like count | on Lounge only | on all Lounge and Agent docs |
+| Notifications | lounge liked only | lounge liked + agent liked |

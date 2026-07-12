@@ -45,6 +45,13 @@ class FollowRoute implements Routes {
     this.router.get('/check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.isFollowing);
 
     /**
+     * @route   GET /v1/follows/mutual-check/:targetId
+     * @desc    Check if current user and target mutually follow each other (required for messaging)
+     * @access  Private (Client, Lounge, or Agent)
+     */
+    this.router.get('/mutual-check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.checkMutualFollow);
+
+    /**
      * @route   GET /v1/follows/following/:userId
      * @desc    Get list of users that :userId is following (paginated)
      * @access  Private (Client, Lounge, or Admin)

@@ -4553,6 +4553,50 @@ paths:
         500:
           description: Server error
 
+  /v1/follows/mutual-check/{targetId}:
+    get:
+      tags: [follows]
+      summary: Check mutual follow status (required for messaging)
+      operationId: checkMutualFollow
+      description: |
+        Returns whether the authenticated user and the target user mutually follow each other.
+        The chat system requires mutual follow before DM creation or message sending.
+        Admins always return true (bypass the mutual follow requirement).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: targetId
+          in: path
+          required: true
+          type: string
+          description: ID of the other user to check mutual follow with
+      responses:
+        200:
+          description: Mutual follow status
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+              data:
+                type: object
+                properties:
+                  mutualFollow:
+                    type: boolean
+                    description: True if both users follow each other (or either is an admin)
+                  aFollowsB:
+                    type: boolean
+                    description: True if the authenticated user follows the target
+                  bFollowsA:
+                    type: boolean
+                    description: True if the target follows the authenticated user
+        400:
+          description: Invalid ObjectId
+        401:
+          description: Unauthorized
+        500:
+          description: Server error
+
   /v1/follows/following/{userId}:
     get:
       tags: [follows]

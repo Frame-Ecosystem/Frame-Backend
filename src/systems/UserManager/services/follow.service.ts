@@ -122,6 +122,43 @@ class FollowService {
     return !!doc;
   }
 
+  /**
+   * Check if two users mutually follow each other.
+   * Admins always return true (bypass, consistent with ChatService.ensureMutualFollow).
+   */
+  public async checkMutualFollow(userIdA: string, userIdB: string): Promise<{ mutualFollow: boolean; aFollowsB: boolean; bFollowsA: boolean }> {
+    assertObjectId(userIdB, 'Target user');
+
+    if (userIdA === userIdB) {
+      return { mutualFollow: true, aFollowsB: true, bFollowsA: true };
+    }
+
+    const [userA, userB] = await Promise.all([
+      this.users.findById(userIdA).select('type').lean(),
+      this.users.findById(userIdB).select('type').lean(),
+    ]);
+
+    if (!userA || !userB) {
+      return { mutualFollow: false, aFollowsB: false, bFollowsA: false };
+    }
+
+    // Admins bypass — consistent with ChatService.ensureMutualFollow
+    if (userA.type === 'admin' || userB.type === 'admin') {
+      return { mutualFollow: true, aFollowsB: true, bFollowsA: true };
+    }
+
+    const [aFollowsB, bFollowsA] = await Promise.all([
+      this.follows.findOne({ followerId: userIdA, followingId: userIdB }).select('_id').lean().exec(),
+      this.follows.findOne({ followerId: userIdB, followingId: userIdA }).select('_id').lean().exec(),
+    ]);
+
+    return {
+      mutualFollow: !!aFollowsB && !!bFollowsA,
+      aFollowsB: !!aFollowsB,
+      bFollowsA: !!bFollowsA,
+    };
+  }
+
   /** Get paginated list of users that `userId` is following. */
   public async getFollowing(userId: string, page: number, limit: number, filterType?: string) {
     return this.paginateFollows({

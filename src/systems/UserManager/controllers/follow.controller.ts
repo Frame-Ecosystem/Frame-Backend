@@ -50,6 +50,20 @@ class FollowController {
     }
   };
 
+  /** GET /v1/follows/mutual-check/:targetId — check if current user and target mutually follow. */
+  public checkMutualFollow = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user._id.toString();
+      const { targetId } = req.params;
+
+      const result = await this.followService.checkMutualFollow(userId, targetId);
+      res.status(200).json({ success: true, data: result });
+    } catch (error: any) {
+      logger.error(`Error in checkMutualFollow: ${error.message}`);
+      next(error);
+    }
+  };
+
   /** GET /v1/follows/following/:userId — users that :userId is following. */
   public getFollowing = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
