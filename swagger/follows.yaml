@@ -10,8 +10,13 @@
       Follow the target user. Allowed follow pairs:
       - Client → Client
       - Client → Lounge
+      - Client → Agent
       - Lounge → Client
       - Lounge → Lounge
+      - Lounge → Agent
+      - Agent → Client
+      - Agent → Lounge
+      - Agent → Agent
 
       Self-follows and follows to admin users are rejected.
       Rate-limited: 30 requests / 15 min.
@@ -133,7 +138,7 @@
         in: query
         schema:
           type: string
-          enum: [client, lounge]
+          enum: [client, lounge, agent]
         description: Filter by followed user type
     responses:
       '200':
@@ -161,7 +166,7 @@
                             properties:
                               url: { type: string }
                           bio: { type: string }
-                          type: { type: string, enum: [client, lounge] }
+                          type: { type: string, enum: [client, lounge, agent] }
                     total: { type: integer }
                     page: { type: integer }
                     limit: { type: integer }
@@ -192,7 +197,7 @@
         in: query
         schema:
           type: string
-          enum: [client, lounge]
+          enum: [client, lounge, agent]
         description: Filter by follower user type
     responses:
       '200':
@@ -220,7 +225,7 @@
                             properties:
                               url: { type: string }
                           bio: { type: string }
-                          type: { type: string, enum: [client, lounge] }
+                          type: { type: string, enum: [client, lounge, agent] }
                     total: { type: integer }
                     page: { type: integer }
                     limit: { type: integer }

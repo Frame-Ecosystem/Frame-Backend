@@ -5,8 +5,18 @@ import { BadRequestException, NotFoundException } from '@exceptions/HttpExceptio
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
 
-/** Allowed follow relationships: client→client, client→lounge, lounge→client, lounge→lounge */
-const ALLOWED_FOLLOW_PAIRS = new Set(['client→client', 'client→lounge', 'lounge→client', 'lounge→lounge']);
+/** Allowed follow relationships between client, lounge, and agent user types. */
+const ALLOWED_FOLLOW_PAIRS = new Set([
+  'client→client',
+  'client→lounge',
+  'client→agent',
+  'lounge→client',
+  'lounge→lounge',
+  'lounge→agent',
+  'agent→client',
+  'agent→lounge',
+  'agent→agent',
+]);
 
 /** Fields populated on follow user references. */
 const FOLLOW_USER_SELECT = 'firstName lastName loungeTitle profileImage bio type';

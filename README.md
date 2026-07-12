@@ -266,7 +266,7 @@ Social content layer.
 | `POST` | `/v1/chat/messages/:id/reactions` | Add/remove reaction |
 | `POST` | `/v1/chat/conversations/:id/read` | Mark messages as read |
 
-**Features:** Stable conversation slug (`[idA,idB].sort().join('_')`) for atomic upsert · cursor pagination (no `countDocuments`) · file/image attachments via R2 · `typing` indicator with 2 s server-side throttle · `messageRead` receipts · `messageReaction` emoji reactions
+**Features:** Mutual follow guard (both users must follow each other; admins bypass) · stable conversation slug (`[idA,idB].sort().join('_')`) for atomic upsert · cursor pagination (no `countDocuments`) · file/image attachments via R2 · `typing` indicator with 2 s server-side throttle · `messageRead` receipts · `messageReaction` emoji reactions
 
 ---
 

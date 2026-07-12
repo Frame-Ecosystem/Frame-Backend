@@ -197,8 +197,8 @@ erDiagram
         ObjectId _id PK
         ObjectId followerId FK "ref: User"
         ObjectId followingId FK "ref: User"
-        String followerType "client | lounge"
-        String followingType "client | lounge"
+        String followerType "client | lounge | agent"
+        String followingType "client | lounge | agent"
         Date createdAt
     }
 

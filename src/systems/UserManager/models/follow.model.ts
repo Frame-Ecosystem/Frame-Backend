@@ -5,8 +5,8 @@ const followSchema = new Schema(
   {
     followerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     followingId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-    followerType: { type: String, enum: ['client', 'lounge'], required: true },
-    followingType: { type: String, enum: ['client', 'lounge'], required: true },
+    followerType: { type: String, enum: ['client', 'lounge', 'agent'], required: true },
+    followingType: { type: String, enum: ['client', 'lounge', 'agent'], required: true },
   },
   { timestamps: { createdAt: true, updatedAt: false } },
 );

@@ -4,6 +4,7 @@ import { MessageContentType } from '@systems/ChatSystem/interfaces/chat.interfac
 import SocketService from '@systems/NotificationSystem/services/socket.service';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
 import userModel from '@systems/UserManager/models/user.model';
+import followModel from '@systems/UserManager/models/follow.model';
 import { HttpException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 
@@ -78,6 +79,33 @@ class ChatService {
   private socket = SocketService.getInstance();
   private notificationService = NotificationService.getInstance();
 
+  // ─── Mutual-follow guard ──────────────────────────────────────────
+
+  /**
+   * Enforce the "mutual follow" rule: both users must follow each other
+   * before a DM conversation is permitted.
+   *
+   * Admins bypass this restriction so support agents can always reach users.
+   */
+  private async ensureMutualFollow(userIdA: string, userIdB: string): Promise<void> {
+    const [userA, userB] = await Promise.all([
+      this.users.findById(userIdA).select('type').lean(),
+      this.users.findById(userIdB).select('type').lean(),
+    ]);
+
+    const isAdmin = (u: any) => u?.type === 'admin';
+    if (isAdmin(userA) || isAdmin(userB)) return;
+
+    const [aFollowsB, bFollowsA] = await Promise.all([
+      followModel.findOne({ followerId: userIdA, followingId: userIdB }).select('_id').lean(),
+      followModel.findOne({ followerId: userIdB, followingId: userIdA }).select('_id').lean(),
+    ]);
+
+    if (!aFollowsB || !bFollowsA) {
+      throw new HttpException(403, 'You must follow each other to send messages');
+    }
+  }
+
   // ─── Online-presence helper ───────────────────────────────────────
 
   /**
@@ -126,6 +154,8 @@ class ChatService {
     if (!ALLOWED_PARTICIPANT_TYPES.includes((recipient as any).type)) {
       throw new HttpException(403, 'This user type cannot participate in conversations');
     }
+
+    await this.ensureMutualFollow(requesterId, recipientId);
 
     const slug = buildSlug(requesterId, recipientId);
     const participants = [new Types.ObjectId(requesterId), new Types.ObjectId(recipientId)];
@@ -251,6 +281,11 @@ class ChatService {
 
     if (!conversation) throw new HttpException(404, 'Conversation not found');
 
+    const recipientIds = (conversation.participants as any[]).map(String).filter(id => id !== senderId);
+    if (recipientIds.length > 0) {
+      await this.ensureMutualFollow(senderId, recipientIds[0]);
+    }
+
     if (contentType === 'text' && !text?.trim()) {
       throw new HttpException(400, 'Text content is required for text messages');
     }
@@ -267,7 +302,6 @@ class ChatService {
       if (!parentExists) throw new HttpException(400, 'replyTo message not found in this conversation');
     }
 
-    const recipientIds = (conversation.participants as any[]).map(String).filter(id => id !== senderId);
     const preview = text ? text.slice(0, 80) : undefined;
 
     // 2. Persist message

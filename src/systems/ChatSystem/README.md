@@ -87,8 +87,10 @@ src/systems/ChatSystem/
 │   └── chat.controller.ts      ← HTTP adapter (req/res only)
 ├── routes/
 │   └── chat.route.ts           ← Express router wiring
-└── socket/
-    └── chat.socket.ts          ← ChatSocketHandler (join/leave/typing)
+├── socket/
+│   └── chat.socket.ts          ← ChatSocketHandler (join/leave/typing)
+└── tests/
+    └── chat.mutualFollow.test.ts ← Mutual follow guard unit tests
 ```
 
 ---
@@ -168,6 +170,7 @@ Stored in the `messages` collection.
 **Base path:** `/v1/chat`
 **Auth:** All endpoints require a valid JWT via `Authorization: Bearer <token>` header.
 **Role guard:** None — any authenticated user type (`client`, `lounge`, `admin`, `agent`) may use the chat.
+**Mutual follow guard:** Both participants must follow each other before a conversation can be created or messages sent. Admin users bypass this restriction. See [Section 9.2](#92-mutual-follow-guard) for details.
 
 ---
 
@@ -199,7 +202,7 @@ Find or create a 1-to-1 conversation.
 }
 ```
 
-**Errors:** `400` self-DM, `404` recipient not found, `403` recipient type not allowed.
+**Errors:** `400` self-DM, `404` recipient not found, `403` recipient type not allowed or mutual follow required.
 
 ---
 
@@ -330,6 +333,8 @@ Send a message.
 - Emits `chat:message` to the conversation room.
 - Emits `chat:conversation:updated` to each participant's `notifications:{userId}` room.
 - Sends a push notification to offline recipients (non-blocking).
+
+**Mutual follow check:** Before sending, the server verifies both participants still follow each other. If the relationship has changed since the conversation was created, the send is blocked with `403`.
 
 ---
 
@@ -722,6 +727,33 @@ All request bodies and query strings are validated by `class-validator` + `class
 | Message flood | `generalRateLimiter` on POST /messages (100 req / 15 min per IP) |
 | Oversized text | `@MaxLength(4000)` on `text`, `@MaxLength(8)` on `emoji` |
 | Invalid ObjectId injection | `@IsMongoId()` on all ID fields |
+| Mutual follow guard | Both participants must follow each other to create a conversation or send a message; admins bypass |
+
+### 9.2 Mutual Follow Guard
+
+Direct messaging is gated behind a **mutual follow** requirement. Before a conversation can be created or a message sent, the server verifies:
+
+1. **Requester follows recipient** — `Follow` document with `followerId = requesterId` and `followingId = recipientId`
+2. **Recipient follows requester** — `Follow` document with `followerId = recipientId` and `followingId = requesterId`
+
+Both checks run in parallel via `Promise.all` for minimal latency.
+
+**Bypass rules:**
+- If **either** user is an `admin`, the check is skipped entirely. This ensures support agents can always reach users.
+- The check runs on **every** `sendMessage` call, not just conversation creation, so if the follow relationship changes after a conversation is created, messages are still blocked.
+
+**Error response:**
+```json
+{
+  "success": false,
+  "message": "You must follow each other to send messages",
+  "code": 403
+}
+```
+
+**Affected endpoints:**
+- `POST /v1/chat/conversations` — blocked before conversation creation
+- `POST /v1/chat/conversations/:id/messages` — blocked before message persistence
 
 ---
 
