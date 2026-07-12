@@ -1,6 +1,8 @@
 ﻿import userModel from '@systems/UserManager/models/user.model';
 import likeModel from '@systems/FeedContentSystem/models/like.model';
 import ratingModel from '@systems/ServiceCatalogSystem/models/rating.model';
+import postModel from '@systems/FeedContentSystem/models/post.model';
+import reelModel from '@systems/FeedContentSystem/models/reel.model';
 import { hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '@config/constants';
 import { logger } from '@utils/logger';
@@ -21,6 +23,8 @@ export async function ensureCollectionExists(): Promise<void> {
       userModel.syncIndexes(),
       likeModel.syncIndexes(),
       ratingModel.syncIndexes(),
+      postModel.syncIndexes(),
+      reelModel.syncIndexes(),
     ]);
     logger.info('ensureCollectionExists: all collections and indexes are ready');
   } catch (error) {
