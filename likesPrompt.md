@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-The Likes Module lets a user **heart** (like) another user's profile. It follows a **toggle** pattern — the same request creates or removes a like. There is no separate "unlike" endpoint.
+The Likes Module lets a user **heart** (like) another user's profile. **Any user type can like any lounge or agent** — clients, lounges, and agents can all give likes. Clients cannot be liked. It follows a **toggle** pattern — the same request creates or removes a like. There is no separate "unlike" endpoint.
 
 The backend enforces a **like matrix** that controls which user-type combinations are allowed. The frontend should mirror this matrix for UX (hide the heart button when a like is not possible), but the backend is the source of truth and will reject invalid pairs with `400 INVALID_LIKE_PAIR`.
 
@@ -33,9 +33,9 @@ The backend uses the following allowed pairs. Any combination not listed is reje
 
 | Liker (authenticated user) | Can Like | Cannot Like |
 |---|---|---|
-| **Client** | Lounge, Agent | Other Clients, Admins |
-| **Lounge** | Agent | Clients, other Lounges, Admins |
-| **Agent** | *(nothing)* | Everyone |
+| **Client** | Lounge, Agent | Other Clients, Admins, Self |
+| **Lounge** | Lounge, Agent | Clients, Admins, Self |
+| **Agent** | Lounge, Agent | Clients, Admins, Self |
 
 **Self-likes are always rejected** regardless of type — returns `400 SELF_LIKE`.
 
@@ -45,20 +45,14 @@ Implement this helper to decide whether to show the heart button:
 
 ```typescript
 // Allowed combinations — keep in sync with backend ALLOWED_LIKE_PAIRS
-const ALLOWED_LIKE_PAIRS = new Set([
-  'client→lounge',
-  'client→agent',
-  'lounge→agent',
-]);
-
-function canLike(likerType: string, targetType: string): boolean {
-  return ALLOWED_LIKE_PAIRS.has(`${likerType}→${targetType}`);
-}
+// Any user can like lounges and agents. Clients and admins cannot be liked.
+const canLike = (likerType: string, targetType: string): boolean =>
+  targetType === 'lounge' || targetType === 'agent';
 
 // Usage in a profile view component:
 const showHeartButton =
   currentUser._id !== profileUser._id &&            // not own profile
-  canLike(currentUser.type, profileUser.type);       // matrix allows it
+  canLike(currentUser.type, profileUser.type);       // target is lounge or agent
 ```
 
 ---
@@ -283,8 +277,7 @@ function HeartButton({ profileUser, currentUser, csrfToken, authToken }) {
 
   // Determine if heart button should be shown at all
   const isOwnProfile = currentUser._id === profileUser._id;
-  const ALLOWED = new Set(['client→lounge', 'client→agent', 'lounge→agent']);
-  const showHeart = !isOwnProfile && ALLOWED.has(`${currentUser.type}→${profileUser.type}`);
+  const showHeart = !isOwnProfile && (profileUser.type === 'lounge' || profileUser.type === 'agent');
 
   // Fetch current like status on mount
   useEffect(() => {
@@ -436,11 +429,14 @@ On successful like creation (not on unlike), the backend sends a push notificati
 |---|---|---|---|
 | Client | Lounge | "New Like" | `"{likerName} liked your lounge"` |
 | Client | Agent | "New Like" | `"{likerName} liked you"` |
+| Lounge | Lounge | "New Like" | `"{likerName} liked your lounge"` |
 | Lounge | Agent | "New Like" | `"{likerName} liked you"` |
+| Agent | Lounge | "New Like" | `"{likerName} liked your lounge"` |
+| Agent | Agent | "New Like" | `"{likerName} liked you"` |
 
 Notification type identifiers:
-- `social:loungeLiked` (client → lounge)
-- `social:agentLiked` (client → agent, or lounge → agent)
+- `social:loungeLiked` (any liker → lounge)
+- `social:agentLiked` (any liker → agent)
 
 The notification includes `actorId` (the liker), `actionUrl` (liker's profile path), and `imageUrl` (liker's profile image). Frontend should subscribe to real-time notification events to show toast/banner when received.
 

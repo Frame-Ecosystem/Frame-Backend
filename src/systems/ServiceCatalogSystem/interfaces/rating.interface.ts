@@ -1,12 +1,15 @@
 /** User types that can rate or be rated. */
 export type RateableUserType = 'client' | 'lounge' | 'agent';
 
-/** Allowed rater→target combinations. */
+/** Allowed rater→target combinations.
+ *  Any user type can rate any lounge or agent (not clients, not admins, not self). */
 const ALLOWED_RATING_PAIRS = new Set([
   'client→lounge',
   'client→agent',
-  'agent→lounge',
+  'lounge→lounge',
   'lounge→agent',
+  'agent→lounge',
+  'agent→agent',
 ]);
 
 export function isAllowedRatingPair(raterType: string, targetType: string): boolean {

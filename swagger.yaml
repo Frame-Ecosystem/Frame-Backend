@@ -4233,14 +4233,8 @@ paths:
       operationId: upsertRating
       description: |
         Upsert a rating for a target user (1-5 stars with optional comment).
-        Allowed rating pairs:
-        - Client → Lounge
-        - Client → Agent
-        - Agent → Lounge
-        - Lounge → Agent
-
-        One rating per rater-target pair. Updates if already exists.
-        Self-ratings are rejected.
+        Any user can rate any lounge or agent. Self-ratings are rejected.
+        Clients cannot be rated.
       security:
         - bearerAuth: []
       parameters:
@@ -4303,13 +4297,8 @@ paths:
       summary: Toggle like on a target user
       operationId: toggleLike
       description: |
-        Like or unlike a target user (lounge or agent). Rate limited (30/min).
-        Allowed like pairs:
-        - Client → Lounge
-        - Client → Agent
-        - Lounge → Agent
-
-        Self-likes are rejected.
+        Any user can like any lounge or agent. Self-likes are rejected.
+        Clients cannot be liked. Rate limited (30/min).
       security:
         - bearerAuth: []
       parameters:

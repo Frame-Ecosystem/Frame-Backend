@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Rating Module allows users to rate other users (Lounges and Agents) on a 1–5 star scale with an optional text comment. Ratings are **generalized** — any supported user type can rate any supported target, as long as the combination is allowed by the backend matrix. Ratings are **upserted**: if a user already rated the same target, the new rating replaces the old one. Users can delete their own ratings.
+The Rating Module allows users to rate other users (Lounges and Agents) on a 1–5 star scale with an optional text comment. **Any user type can rate any lounge or agent** — clients, lounges, and agents can all give ratings. Clients cannot be rated. Ratings are **upserted**: if a user already rated the same target, the new rating replaces the old one. Users can delete their own ratings.
 
 **Base URL:** `/v1/ratings`
 **Auth:** All endpoints require a valid JWT via `Authorization: Bearer <token>` header.
@@ -16,9 +16,9 @@ The backend enforces a strict rating matrix. Only these combinations are allowed
 
 | Rater (you) | Can Rate | Cannot Rate |
 |---|---|---|
-| **Client** | Lounge, Agent | Other Clients, Admins |
-| **Agent** | Lounge | Clients, other Agents, Admins |
-| **Lounge** | Agent | Clients, other Lounges, Admins |
+| **Client** | Lounge, Agent | Other Clients, Admins, Self |
+| **Lounge** | Lounge, Agent | Clients, Admins, Self |
+| **Agent** | Lounge, Agent | Clients, Admins, Self |
 
 **Self-rating is always rejected.** You cannot rate yourself regardless of your type.
 
@@ -379,13 +379,8 @@ To determine whether to show the rating UI on a profile page, implement this cli
 
 ```typescript
 function canRate(raterType: string, targetType: string): boolean {
-  const allowedPairs = new Set([
-    'client→lounge',
-    'client→agent',
-    'agent→lounge',
-    'lounge→agent',
-  ]);
-  return allowedPairs.has(`${raterType}→${targetType}`);
+  // Any user can rate lounges and agents. Clients and admins cannot be rated.
+  return targetType === 'lounge' || targetType === 'agent';
 }
 
 // Usage
@@ -395,7 +390,7 @@ const profileUserType = profileUser.type; // 'client' | 'lounge' | 'agent'
 if (currentUser._id === profileUser._id) {
   // Own profile — never show rating UI
 } else if (!canRate(currentUserType, profileUserType)) {
-  // Not a valid pair — don't show rating UI
+  // Target is a client or admin — don't show rating UI
 } else {
   // Show rating UI (stars + comment input)
 }
@@ -413,8 +408,10 @@ When a rating is created, the backend sends a push notification to the target us
 |---|---|---|
 | Client → Lounge | "New Rating" | "{name} rated your lounge {score}/5" |
 | Client → Agent | "New Rating" | "{name} rated you {score}/5" |
-| Agent → Lounge | "New Rating" | "{name} rated you {score}/5" |
+| Lounge → Lounge | "New Rating" | "{name} rated your lounge {score}/5" |
 | Lounge → Agent | "New Rating" | "{name} rated you {score}/5" |
+| Agent → Lounge | "New Rating" | "{name} rated you {score}/5" |
+| Agent → Agent | "New Rating" | "{name} rated you {score}/5" |
 
 Frontend should subscribe to real-time notification events to show toast/banner notifications when a new rating is received.
 

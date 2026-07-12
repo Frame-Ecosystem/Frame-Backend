@@ -5,8 +5,8 @@
  * and count aggregation for the generalized like system.
  *
  * Allowed like pairs:
- *   client → lounge | agent
- *   lounge → agent
+ *   Any user → lounge | agent
+ *   (clients, lounges, agents can all like lounges and agents)
  */
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
@@ -115,20 +115,20 @@ describe('LikeService — Like Matrix & Toggle', () => {
       expect(isAllowedLikePair('lounge', 'client')).toBe(false);
     });
 
-    it('rejects agent → lounge', () => {
-      expect(isAllowedLikePair('agent', 'lounge')).toBe(false);
+    it('allows agent → lounge', () => {
+      expect(isAllowedLikePair('agent', 'lounge')).toBe(true);
+    });
+
+    it('allows lounge → lounge', () => {
+      expect(isAllowedLikePair('lounge', 'lounge')).toBe(true);
     });
 
     it('rejects client → client', () => {
       expect(isAllowedLikePair('client', 'client')).toBe(false);
     });
 
-    it('rejects agent → agent', () => {
-      expect(isAllowedLikePair('agent', 'agent')).toBe(false);
-    });
-
-    it('rejects lounge → lounge', () => {
-      expect(isAllowedLikePair('lounge', 'lounge')).toBe(false);
+    it('allows agent → agent', () => {
+      expect(isAllowedLikePair('agent', 'agent')).toBe(true);
     });
   });
 
@@ -203,9 +203,14 @@ describe('LikeService — Like Matrix & Toggle', () => {
       await expect(svc.toggleLike(userId, targetId)).rejects.toThrow('Target user is not likeable');
     });
 
-    it('rejects agent → lounge', async () => {
+    it('creates a like for agent → lounge', async () => {
       setupUsers('agent', 'lounge');
-      await expect(svc.toggleLike(userId, targetId)).rejects.toThrow('A agent cannot like a lounge');
+      mockLikeFindOne.mockReturnValue(ok(null));
+      mockLikeCreate.mockResolvedValue({ _id: id() });
+      mockLikeCountDocuments.mockReturnValue(ok(1));
+
+      const result = await svc.toggleLike(userId, targetId);
+      expect(result.liked).toBe(true);
     });
 
     it('rejects client → client (client is not likeable)', async () => {
@@ -213,14 +218,24 @@ describe('LikeService — Like Matrix & Toggle', () => {
       await expect(svc.toggleLike(userId, targetId)).rejects.toThrow('Target user is not likeable');
     });
 
-    it('rejects agent → agent', async () => {
+    it('creates a like for agent → agent', async () => {
       setupUsers('agent', 'agent');
-      await expect(svc.toggleLike(userId, targetId)).rejects.toThrow('A agent cannot like a agent');
+      mockLikeFindOne.mockReturnValue(ok(null));
+      mockLikeCreate.mockResolvedValue({ _id: id() });
+      mockLikeCountDocuments.mockReturnValue(ok(1));
+
+      const result = await svc.toggleLike(userId, targetId);
+      expect(result.liked).toBe(true);
     });
 
-    it('rejects lounge → lounge', async () => {
+    it('creates a like for lounge → lounge', async () => {
       setupUsers('lounge', 'lounge');
-      await expect(svc.toggleLike(userId, targetId)).rejects.toThrow('A lounge cannot like a lounge');
+      mockLikeFindOne.mockReturnValue(ok(null));
+      mockLikeCreate.mockResolvedValue({ _id: id() });
+      mockLikeCountDocuments.mockReturnValue(ok(1));
+
+      const result = await svc.toggleLike(userId, targetId);
+      expect(result.liked).toBe(true);
     });
 
     it('rejects blocked target', async () => {

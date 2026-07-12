@@ -4,13 +4,8 @@
     tags: [Ratings]
     summary: Create or update rating (client, lounge, or agent)
     description: |
-      Rate a target user. Allowed rating pairs:
-      - Client → Lounge
-      - Client → Agent
-      - Agent → Lounge
-      - Lounge → Agent
-
-      Self-ratings are rejected.
+      Rate a target user. Any user can rate any lounge or agent.
+      Self-ratings are rejected. Clients cannot be rated.
     requestBody:
       required: true
       content:

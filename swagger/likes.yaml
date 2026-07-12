@@ -5,12 +5,8 @@
     tags: [Likes]
     summary: Toggle like / unlike a target user
     description: |
-      Toggle like on a target user (lounge or agent). Allowed like pairs:
-      - Client → Lounge
-      - Client → Agent
-      - Lounge → Agent
-
-      Self-likes are rejected.
+      Toggle like on a target user. Any user can like any lounge or agent.
+      Self-likes are rejected. Clients cannot be liked.
     security:
       - bearerAuth: []
     parameters:

@@ -19,9 +19,8 @@ class LikeService {
   /**
    * Toggle like: creates a like if it doesn't exist, removes it if it does.
    * Enforces the like matrix:
-   *   client  → lounge | agent
-   *   lounge  → agent
-   *   agent   → (none)
+   *   any user type → lounge | agent
+   *   (clients, lounges, agents can all like lounges and agents)
    */
   public async toggleLike(userId: string, targetId: string): Promise<{ liked: boolean }> {
     assertObjectId(targetId, 'target');

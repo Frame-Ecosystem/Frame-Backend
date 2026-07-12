@@ -5,10 +5,8 @@
  * and summary aggregation for the generalized rating system.
  *
  * Allowed rating pairs:
- *   client → lounge
- *   client → agent
- *   agent  → lounge
- *   lounge → agent
+ *   Any user → lounge | agent
+ *   (clients, lounges, agents can all rate lounges and agents)
  */
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
@@ -132,12 +130,12 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
       expect(isAllowedRatingPair('client', 'client')).toBe(false);
     });
 
-    it('rejects agent → agent', () => {
-      expect(isAllowedRatingPair('agent', 'agent')).toBe(false);
+    it('allows agent → agent', () => {
+      expect(isAllowedRatingPair('agent', 'agent')).toBe(true);
     });
 
-    it('rejects lounge → lounge', () => {
-      expect(isAllowedRatingPair('lounge', 'lounge')).toBe(false);
+    it('allows lounge → lounge', () => {
+      expect(isAllowedRatingPair('lounge', 'lounge')).toBe(true);
     });
   });
 
@@ -212,14 +210,22 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
       await expect(svc.upsertRating(raterId, { targetId, score: 5 })).rejects.toThrow('Target user is not rateable');
     });
 
-    it('rejects agent → agent (same type not allowed)', async () => {
+    it('creates a rating for agent → agent', async () => {
       setupUsers('agent', 'agent');
-      await expect(svc.upsertRating(raterId, { targetId, score: 5 })).rejects.toThrow('A agent cannot rate a agent');
+      mockRatingFindOneAndUpdate.mockReturnValue(ok({ _id: id(), score: 4 }));
+      mockRatingAggregate.mockResolvedValue([{ avg: 4, count: 1 }]);
+
+      const result = await svc.upsertRating(raterId, { targetId, score: 4 });
+      expect(result.score).toBe(4);
     });
 
-    it('rejects lounge → lounge (same type not allowed)', async () => {
+    it('creates a rating for lounge → lounge', async () => {
       setupUsers('lounge', 'lounge');
-      await expect(svc.upsertRating(raterId, { targetId, score: 5 })).rejects.toThrow('A lounge cannot rate a lounge');
+      mockRatingFindOneAndUpdate.mockReturnValue(ok({ _id: id(), score: 4 }));
+      mockRatingAggregate.mockResolvedValue([{ avg: 4, count: 1 }]);
+
+      const result = await svc.upsertRating(raterId, { targetId, score: 4 });
+      expect(result.score).toBe(4);
     });
 
     it('rejects blocked target', async () => {

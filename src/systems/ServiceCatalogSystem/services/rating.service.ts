@@ -20,9 +20,8 @@ class RatingService {
   /**
    * Create or update a user's rating for a target.
    * Enforces the rating matrix:
-   *   client  → lounge | agent
-   *   agent   → lounge
-   *   lounge  → agent
+   *   any user type → lounge | agent
+   *   (clients, lounges, agents can all rate lounges and agents)
    * After persisting, recalculates the target's denormalized averageRating / ratingCount.
    */
   public async upsertRating(raterId: string, dto: UpsertRatingDto): Promise<Rating> {
@@ -63,17 +62,14 @@ class RatingService {
 
     await this.refreshTargetSummary(dto.targetId);
 
-    // Send notification based on the rating pair
+    // Send notification based on the target type
     const raterName = this.notificationService.extractName(rater);
     const raterImage = rater?.profileImage?.url;
 
-    if (raterType === 'client' && targetType === 'lounge') {
+    if (targetType === 'lounge') {
       this.notificationService.notifyLoungeRated(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
-    } else if (raterType === 'client' && targetType === 'agent') {
-      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
     } else {
-      // agent→lounge or lounge→agent
-      this.notificationService.notifyRatingReceived(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
+      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage).catch(() => {});
     }
 
     logger.info(`RatingService.upsertRating: ${raterType}=${raterId} → ${targetType}=${dto.targetId} score=${dto.score}`);
