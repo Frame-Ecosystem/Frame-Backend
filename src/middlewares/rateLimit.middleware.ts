@@ -14,6 +14,8 @@ import {
   STRICT_RATE_LIMIT_MAX,
   LIKE_RATE_LIMIT_WINDOW_MS,
   LIKE_RATE_LIMIT_MAX,
+  RATING_RATE_LIMIT_WINDOW_MS,
+  RATING_RATE_LIMIT_MAX,
   FOLLOW_RATE_LIMIT_WINDOW_MS,
   FOLLOW_RATE_LIMIT_MAX,
   CONTENT_CREATE_RATE_LIMIT_WINDOW_MS,
@@ -114,6 +116,9 @@ export const strictRateLimiter = createLimiter(
 
 /** 30 toggles / 15 min — like spam prevention */
 export const likeRateLimiter = createLimiter('like', LIKE_RATE_LIMIT_WINDOW_MS, LIKE_RATE_LIMIT_MAX, 'Too many like requests. Please slow down.');
+
+/** 30 rating writes / 15 min — rating spam prevention */
+export const ratingRateLimiter = createLimiter('rating', RATING_RATE_LIMIT_WINDOW_MS, RATING_RATE_LIMIT_MAX, 'Too many rating requests. Please slow down.');
 
 /** 30 follow/unfollow / 15 min — follow spam prevention */
 export const followRateLimiter = createLimiter(

@@ -90,6 +90,8 @@ tags:
     description: Personalized content feed
   - name: Reports
     description: Content reporting and moderation
+  - name: Chat
+    description: 1-to-1 direct messaging (mutual follow required)
 
 security:
   - bearerAuth: []
@@ -301,6 +303,97 @@ components:
           type: integer
         followersCount:
           type: integer
+
+    # ── Chat ──
+    Conversation:
+      type: object
+      description: A 1-to-1 direct message conversation between two users.
+      properties:
+        _id: { type: string }
+        participants:
+          type: array
+          items: { $ref: '#/components/schemas/User' }
+          description: Exactly 2 participants
+        slug:
+          type: string
+          description: Stable lookup key — [idA, idB].sort().join('_')
+        lastMessage:
+          type: object
+          properties:
+            messageId: { type: string }
+            senderId: { type: string }
+            text: { type: string, maxLength: 80 }
+            contentType: { type: string, enum: [text, image, file, audio] }
+            createdAt: { type: string, format: date-time }
+        unreadCounts:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: { type: string }
+              count: { type: integer }
+        isArchived: { type: boolean }
+        deletedFor:
+          type: array
+          items: { type: string }
+          description: User IDs who have soft-deleted this conversation
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    Message:
+      type: object
+      description: A single message in a conversation.
+      properties:
+        _id: { type: string }
+        conversationId: { type: string }
+        senderId:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/User'
+          description: Populated with sender details on read
+        contentType: { type: string, enum: [text, image, file, audio] }
+        text: { type: string, maxLength: 4000 }
+        attachment:
+          type: object
+          properties:
+            url: { type: string, format: uri }
+            publicId: { type: string }
+            mimeType: { type: string }
+            fileName: { type: string }
+            sizeBytes: { type: integer }
+        replyTo:
+          oneOf:
+            - type: string
+            - type: object
+              properties:
+                _id: { type: string }
+                text: { type: string }
+                contentType: { type: string }
+                senderId: { type: string }
+                createdAt: { type: string, format: date-time }
+          description: Populated with parent message preview on read
+        reactions:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: { type: string }
+              emoji: { type: string, maxLength: 8 }
+              createdAt: { type: string, format: date-time }
+        readBy:
+          type: array
+          items:
+            type: object
+            properties:
+              userId: { type: string }
+              readAt: { type: string, format: date-time }
+        deletedFor:
+          type: array
+          items: { type: string }
+        isDeleted: { type: boolean }
+        editedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     # ── Authentication & Session Management ──
     SessionInfo:

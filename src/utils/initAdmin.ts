@@ -1,4 +1,8 @@
 ﻿import userModel from '@systems/UserManager/models/user.model';
+import likeModel from '@systems/FeedContentSystem/models/like.model';
+import ratingModel from '@systems/ServiceCatalogSystem/models/rating.model';
+import postModel from '@systems/FeedContentSystem/models/post.model';
+import reelModel from '@systems/FeedContentSystem/models/reel.model';
 import { hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '@config/constants';
 import { logger } from '@utils/logger';
@@ -8,15 +12,21 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD, ENABLE_ADMIN_BOOTSTRAP } from '@config';
 const ADMIN_PHONE = process.env.ADMIN_PHONE || '';
 
 /**
- * Ensure the users collection and indexes exist in MongoDB.
- * This forces Mongoose to create the schema upfront so it appears in Compass.
+ * Ensure collections and indexes exist in MongoDB.
+ * syncIndexes() drops stale indexes not in the current schema and creates new ones.
+ * This prevents duplicate-key crashes after field renames (e.g. clientId→likerId).
  */
 export async function ensureCollectionExists(): Promise<void> {
   try {
-    logger.info('ensureCollectionExists: ensuring users collection exists');
-    // Calling syncIndexes() creates the collection and indexes if they don't exist
-    await userModel.syncIndexes();
-    logger.info('ensureCollectionExists: users collection and indexes are ready');
+    logger.info('ensureCollectionExists: ensuring collections and indexes exist');
+    await Promise.all([
+      userModel.syncIndexes(),
+      likeModel.syncIndexes(),
+      ratingModel.syncIndexes(),
+      postModel.syncIndexes(),
+      reelModel.syncIndexes(),
+    ]);
+    logger.info('ensureCollectionExists: all collections and indexes are ready');
   } catch (error) {
     logger.error(`ensureCollectionExists: failed to ensure collection: ${error?.message || error}`);
     throw error;

@@ -266,9 +266,9 @@ jest.mock('@systems/ServiceCatalogSystem/services/loungeServices.service', () =>
 jest.mock('@systems/ServiceCatalogSystem/services/rating.service', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
-    getLoungeRatings: jest.fn().mockResolvedValue({ ratings: [], average: 0, total: 0 }),
-    createRating: jest.fn().mockResolvedValue({ _id: 'r1', value: 5 }),
-    updateRating: jest.fn().mockResolvedValue({ _id: 'r1', value: 4 }),
+    getTargetRatings: jest.fn().mockResolvedValue({ ratings: [], total: 0 }),
+    getMyRating: jest.fn().mockResolvedValue(null),
+    upsertRating: jest.fn().mockResolvedValue({ _id: 'r1', score: 5 }),
     deleteRating: jest.fn().mockResolvedValue(undefined),
   })),
 }));

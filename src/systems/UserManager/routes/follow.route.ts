@@ -18,8 +18,8 @@ class FollowRoute implements Routes {
   private initializeRoutes() {
     /**
      * @route   POST /v1/follows/:targetId
-     * @desc    Follow a user (client or lounge)
-     * @access  Private (Client or Lounge) � rate-limited
+     * @desc    Follow a user (client, lounge, or agent)
+     * @access  Private (Client, Lounge, or Agent) — rate-limited
      */
     this.router.post(
       '/:targetId',
@@ -33,22 +33,29 @@ class FollowRoute implements Routes {
     /**
      * @route   DELETE /v1/follows/:targetId
      * @desc    Unfollow a user
-     * @access  Private (Client or Lounge)
+     * @access  Private (Client, Lounge, or Agent)
      */
     this.router.delete('/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, csrfMiddleware, this.followController.unfollow);
 
     /**
      * @route   GET /v1/follows/check/:targetId
      * @desc    Check if current user follows target
-     * @access  Private (Client or Lounge)
+     * @access  Private (Client, Lounge, or Agent)
      */
     this.router.get('/check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.isFollowing);
+
+    /**
+     * @route   GET /v1/follows/mutual-check/:targetId
+     * @desc    Check if current user and target mutually follow each other (required for messaging)
+     * @access  Private (Client, Lounge, or Agent)
+     */
+    this.router.get('/mutual-check/:targetId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.checkMutualFollow);
 
     /**
      * @route   GET /v1/follows/following/:userId
      * @desc    Get list of users that :userId is following (paginated)
      * @access  Private (Client, Lounge, or Admin)
-     * @query   page, limit, type (optional: 'client' | 'lounge')
+     * @query   page, limit, type (optional: 'client' | 'lounge' | 'agent')
      */
     this.router.get('/following/:userId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.getFollowing);
 
@@ -56,7 +63,7 @@ class FollowRoute implements Routes {
      * @route   GET /v1/follows/followers/:userId
      * @desc    Get followers of :userId (paginated)
      * @access  Private (Client, Lounge, or Admin)
-     * @query   page, limit, type (optional: 'client' | 'lounge')
+     * @query   page, limit, type (optional: 'client' | 'lounge' | 'agent')
      */
     this.router.get('/followers/:userId', authMiddleware, adminOrLoungeOrClientOrAgentMiddleware, this.followController.getFollowers);
 

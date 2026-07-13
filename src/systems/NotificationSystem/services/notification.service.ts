@@ -452,34 +452,66 @@ class NotificationService {
   }
 
   /**
-   * Notify a lounge that a client liked them.
+   * Notify a lounge that a user liked them.
    */
-  public async notifyLoungeLiked(loungeId: string, clientId: string, clientName: string, clientImage?: string): Promise<void> {
+  public async notifyLoungeLiked(loungeId: string, likerId: string, likerName: string, likerImage?: string): Promise<void> {
     await this.create({
       userId: loungeId,
-      actorId: clientId,
+      actorId: likerId,
       title: 'New Like',
-      body: `${clientName} liked your lounge`,
+      body: `${likerName} liked your lounge`,
       type: NotificationType.LOUNGE_LIKED,
-      metadata: { clientId, loungeId },
-      actionUrl: `/profile/${clientId}`,
-      imageUrl: clientImage,
+      metadata: { actorId: likerId, loungeId },
+      actionUrl: `/profile/${likerId}`,
+      imageUrl: likerImage,
     });
   }
 
   /**
-   * Notify a lounge that a client rated them.
+   * Notify an agent that a user liked them.
    */
-  public async notifyLoungeRated(loungeId: string, clientId: string, clientName: string, score: number, clientImage?: string): Promise<void> {
+  public async notifyAgentLiked(agentId: string, likerId: string, likerName: string, likerImage?: string): Promise<void> {
+    await this.create({
+      userId: agentId,
+      actorId: likerId,
+      title: 'New Like',
+      body: `${likerName} liked you`,
+      type: NotificationType.AGENT_LIKED,
+      metadata: { actorId: likerId, agentId },
+      actionUrl: `/profile/${likerId}`,
+      imageUrl: likerImage,
+    });
+  }
+
+  /**
+   * Notify a lounge that a user rated them.
+   */
+  public async notifyLoungeRated(loungeId: string, raterId: string, raterName: string, score: number, raterImage?: string): Promise<void> {
     await this.create({
       userId: loungeId,
-      actorId: clientId,
+      actorId: raterId,
       title: 'New Rating',
-      body: `${clientName} rated your lounge ${score}/5`,
+      body: `${raterName} rated your lounge ${score}/5`,
       type: NotificationType.LOUNGE_RATED,
-      metadata: { clientId, loungeId, ratingScore: score },
-      actionUrl: `/profile/${clientId}`,
-      imageUrl: clientImage,
+      metadata: { actorId: raterId, loungeId, ratingScore: score },
+      actionUrl: `/profile/${raterId}`,
+      imageUrl: raterImage,
+    });
+  }
+
+  /**
+   * Notify an agent that a user rated them.
+   */
+  public async notifyAgentRated(agentId: string, raterId: string, raterName: string, score: number, raterImage?: string): Promise<void> {
+    await this.create({
+      userId: agentId,
+      actorId: raterId,
+      title: 'New Rating',
+      body: `${raterName} rated you ${score}/5`,
+      type: NotificationType.AGENT_RATED,
+      metadata: { actorId: raterId, agentId, ratingScore: score },
+      actionUrl: `/profile/${raterId}`,
+      imageUrl: raterImage,
     });
   }
 

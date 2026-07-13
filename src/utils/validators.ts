@@ -25,9 +25,47 @@ export async function assertLounge(loungeId: string): Promise<void> {
   }
 }
 
+type SocialTarget = 'lounge' | 'agent';
+
+/**
+ * Unified validator: ensure an ObjectId references a social-interaction target (lounge or agent).
+ * @param verb  Human-readable action name for the error message (e.g. "rateable", "likeable")
+ * @param code  Error code for the rejection (e.g. "INVALID_RATEABLE_TARGET")
+ * @returns The target's user type ("lounge" | "agent")
+ * @throws BadRequestException if the user does not exist, is blocked, or is not a lounge/agent
+ */
+export async function assertSocialTarget(
+  targetId: string,
+  verb: string,
+  code: string,
+): Promise<SocialTarget> {
+  assertObjectId(targetId, 'target');
+  const user = await userModel.findById(targetId).select('type isBlocked').lean();
+  if (!user || user.isBlocked) {
+    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
+  }
+  if (user.type !== 'lounge' && user.type !== 'agent') {
+    throw new BadRequestException(`Target user is not ${verb}`, code);
+  }
+  return user.type as SocialTarget;
+}
+
+/**
+ * Validate that an ObjectId references an existing user of any type.
+ * @throws BadRequestException if invalid or not found
+ */
+export async function assertExistingUser(userId: string): Promise<string> {
+  assertObjectId(userId, 'user');
+  const user = await userModel.findById(userId).select('type isBlocked').lean();
+  if (!user || user.isBlocked) {
+    throw new BadRequestException('User not found', 'USER_NOT_FOUND');
+  }
+  return user.type;
+}
+
 /**
  * Extract pagination parameters from an Express request.
- * Clamps page ≥ 1 and 1 ≤ limit ≤ maxLimit.
+ * Clamps page >= 1 and 1 <= limit <= maxLimit.
  */
 export function parsePagination(req: Request, maxLimit = 50): { page: number; limit: number } {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);

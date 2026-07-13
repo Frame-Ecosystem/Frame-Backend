@@ -1,14 +1,15 @@
-﻿import { NotFoundException } from '@exceptions/HttpException';
+﻿import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { Rating } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
 import ratingModel from '@systems/ServiceCatalogSystem/models/rating.model';
 import userModel from '@systems/UserManager/models/user.model';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
-import { assertObjectId, assertLounge } from '@utils/validators';
+import { assertObjectId, assertSocialTarget } from '@utils/validators';
+import { isAllowedSocialPair, SocialUserType, POPULATE_ACTOR_BASIC } from '@utils/social-matrix';
 import { logger } from '@utils/logger';
 import mongoose from 'mongoose';
 
-const POPULATE_CLIENT = { path: 'clientId', select: 'firstName lastName profileImage' };
+const POPULATE_RATER = { path: 'raterId', select: POPULATE_ACTOR_BASIC };
 
 class RatingService {
   private ratings = ratingModel;
@@ -18,81 +19,108 @@ class RatingService {
   /* ───────── Commands ───────── */
 
   /**
-   * Create or update a client's rating for a lounge.
-   * After persisting, recalculates the lounge's denormalized averageRating / ratingCount.
+   * Create or update a user's rating for a target.
+   * Enforces the social interaction matrix:
+   *   any user type -> lounge | agent
+   * After persisting, recalculates the target's denormalized averageRating / ratingCount.
    */
-  public async upsertRating(clientId: string, dto: UpsertRatingDto): Promise<Rating> {
-    await assertLounge(dto.loungeId);
+  public async upsertRating(raterId: string, dto: UpsertRatingDto): Promise<Rating> {
+    assertObjectId(dto.targetId, 'target');
+
+    if (raterId === dto.targetId) {
+      throw new BadRequestException('You cannot rate yourself', 'SELF_RATING');
+    }
+
+    const [rater, targetType] = await Promise.all([
+      this.users.findById(raterId).select('type firstName lastName loungeTitle profileImage').lean(),
+      assertSocialTarget(dto.targetId, 'rateable', 'INVALID_RATEABLE_TARGET'),
+    ]);
+
+    if (!rater) throw new NotFoundException('Rater not found', 'USER_NOT_FOUND');
+
+    const raterType = rater.type as SocialUserType;
+
+    if (!isAllowedSocialPair(raterType, targetType)) {
+      throw new BadRequestException(
+        `A ${raterType} cannot rate a ${targetType}`,
+        'INVALID_RATING_PAIR',
+      );
+    }
 
     const rating = await this.ratings.findOneAndUpdate(
-      { clientId, loungeId: dto.loungeId },
-      { score: dto.score, ...(dto.comment !== undefined && { comment: dto.comment }) },
+      { raterId, targetId: dto.targetId },
+      {
+        raterType,
+        targetType,
+        score: dto.score,
+        ...(dto.comment !== undefined && { comment: dto.comment }),
+      },
       { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true },
     );
 
-    await this.refreshLoungeSummary(dto.loungeId);
+    await this.refreshTargetSummary(dto.targetId);
 
-    // Notify lounge about the new/updated rating
-    const client = await this.users.findById(clientId).select('firstName lastName profileImage type').lean().exec();
-    const clientName = this.notificationService.extractName(client);
-    const clientImage = client?.profileImage?.url;
-    this.notificationService.notifyLoungeRated(dto.loungeId, clientId, clientName, dto.score, clientImage).catch(() => {});
+    const raterName = this.notificationService.extractName(rater);
+    const raterImage = rater?.profileImage?.url;
 
-    logger.info(`RatingService.upsertRating: client=${clientId} lounge=${dto.loungeId} score=${dto.score}`);
+    if (targetType === 'lounge') {
+      this.notificationService.notifyLoungeRated(dto.targetId, raterId, raterName, dto.score, raterImage)
+        .catch((err) => logger.error(`RatingService: failed to send lounge rated notification: ${err.message}`));
+    } else {
+      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage)
+        .catch((err) => logger.error(`RatingService: failed to send agent rated notification: ${err.message}`));
+    }
+
+    logger.info(`RatingService.upsertRating: ${raterType}=${raterId} -> ${targetType}=${dto.targetId} score=${dto.score}`);
     return rating;
   }
 
-  /** Delete a client's own rating and refresh the lounge summary. */
-  public async deleteRating(clientId: string, loungeId: string): Promise<void> {
-    const deleted = await this.ratings.findOneAndDelete({ clientId, loungeId });
+  public async deleteRating(raterId: string, targetId: string): Promise<void> {
+    assertObjectId(targetId, 'target');
+
+    const deleted = await this.ratings.findOneAndDelete({ raterId, targetId });
     if (!deleted) throw new NotFoundException('Rating not found', 'RATING_NOT_FOUND');
 
-    await this.refreshLoungeSummary(loungeId);
-    logger.info(`RatingService.deleteRating: client=${clientId} lounge=${loungeId}`);
+    await this.refreshTargetSummary(targetId);
+    logger.info(`RatingService.deleteRating: rater=${raterId} target=${targetId}`);
   }
 
   /* ───────── Queries ───────── */
 
-  /** All ratings for a lounge, newest first. */
-  public async getLoungeRatings(loungeId: string, page = 1, limit = 20): Promise<{ ratings: Rating[]; total: number }> {
-    assertObjectId(loungeId, 'lounge');
+  public async getTargetRatings(targetId: string, page = 1, limit = 20): Promise<{ ratings: Rating[]; total: number }> {
+    assertObjectId(targetId, 'target');
 
     const [ratings, total] = await Promise.all([
       this.ratings
-        .find({ loungeId })
+        .find({ targetId })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate(POPULATE_CLIENT)
+        .populate(POPULATE_RATER)
         .lean(),
-      this.ratings.countDocuments({ loungeId }),
+      this.ratings.countDocuments({ targetId }),
     ]);
 
     return { ratings, total };
   }
 
-  /** Get the authenticated client's own rating for a specific lounge (or null). */
-  public async getMyRating(clientId: string, loungeId: string): Promise<Rating | null> {
-    assertObjectId(loungeId, 'lounge');
-    return this.ratings.findOne({ clientId, loungeId }).lean();
+  public async getMyRating(raterId: string, targetId: string): Promise<Rating | null> {
+    assertObjectId(targetId, 'target');
+    return this.ratings.findOne({ raterId, targetId }).lean();
   }
 
   /* ───────── Helpers ───────── */
 
-  /**
-   * Recalculate and persist the lounge's averageRating and ratingCount via aggregation.
-   * If there are no ratings the values reset to 0.
-   */
-  private async refreshLoungeSummary(loungeId: string): Promise<void> {
+  private async refreshTargetSummary(targetId: string): Promise<void> {
     const [summary] = await this.ratings.aggregate([
-      { $match: { loungeId: new mongoose.Types.ObjectId(loungeId) } },
+      { $match: { targetId: new mongoose.Types.ObjectId(targetId) } },
       { $group: { _id: null, avg: { $avg: '$score' }, count: { $sum: 1 } } },
     ]);
 
     const averageRating = summary ? Math.round(summary.avg * 10) / 10 : 0;
     const ratingCount = summary?.count ?? 0;
 
-    await this.users.findByIdAndUpdate(loungeId, { averageRating, ratingCount });
+    await this.users.findByIdAndUpdate(targetId, { averageRating, ratingCount });
   }
 }
 

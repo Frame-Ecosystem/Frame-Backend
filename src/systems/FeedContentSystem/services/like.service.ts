@@ -1,9 +1,14 @@
+import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
 import { Like } from '@systems/FeedContentSystem/interfaces/like.interface';
 import likeModel from '@systems/FeedContentSystem/models/like.model';
 import userModel from '@systems/UserManager/models/user.model';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
-import { assertObjectId, assertLounge } from '@utils/validators';
+import { assertObjectId, assertSocialTarget } from '@utils/validators';
+import { isAllowedSocialPair, SocialUserType, POPULATE_TARGET_FULL, POPULATE_ACTOR_BASIC } from '@utils/social-matrix';
 import { logger } from '@utils/logger';
+
+const POPULATE_TARGET = { path: 'targetId', select: POPULATE_TARGET_FULL };
+const POPULATE_LIKER = { path: 'likerId', select: POPULATE_ACTOR_BASIC };
 
 class LikeService {
   private likes = likeModel;
@@ -12,72 +17,98 @@ class LikeService {
 
   /* ───────── Commands ───────── */
 
-  /** Toggle like: creates a like if it doesn't exist, removes it if it does. */
-  public async toggleLike(userId: string, loungeId: string): Promise<{ liked: boolean }> {
-    await assertLounge(loungeId);
+  /**
+   * Toggle like: creates a like if it doesn't exist, removes it if it does.
+   * Enforces the social interaction matrix:
+   *   any user type -> lounge | agent
+   */
+  public async toggleLike(userId: string, targetId: string): Promise<{ liked: boolean }> {
+    assertObjectId(targetId, 'target');
 
-    const existing = await this.likes.findOne({ clientId: userId, loungeId }).select('_id').lean().exec();
+    if (userId === targetId) {
+      throw new BadRequestException('You cannot like yourself', 'SELF_LIKE');
+    }
+
+    const [liker, targetType] = await Promise.all([
+      this.users.findById(userId).select('type firstName lastName loungeTitle profileImage').lean(),
+      assertSocialTarget(targetId, 'likeable', 'INVALID_LIKEABLE_TARGET'),
+    ]);
+
+    if (!liker) throw new NotFoundException('User not found', 'USER_NOT_FOUND');
+
+    const likerType = liker.type as SocialUserType;
+
+    if (!isAllowedSocialPair(likerType, targetType)) {
+      throw new BadRequestException(
+        `A ${likerType} cannot like a ${targetType}`,
+        'INVALID_LIKE_PAIR',
+      );
+    }
+
+    const existing = await this.likes.findOne({ likerId: userId, targetId }).select('_id').lean().exec();
 
     if (existing) {
       await this.likes.deleteOne({ _id: existing._id });
-      await this.refreshLoungeCount(loungeId);
-      logger.info(`LikeService.toggleLike: unlike user=${userId} lounge=${loungeId}`);
+      await this.refreshTargetCount(targetId);
+      logger.info(`LikeService.toggleLike: unlike user=${userId} target=${targetId}`);
       return { liked: false };
     }
 
-    await this.likes.create({ clientId: userId, loungeId });
-    await this.refreshLoungeCount(loungeId);
+    await this.likes.create({ likerId: userId, targetId, likerType, targetType });
+    await this.refreshTargetCount(targetId);
 
-    // Notify lounge about the new like
-    const user = await this.users.findById(userId).select('firstName lastName loungeTitle profileImage type').lean().exec();
-    const userName = this.notificationService.extractName(user);
-    const userImage = user?.profileImage?.url;
-    this.notificationService.notifyLoungeLiked(loungeId, userId, userName, userImage).catch(() => {});
+    const likerName = this.notificationService.extractName(liker);
+    const likerImage = liker?.profileImage?.url;
 
-    logger.info(`LikeService.toggleLike: like user=${userId} lounge=${loungeId}`);
+    if (targetType === 'lounge') {
+      this.notificationService.notifyLoungeLiked(targetId, userId, likerName, likerImage)
+        .catch((err) => logger.error(`LikeService: failed to send lounge liked notification: ${err.message}`));
+    } else {
+      this.notificationService.notifyAgentLiked(targetId, userId, likerName, likerImage)
+        .catch((err) => logger.error(`LikeService: failed to send agent liked notification: ${err.message}`));
+    }
+
+    logger.info(`LikeService.toggleLike: like ${likerType}=${userId} -> ${targetType}=${targetId}`);
     return { liked: true };
   }
 
   /* ───────── Queries ───────── */
 
-  /** Check whether the authenticated user has liked a specific lounge. */
-  public async hasLiked(userId: string, loungeId: string): Promise<boolean> {
-    assertObjectId(loungeId, 'lounge');
-    const like = await this.likes.findOne({ clientId: userId, loungeId }).select('_id').lean().exec();
+  public async hasLiked(userId: string, targetId: string): Promise<boolean> {
+    assertObjectId(targetId, 'target');
+    const like = await this.likes.findOne({ likerId: userId, targetId }).select('_id').lean().exec();
     return !!like;
   }
 
-  /** Get all lounges liked by the authenticated user (newest first, paginated). */
   public async getMyLikes(userId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
     const [likes, total] = await Promise.all([
       this.likes
-        .find({ clientId: userId })
+        .find({ likerId: userId })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate({ path: 'loungeId', select: 'firstName lastName loungeTitle profileImage coverImage averageRating ratingCount likeCount' })
+        .populate(POPULATE_TARGET)
         .lean()
         .exec(),
-      this.likes.countDocuments({ clientId: userId }).exec(),
+      this.likes.countDocuments({ likerId: userId }).exec(),
     ]);
 
     return { likes, total };
   }
 
-  /** Get all users who liked a specific lounge (newest first, paginated). */
-  public async getLoungeLikers(loungeId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
-    assertObjectId(loungeId, 'lounge');
+  public async getTargetLikers(targetId: string, page = 1, limit = 20): Promise<{ likes: Like[]; total: number }> {
+    assertObjectId(targetId, 'target');
 
     const [likes, total] = await Promise.all([
       this.likes
-        .find({ loungeId })
+        .find({ targetId })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
-        .populate({ path: 'clientId', select: 'firstName lastName loungeTitle profileImage type' })
+        .populate(POPULATE_LIKER)
         .lean()
         .exec(),
-      this.likes.countDocuments({ loungeId }).exec(),
+      this.likes.countDocuments({ targetId }).exec(),
     ]);
 
     return { likes, total };
@@ -85,10 +116,9 @@ class LikeService {
 
   /* ───────── Helpers ───────── */
 
-  /** Recalculate and persist the lounge's denormalized likeCount. */
-  private async refreshLoungeCount(loungeId: string): Promise<void> {
-    const count = await this.likes.countDocuments({ loungeId }).exec();
-    await this.users.findByIdAndUpdate(loungeId, { likeCount: count });
+  private async refreshTargetCount(targetId: string): Promise<void> {
+    const count = await this.likes.countDocuments({ targetId }).exec();
+    await this.users.findByIdAndUpdate(targetId, { likeCount: count });
   }
 }
 

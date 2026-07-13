@@ -1,0 +1,510 @@
+# Chat endpoints — 1-to-1 direct messaging
+# Base path: /v1/chat
+#
+# IMPORTANT: Both participants must follow each other before a conversation
+# can be created or messages sent. Admin users bypass this restriction.
+
+/v1/chat/conversations:
+  post:
+    tags: [Chat]
+    summary: Find or create a DM conversation
+    description: |
+      Finds an existing 1-to-1 conversation with the recipient, or creates
+      a new one atomically.
+
+      **Mutual follow requirement:** Both users must follow each other before
+      a conversation can be created. Admin users bypass this restriction.
+      Returns `403` if either direction of the follow relationship is missing.
+    security:
+      - bearerAuth: []
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [recipientId]
+            properties:
+              recipientId:
+                type: string
+                description: MongoDB ObjectId of the other user
+    responses:
+      '201':
+        description: New conversation created
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data: { $ref: '#/components/schemas/Conversation' }
+                message: { type: string, example: Conversation created }
+      '200':
+        description: Existing conversation returned
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data: { $ref: '#/components/schemas/Conversation' }
+                message: { type: string, example: Conversation retrieved }
+      '400': { description: Cannot start a conversation with yourself }
+      '401': { $ref: '#/components/responses/401' }
+      '403':
+        description: |
+          - Recipient type not allowed for chat
+          - You must follow each other to send messages
+      '404': { description: Recipient not found }
+
+  get:
+    tags: [Chat]
+    summary: List my conversations
+    description: Returns all conversations for the authenticated user, newest first.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    responses:
+      '200':
+        description: Conversations retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Conversation' }
+                total: { type: integer }
+                page: { type: integer }
+                limit: { type: integer }
+                totalPages: { type: integer }
+                message: { type: string }
+      '401': { $ref: '#/components/responses/401' }
+
+/v1/chat/conversations/{id}:
+  get:
+    tags: [Chat]
+    summary: Get a single conversation
+    description: Returns the conversation if the authenticated user is a participant.
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    responses:
+      '200':
+        description: Conversation retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data: { $ref: '#/components/schemas/Conversation' }
+                message: { type: string }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { description: Conversation not found or user is not a participant }
+
+  delete:
+    tags: [Chat]
+    summary: Soft-delete a conversation
+    description: |
+      Hides the conversation from the requesting user's inbox only.
+      The other participant's view is unaffected.
+    security:
+      - bearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/idParam'
+    responses:
+      '200':
+        description: Conversation removed from inbox
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                message: { type: string, example: Conversation removed from your inbox }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { description: Conversation not found }
+
+/v1/chat/conversations/{id}/messages:
+  get:
+    tags: [Chat]
+    summary: Get messages (paginated)
+    description: |
+      Returns messages in chronological order. Supports two pagination modes:
+      - **Cursor mode:** pass `?before=<messageId>` to fetch older messages (returns `hasMore`)
+      - **Offset mode:** omit `before` (returns `total` and `totalPages`)
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: page
+        in: query
+        schema: { type: integer, default: 1, minimum: 1 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 50, minimum: 1, maximum: 100 }
+      - name: before
+        in: query
+        schema: { type: string }
+        description: Message ID cursor — fetch messages older than this ID
+    responses:
+      '200':
+        description: Messages retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Message' }
+                hasMore: { type: boolean }
+                total: { type: integer }
+                page: { type: integer }
+                totalPages: { type: integer }
+                limit: { type: integer }
+                message: { type: string }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { description: Conversation not found or user is not a participant }
+
+  post:
+    tags: [Chat]
+    summary: Send a message
+    description: |
+      Sends a message in a conversation.
+
+      **Mutual follow requirement:** Both participants must follow each other.
+      Admin users bypass this restriction. Returns `403` if the follow
+      relationship is broken.
+
+      Rate-limited: 100 requests / 15 min per IP.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [contentType]
+            properties:
+              contentType:
+                type: string
+                enum: [text, image, file, audio]
+              text:
+                type: string
+                maxLength: 4000
+                description: Required when contentType is 'text'
+              replyTo:
+                type: string
+                description: Message ID being replied to
+              file:
+                type: string
+                format: binary
+                description: Required when contentType is image, file, or audio
+        application/json:
+          schema:
+            type: object
+            required: [contentType]
+            properties:
+              contentType:
+                type: string
+                enum: [text, image, file, audio]
+              text:
+                type: string
+                maxLength: 4000
+              replyTo:
+                type: string
+    responses:
+      '201':
+        description: Message sent
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data: { $ref: '#/components/schemas/Message' }
+                message: { type: string, example: Message sent }
+      '400':
+        description: |
+          - Text content required for text messages
+          - Attachment required for image/file/audio
+          - replyTo message not found in this conversation
+      '401': { $ref: '#/components/responses/401' }
+      '403':
+        description: You must follow each other to send messages
+      '404': { description: Conversation not found }
+
+/v1/chat/conversations/{id}/messages/search:
+  get:
+    tags: [Chat]
+    summary: Search messages in a conversation
+    description: Full-text search across messages. Results sorted by relevance then recency.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: q
+        in: query
+        required: true
+        schema: { type: string, maxLength: 200 }
+      - name: limit
+        in: query
+        schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+    responses:
+      '200':
+        description: Search results
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: array
+                  items: { $ref: '#/components/schemas/Message' }
+                message: { type: string, example: Search completed }
+      '401': { $ref: '#/components/responses/401' }
+      '403': { description: Access denied (not a conversation participant) }
+
+/v1/chat/conversations/{id}/messages/read:
+  patch:
+    tags: [Chat]
+    summary: Mark messages as read
+    description: |
+      Mark specific messages (or all unread messages) as read.
+      Emits `chat:read` to the conversation room.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              messageIds:
+                type: array
+                items: { type: string }
+                description: Specific message IDs to mark read. Omit to mark all.
+    responses:
+      '200':
+        description: Messages marked as read
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    readMessageIds:
+                      type: array
+                      items: { type: string }
+                message: { type: string }
+      '401': { $ref: '#/components/responses/401' }
+      '404': { description: Conversation not found }
+
+/v1/chat/conversations/{id}/messages/{msgId}:
+  patch:
+    tags: [Chat]
+    summary: Edit a text message
+    description: |
+      Edit the text of a previously sent message.
+      - Sender only
+      - `contentType === 'text'` only
+      - 15-minute edit window
+      Emits `chat:message:edited` to the conversation room.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: msgId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [text]
+            properties:
+              text: { type: string, maxLength: 4000 }
+    responses:
+      '200':
+        description: Message edited
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data: { $ref: '#/components/schemas/Message' }
+                message: { type: string, example: Message edited }
+      '401': { $ref: '#/components/responses/401' }
+      '403':
+        description: |
+          - Not the sender of this message
+          - Edit window has expired (15 minutes)
+      '404': { description: Message not found or cannot be edited }
+
+  delete:
+    tags: [Chat]
+    summary: Delete or recall a message
+    description: |
+      - `recallForEveryone: true` — sender only; replaces text with "This message was deleted"
+      - `recallForEveryone: false` (default) — hides message for the requesting user only
+      Emits `chat:message:deleted` to the conversation room.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: msgId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              recallForEveryone: { type: boolean, default: false }
+    responses:
+      '200':
+        description: Message deleted/recalled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                message: { type: string }
+      '401': { $ref: '#/components/responses/401' }
+      '403':
+        description: |
+          - Not a conversation participant
+          - Only the sender can recall for everyone
+      '404': { description: Message not found }
+
+/v1/chat/conversations/{id}/messages/{msgId}/reactions:
+  post:
+    tags: [Chat]
+    summary: Toggle an emoji reaction
+    description: |
+      Toggle an emoji reaction on a message:
+      - No prior reaction → add
+      - Same emoji → remove (toggle off)
+      - Different emoji → replace
+      Emits `chat:reaction` to the conversation room.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+      - name: msgId
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [emoji]
+            properties:
+              emoji:
+                type: string
+                maxLength: 8
+                description: Unicode emoji character(s)
+    responses:
+      '200':
+        description: Reaction updated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success: { type: boolean, example: true }
+                data:
+                  type: object
+                  properties:
+                    reactions:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          userId: { type: string }
+                          emoji: { type: string }
+                          createdAt: { type: string, format: date-time }
+                message: { type: string, example: Reaction updated }
+      '401': { $ref: '#/components/responses/401' }
+      '403': { description: Access denied (not a conversation participant) }
+      '404': { description: Message not found }
+
+/v1/chat/conversations/{id}/typing:
+  post:
+    tags: [Chat]
+    summary: REST typing indicator (fallback)
+    description: |
+      REST-proxied typing indicator for clients that cannot use WebSockets.
+      Prefer emitting `chat:typing` directly over Socket.IO.
+    security:
+      - bearerAuth: []
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [isTyping]
+            properties:
+              isTyping: { type: boolean }
+    responses:
+      '204':
+        description: Typing indicator broadcast (no body)
+      '401': { $ref: '#/components/responses/401' }

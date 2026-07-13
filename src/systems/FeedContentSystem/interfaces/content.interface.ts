@@ -10,6 +10,7 @@ export enum ContentType {
 export enum AuthorType {
   CLIENT = 'client',
   LOUNGE = 'lounge',
+  AGENT = 'agent',
 }
 
 export enum ReportStatus {
