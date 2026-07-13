@@ -46,7 +46,6 @@ export enum NotificationType {
   AGENT_LIKED = 'social:agentLiked',
   LOUNGE_RATED = 'social:loungeRated',
   AGENT_RATED = 'social:agentRated',
-  RATING_RECEIVED = 'social:ratingReceived',
 
   // ── Admin / Moderation ──────────────────────────────────────────
   SUGGESTION_CREATED = 'admin:suggestionCreated',
@@ -94,7 +93,6 @@ export const NOTIFICATION_CATEGORY_MAP: Record<NotificationType, NotificationCat
   [NotificationType.AGENT_LIKED]: NotificationCategory.SOCIAL,
   [NotificationType.LOUNGE_RATED]: NotificationCategory.SOCIAL,
   [NotificationType.AGENT_RATED]: NotificationCategory.SOCIAL,
-  [NotificationType.RATING_RECEIVED]: NotificationCategory.SOCIAL,
   // Admin
   [NotificationType.SUGGESTION_CREATED]: NotificationCategory.ADMIN,
   [NotificationType.SUGGESTION_APPROVED]: NotificationCategory.ADMIN,
@@ -128,7 +126,6 @@ export interface NotificationMetadata {
   followerId?: string;
   actorId?: string;
   ratingScore?: number;
-  raterId?: string;
 
   // Admin
   suggestionId?: string;

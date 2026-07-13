@@ -30,7 +30,6 @@ jest.mock('@systems/NotificationSystem/services/notification.service', () => ({
       extractName: jest.fn().mockReturnValue('Test User'),
       notifyLoungeRated: jest.fn().mockResolvedValue(undefined),
       notifyAgentRated: jest.fn().mockResolvedValue(undefined),
-      notifyRatingReceived: jest.fn().mockResolvedValue(undefined),
     }),
   },
 }));
@@ -69,7 +68,7 @@ jest.mock('@systems/ServiceCatalogSystem/models/rating.model', () => ({
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import RatingService from '@systems/ServiceCatalogSystem/services/rating.service';
-import { isAllowedRatingPair } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
+import { isAllowedSocialPair } from '@utils/social-matrix';
 import { Types } from 'mongoose';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -101,41 +100,41 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
 
   // ── Rating matrix validation ──────────────────────────────────────────────
 
-  describe('isAllowedRatingPair', () => {
+  describe('isAllowedSocialPair', () => {
     it('allows client → lounge', () => {
-      expect(isAllowedRatingPair('client', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('client', 'lounge')).toBe(true);
     });
 
     it('allows client → agent', () => {
-      expect(isAllowedRatingPair('client', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('client', 'agent')).toBe(true);
     });
 
     it('allows agent → lounge', () => {
-      expect(isAllowedRatingPair('agent', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('agent', 'lounge')).toBe(true);
     });
 
     it('allows lounge → agent', () => {
-      expect(isAllowedRatingPair('lounge', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('lounge', 'agent')).toBe(true);
     });
 
     it('rejects agent → client', () => {
-      expect(isAllowedRatingPair('agent', 'client')).toBe(false);
+      expect(isAllowedSocialPair('agent', 'client')).toBe(false);
     });
 
     it('rejects lounge → client', () => {
-      expect(isAllowedRatingPair('lounge', 'client')).toBe(false);
+      expect(isAllowedSocialPair('lounge', 'client')).toBe(false);
     });
 
     it('rejects client → client', () => {
-      expect(isAllowedRatingPair('client', 'client')).toBe(false);
+      expect(isAllowedSocialPair('client', 'client')).toBe(false);
     });
 
     it('allows agent → agent', () => {
-      expect(isAllowedRatingPair('agent', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('agent', 'agent')).toBe(true);
     });
 
     it('allows lounge → lounge', () => {
-      expect(isAllowedRatingPair('lounge', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('lounge', 'lounge')).toBe(true);
     });
   });
 

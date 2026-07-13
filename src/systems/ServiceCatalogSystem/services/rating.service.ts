@@ -1,11 +1,11 @@
 ﻿import { BadRequestException, NotFoundException } from '@exceptions/HttpException';
-import { Rating, RatingUserType } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
+import { Rating } from '@systems/ServiceCatalogSystem/interfaces/rating.interface';
 import ratingModel from '@systems/ServiceCatalogSystem/models/rating.model';
 import userModel from '@systems/UserManager/models/user.model';
 import NotificationService from '@systems/NotificationSystem/services/notification.service';
 import { UpsertRatingDto } from '@systems/ServiceCatalogSystem/dtos/rating.dto';
-import { assertObjectId, assertSocialTarget, assertExistingUser } from '@utils/validators';
-import { isAllowedSocialPair, POPULATE_ACTOR_BASIC } from '@utils/social-matrix';
+import { assertObjectId, assertSocialTarget } from '@utils/validators';
+import { isAllowedSocialPair, SocialUserType, POPULATE_ACTOR_BASIC } from '@utils/social-matrix';
 import { logger } from '@utils/logger';
 import mongoose from 'mongoose';
 
@@ -21,7 +21,7 @@ class RatingService {
   /**
    * Create or update a user's rating for a target.
    * Enforces the social interaction matrix:
-   *   any user type → lounge | agent
+   *   any user type -> lounge | agent
    * After persisting, recalculates the target's denormalized averageRating / ratingCount.
    */
   public async upsertRating(raterId: string, dto: UpsertRatingDto): Promise<Rating> {
@@ -31,7 +31,6 @@ class RatingService {
       throw new BadRequestException('You cannot rate yourself', 'SELF_RATING');
     }
 
-    // Look up both users in parallel
     const [rater, targetType] = await Promise.all([
       this.users.findById(raterId).select('type firstName lastName loungeTitle profileImage').lean(),
       assertSocialTarget(dto.targetId, 'rateable', 'INVALID_RATEABLE_TARGET'),
@@ -39,9 +38,8 @@ class RatingService {
 
     if (!rater) throw new NotFoundException('Rater not found', 'USER_NOT_FOUND');
 
-    const raterType = rater.type as RatingUserType;
+    const raterType = rater.type as SocialUserType;
 
-    // Enforce the social interaction matrix
     if (!isAllowedSocialPair(raterType, targetType)) {
       throw new BadRequestException(
         `A ${raterType} cannot rate a ${targetType}`,
@@ -62,7 +60,6 @@ class RatingService {
 
     await this.refreshTargetSummary(dto.targetId);
 
-    // Send notification based on the target type
     const raterName = this.notificationService.extractName(rater);
     const raterImage = rater?.profileImage?.url;
 
@@ -74,11 +71,10 @@ class RatingService {
         .catch((err) => logger.error(`RatingService: failed to send agent rated notification: ${err.message}`));
     }
 
-    logger.info(`RatingService.upsertRating: ${raterType}=${raterId} → ${targetType}=${dto.targetId} score=${dto.score}`);
+    logger.info(`RatingService.upsertRating: ${raterType}=${raterId} -> ${targetType}=${dto.targetId} score=${dto.score}`);
     return rating;
   }
 
-  /** Delete a user's own rating and refresh the target summary. */
   public async deleteRating(raterId: string, targetId: string): Promise<void> {
     assertObjectId(targetId, 'target');
 
@@ -91,7 +87,6 @@ class RatingService {
 
   /* ───────── Queries ───────── */
 
-  /** All ratings for a target user, newest first. */
   public async getTargetRatings(targetId: string, page = 1, limit = 20): Promise<{ ratings: Rating[]; total: number }> {
     assertObjectId(targetId, 'target');
 
@@ -109,7 +104,6 @@ class RatingService {
     return { ratings, total };
   }
 
-  /** Get the authenticated user's own rating for a specific target (or null). */
   public async getMyRating(raterId: string, targetId: string): Promise<Rating | null> {
     assertObjectId(targetId, 'target');
     return this.ratings.findOne({ raterId, targetId }).lean();
@@ -117,10 +111,6 @@ class RatingService {
 
   /* ───────── Helpers ───────── */
 
-  /**
-   * Recalculate and persist the target's averageRating and ratingCount via aggregation.
-   * If there are no ratings the values reset to 0.
-   */
   private async refreshTargetSummary(targetId: string): Promise<void> {
     const [summary] = await this.ratings.aggregate([
       { $match: { targetId: new mongoose.Types.ObjectId(targetId) } },

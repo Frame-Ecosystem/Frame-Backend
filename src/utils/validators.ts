@@ -25,6 +25,8 @@ export async function assertLounge(loungeId: string): Promise<void> {
   }
 }
 
+type SocialTarget = 'lounge' | 'agent';
+
 /**
  * Unified validator: ensure an ObjectId references a social-interaction target (lounge or agent).
  * @param verb  Human-readable action name for the error message (e.g. "rateable", "likeable")
@@ -36,7 +38,7 @@ export async function assertSocialTarget(
   targetId: string,
   verb: string,
   code: string,
-): Promise<string> {
+): Promise<SocialTarget> {
   assertObjectId(targetId, 'target');
   const user = await userModel.findById(targetId).select('type isBlocked').lean();
   if (!user || user.isBlocked) {
@@ -45,22 +47,8 @@ export async function assertSocialTarget(
   if (user.type !== 'lounge' && user.type !== 'agent') {
     throw new BadRequestException(`Target user is not ${verb}`, code);
   }
-  return user.type;
+  return user.type as SocialTarget;
 }
-
-/**
- * Validate that an ObjectId references a rateable target (lounge or agent).
- * @deprecated Use `assertSocialTarget(id, 'rateable', 'INVALID_RATEABLE_TARGET')` instead.
- */
-export const assertRateableTarget = (targetId: string) =>
-  assertSocialTarget(targetId, 'rateable', 'INVALID_RATEABLE_TARGET');
-
-/**
- * Validate that an ObjectId references a likeable target (lounge or agent).
- * @deprecated Use `assertSocialTarget(id, 'likeable', 'INVALID_LIKEABLE_TARGET')` instead.
- */
-export const assertLikeableTarget = (targetId: string) =>
-  assertSocialTarget(targetId, 'likeable', 'INVALID_LIKEABLE_TARGET');
 
 /**
  * Validate that an ObjectId references an existing user of any type.
@@ -77,7 +65,7 @@ export async function assertExistingUser(userId: string): Promise<string> {
 
 /**
  * Extract pagination parameters from an Express request.
- * Clamps page ≥ 1 and 1 ≤ limit ≤ maxLimit.
+ * Clamps page >= 1 and 1 <= limit <= maxLimit.
  */
 export function parsePagination(req: Request, maxLimit = 50): { page: number; limit: number } {
   const page = Math.max(1, parseInt(req.query.page as string) || 1);

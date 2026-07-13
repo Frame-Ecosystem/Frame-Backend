@@ -64,7 +64,7 @@ jest.mock('@systems/FeedContentSystem/models/like.model', () => ({
 // ── Imports ───────────────────────────────────────────────────────────────────
 
 import LikeService from '@systems/FeedContentSystem/services/like.service';
-import { isAllowedLikePair } from '@systems/FeedContentSystem/interfaces/like.interface';
+import { isAllowedSocialPair } from '@utils/social-matrix';
 import { Types } from 'mongoose';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -94,41 +94,41 @@ describe('LikeService — Like Matrix & Toggle', () => {
 
   // ── Like matrix validation ──────────────────────────────────────────────
 
-  describe('isAllowedLikePair', () => {
+  describe('isAllowedSocialPair', () => {
     it('allows client → lounge', () => {
-      expect(isAllowedLikePair('client', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('client', 'lounge')).toBe(true);
     });
 
     it('allows client → agent', () => {
-      expect(isAllowedLikePair('client', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('client', 'agent')).toBe(true);
     });
 
     it('allows lounge → agent', () => {
-      expect(isAllowedLikePair('lounge', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('lounge', 'agent')).toBe(true);
     });
 
     it('rejects agent → client', () => {
-      expect(isAllowedLikePair('agent', 'client')).toBe(false);
+      expect(isAllowedSocialPair('agent', 'client')).toBe(false);
     });
 
     it('rejects lounge → client', () => {
-      expect(isAllowedLikePair('lounge', 'client')).toBe(false);
+      expect(isAllowedSocialPair('lounge', 'client')).toBe(false);
     });
 
     it('allows agent → lounge', () => {
-      expect(isAllowedLikePair('agent', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('agent', 'lounge')).toBe(true);
     });
 
     it('allows lounge → lounge', () => {
-      expect(isAllowedLikePair('lounge', 'lounge')).toBe(true);
+      expect(isAllowedSocialPair('lounge', 'lounge')).toBe(true);
     });
 
     it('rejects client → client', () => {
-      expect(isAllowedLikePair('client', 'client')).toBe(false);
+      expect(isAllowedSocialPair('client', 'client')).toBe(false);
     });
 
     it('allows agent → agent', () => {
-      expect(isAllowedLikePair('agent', 'agent')).toBe(true);
+      expect(isAllowedSocialPair('agent', 'agent')).toBe(true);
     });
   });
 

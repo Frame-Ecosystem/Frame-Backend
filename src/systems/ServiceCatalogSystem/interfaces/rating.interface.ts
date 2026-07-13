@@ -1,13 +1,4 @@
-import { SocialUserType, isAllowedSocialPair } from '@utils/social-matrix';
-
-/** @deprecated Use `SocialUserType` from `@utils/social-matrix`. */
-export type RateableUserType = SocialUserType;
-
-/** Proper alias — prefer this over the deprecated `RateableUserType`. */
-export type RatingUserType = SocialUserType;
-
-/** @deprecated Use `isAllowedSocialPair` from `@utils/social-matrix` directly. */
-export const isAllowedRatingPair = isAllowedSocialPair;
+import { SocialUserType } from '@utils/social-matrix';
 
 export interface Rating {
   _id?: string;

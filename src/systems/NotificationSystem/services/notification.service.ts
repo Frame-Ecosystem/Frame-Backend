@@ -515,28 +515,6 @@ class NotificationService {
     });
   }
 
-  /**
-   * Notify a lounge that an agent rated them, or an agent that a lounge rated them.
-   */
-  public async notifyRatingReceived(
-    targetId: string,
-    raterId: string,
-    raterName: string,
-    score: number,
-    raterImage?: string,
-  ): Promise<void> {
-    await this.create({
-      userId: targetId,
-      actorId: raterId,
-      title: 'New Rating',
-      body: `${raterName} rated you ${score}/5`,
-      type: NotificationType.RATING_RECEIVED,
-      metadata: { raterId, ratingScore: score },
-      actionUrl: `/profile/${raterId}`,
-      imageUrl: raterImage,
-    });
-  }
-
   // ═══════════════════════════════════════════════════════════════════
   //  ADMIN / MODERATION NOTIFICATIONS
   // ═══════════════════════════════════════════════════════════════════
