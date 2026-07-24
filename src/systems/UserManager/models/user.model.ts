@@ -226,6 +226,12 @@ const userSchema: Schema = new Schema(
       type: Date,
       default: null,
     },
+    passwordStrength: {
+      type: String,
+      enum: ['weak', 'medium', 'strong'],
+      default: null,
+      required: false,
+    },
     oauth: {
       google: {
         id: { type: String, required: false },

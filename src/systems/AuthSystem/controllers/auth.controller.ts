@@ -148,6 +148,16 @@ class AuthController {
     }
   };
 
+  public resendVerification = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { email } = req.body;
+      const { message } = await this.authService.resendVerification(email);
+      res.status(200).json({ message, success: true });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public verifyMagicLink = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { token } = req.query;
@@ -180,9 +190,10 @@ class AuthController {
   public resetPassword = async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { token, newPassword } = req.body;
-      await this.authService.resetPassword(token, newPassword);
+      const { passwordStrength } = await this.authService.resetPassword(token, newPassword);
       res.status(200).json({
         message: 'Password reset successfully',
+        passwordStrength,
       });
     } catch (error) {
       next(error);

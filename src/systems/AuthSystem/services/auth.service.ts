@@ -18,6 +18,7 @@ import { isEmpty, handleMongoDBDuplicateKeyError } from '@utils/util';
 import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
 import { sendMagicLinkEmail, isDisposableEmail } from '@utils/email';
+import { computePasswordStrength } from '@utils/passwordStrength';
 import AuthTokenService from '@systems/AuthSystem/services/authToken.service';
 import AuthSessionService from '@systems/AuthSystem/services/authSession.service';
 import { MAGIC_LINK_BASE_URL } from '@config';
@@ -63,13 +64,16 @@ class AuthService {
       if (userData.phoneNumber) {
         const findByPhone: User = await this.users.findOne({ phoneNumber: userData.phoneNumber });
         if (findByPhone) {
-          logger.error(`Signup attempt with existing phone number: ${userData.phoneNumber}`);
+          logger.warn(`Signup attempt with existing phone number: ${userData.phoneNumber}`);
           throw new ConflictException('Phone number already registered', 'PHONE_EXISTS');
         }
       }
 
       // Hash the password for storage
       const hashedPassword = await hash(userData.password, BCRYPT_ROUNDS);
+
+      // Compute password strength before we lose access to the plaintext
+      const passwordStrength = computePasswordStrength(userData.password);
 
       // Generate a unique verification token
       const verificationToken = uuidv4();
@@ -79,6 +83,7 @@ class AuthService {
         token: verificationToken,
         email: normalizedEmail,
         password: hashedPassword,
+        passwordStrength,
         type: userData.type || 'user',
         phoneNumber: userData.phoneNumber,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
@@ -92,9 +97,11 @@ class AuthService {
       // Generate magic link (uses LAN IP in dev so phones on same Wi-Fi can reach it)
       const magicLink = `${MAGIC_LINK_BASE_URL}/auth/verify?token=${verificationToken}`;
 
-      // Send magic link email
+      // Send magic link email — failure should NOT block registration
+      let emailDelivered = false;
       try {
         await sendMagicLinkEmail(normalizedEmail, magicLink);
+        emailDelivered = true;
         logger.info(`Magic link sent to: ${normalizedEmail}`);
       } catch (emailError) {
         const smtpError = emailError as {
@@ -110,9 +117,6 @@ class AuthService {
           responseCode: smtpError.responseCode,
           response: smtpError.response,
         });
-        // Clean up the verification token if email fails
-        await verificationTokenModel.deleteOne({ token: verificationToken });
-        throw new InternalServerException('Failed to send verification email. Please try again.');
       }
 
       logSecurityEvent({
@@ -121,14 +125,78 @@ class AuthService {
         ip: deviceInfo?.ip,
         userAgent: deviceInfo?.userAgent,
         deviceName: deviceInfo?.deviceName,
+        emailDelivered,
       });
 
-      return { message: 'Verification email sent. Please check your email and click the link to complete registration.' };
+      if (emailDelivered) {
+        return { message: 'Verification email sent. Please check your email and click the link to complete registration.' };
+      }
+
+      return { message: 'Account created. We could not send the verification email right now. Please request a new link or try again later.' };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       handleMongoDBDuplicateKeyError(error);
       logger.error(`Signup error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Registration failed. Please try again');
+    }
+  }
+
+  public async resendVerification(email: string): Promise<{ message: string }> {
+    try {
+      if (!email) {
+        throw new BadRequestException('Email is required', 'EMAIL_REQUIRED');
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+
+      // Find the pending verification token for this email
+      const existingToken = await verificationTokenModel.findOne({
+        email: normalizedEmail,
+        tokenType: 'email_verification',
+      });
+
+      if (!existingToken) {
+        throw new BadRequestException('No pending registration found for this email. Please sign up again.', 'NO_PENDING_REGISTRATION');
+      }
+
+      // Check if token is expired
+      if (new Date() > existingToken.expiresAt) {
+        // Clean up expired token
+        await verificationTokenModel.deleteOne({ _id: existingToken._id });
+        throw new BadRequestException('Verification link has expired. Please sign up again.', 'TOKEN_EXPIRED');
+      }
+
+      // Generate a fresh verification token and update the record
+      const newVerificationToken = uuidv4();
+      const newMagicLink = `${MAGIC_LINK_BASE_URL}/auth/verify?token=${newVerificationToken}`;
+
+      await verificationTokenModel.updateOne(
+        { _id: existingToken._id },
+        { $set: { token: newVerificationToken, expiresAt: new Date(Date.now() + 10 * 60 * 1000) } },
+      );
+
+      // Attempt to send the email — don't fail hard on email errors
+      let emailDelivered = false;
+      try {
+        await sendMagicLinkEmail(normalizedEmail, newMagicLink);
+        emailDelivered = true;
+        logger.info(`Resent magic link to: ${normalizedEmail}`);
+      } catch (emailError) {
+        const smtpError = emailError as { message?: string; code?: string };
+        logger.error(`Failed to resend magic link to ${normalizedEmail}: ${smtpError.message || 'Unknown error'}`, {
+          code: smtpError.code,
+        });
+      }
+
+      if (emailDelivered) {
+        return { message: 'Verification email resent. Please check your inbox.' };
+      }
+
+      return { message: 'We could not send the verification email right now. Please try again later.' };
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      logger.error(`Resend verification error: ${error.message}`, { stack: error.stack });
+      throw new InternalServerException('Failed to resend verification email');
     }
   }
 
@@ -165,6 +233,7 @@ class AuthService {
         type: verificationRecord.type,
         isBlocked: false,
         emailVerification: [{ isVerified: true }], // Mark email as verified since they clicked the magic link
+        passwordStrength: verificationRecord.passwordStrength || 'medium',
       };
 
       // Double-check that email is still available (race condition protection)
@@ -186,28 +255,28 @@ class AuthService {
       }
 
       // Create the user account
-      const createUserData = await this.users.create(userData);
-      logger.info(`User account created via magic link verification: ${createUserData._id}`);
+      const createdUser = await this.users.create(userData);
+      logger.info(`User account created via magic link verification: ${createdUser._id}`);
 
       // Clean up the verification token
       await verificationTokenModel.deleteOne({ token });
 
       // Generate tokens for login
-      const tokenData = this.tokenService.createToken(createUserData);
-      const refreshToken = await this.tokenService.generateRefreshToken(createUserData, deviceInfo);
+      const tokenData = this.tokenService.createToken(createdUser);
+      const refreshToken = await this.tokenService.generateRefreshToken(createdUser, deviceInfo);
 
       // Update sessionTrack with online status
       await this.sessionService.updateSessionTrack(
-        String(createUserData._id),
-        Array.isArray(createUserData.refreshTokens) ? createUserData.refreshTokens : [],
+        String(createdUser._id),
+        Array.isArray(createdUser.refreshTokens) ? createdUser.refreshTokens : [],
       );
 
       // Get updated user
-      const updatedUser = await this.users.findById(createUserData._id);
+      const updatedUser = await this.users.findById(createdUser._id);
 
       logSecurityEvent({
         event: 'SIGNUP_COMPLETED',
-        userId: String(createUserData._id),
+        userId: String(createdUser._id),
         email: userData.email,
         ip: deviceInfo?.ip,
         userAgent: deviceInfo?.userAgent,
@@ -226,7 +295,7 @@ class AuthService {
     return this.tokenService.forgotPassword(email);
   }
 
-  public async resetPassword(token: string, newPassword: string): Promise<void> {
+  public async resetPassword(token: string, newPassword: string): Promise<{ passwordStrength: string }> {
     return this.tokenService.resetPassword(token, newPassword);
   }
 

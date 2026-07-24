@@ -22,6 +22,7 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { logSecurityEvent, logger } from '@utils/logger';
 import { sendPasswordResetEmail } from '@utils/email';
+import { computePasswordStrength } from '@utils/passwordStrength';
 import verificationTokenModel from '@systems/AuthSystem/models/verificationToken.model';
 import { MAGIC_LINK_BASE_URL } from '@config';
 
@@ -329,7 +330,7 @@ class AuthTokenService {
     }
   }
 
-  public async resetPassword(token: string, newPassword: string): Promise<void> {
+  public async resetPassword(token: string, newPassword: string): Promise<{ passwordStrength: string }> {
     try {
       const resetRecord = await verificationTokenModel.findOne({ token, tokenType: 'password_reset' });
       if (!resetRecord) {
@@ -348,10 +349,12 @@ class AuthTokenService {
       }
 
       const hashedPassword = await hash(newPassword, BCRYPT_ROUNDS);
+      const passwordStrength = computePasswordStrength(newPassword);
 
       // Update password, invalidate all sessions, reset lockout, and set passwordChangedAt
       await this.users.findByIdAndUpdate(user._id, {
         password: hashedPassword,
+        passwordStrength,
         refreshTokens: [],
         failedLoginAttempts: 0,
         lockUntil: null,
@@ -369,6 +372,7 @@ class AuthTokenService {
       });
 
       logger.info(`Password reset successful for user: ${user._id} — all sessions revoked`);
+      return { passwordStrength };
     } catch (error) {
       if (error instanceof HttpException) throw error;
       logger.error(`Reset password error: ${error.message}`, { stack: error.stack });

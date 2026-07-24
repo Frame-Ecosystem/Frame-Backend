@@ -15,6 +15,7 @@ import {
 import { isEmpty } from '@utils/util';
 import { HttpException, BadRequestException, NotFoundException, InternalServerException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
+import { computePasswordStrength } from '@utils/passwordStrength';
 
 class SystemServicesService {
   private readonly users = userModel;
@@ -235,11 +236,13 @@ class SystemServicesService {
       }
 
       const hashedPassword = await hash(newPassword, BCRYPT_ROUNDS);
+      const passwordStrength = computePasswordStrength(newPassword);
 
       const updatedUser = await this.users.findByIdAndUpdate(
         userId,
         {
           password: hashedPassword,
+          passwordStrength,
           passwordChangedAt: new Date(),
           refreshTokens: [],
           'sessionTrack.isOnline': false,

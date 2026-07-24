@@ -94,6 +94,7 @@ export interface User {
   failedLoginAttempts?: number; // Account lockout counter
   lockUntil?: Date; // Account lockout expiry
   passwordChangedAt?: Date; // Last password change timestamp
+  passwordStrength?: 'weak' | 'medium' | 'strong'; // Computed via zxcvbn at signup/password change
 
   // ─── Agent-specific fields (only meaningful when type === 'agent') ───
   /** Display name shown in the queue UI (e.g. "Agent Sarah"). Optional, agent-only. */
