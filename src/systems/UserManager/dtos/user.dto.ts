@@ -35,14 +35,13 @@ export enum UserGender {
 }
 
 // VALIDATION REGEX PATTERNS
-export const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+export const PASSWORD_REGEX = /^.{8,128}$/;
 const PHONE_REGEX = /^\d{8}$/;
 const PLACE_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 // ERROR MESSAGES
 
-export const PASSWORD_VALIDATION_MESSAGE =
-  'Password must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)';
+export const PASSWORD_VALIDATION_MESSAGE = 'Password must be at least 8 characters long';
 
 const VALIDATION_MESSAGES = {
   email: {
@@ -50,7 +49,7 @@ const VALIDATION_MESSAGES = {
     required: 'Email is required',
   },
   password: {
-    invalid: 'Password must be at least 8 characters with uppercase, lowercase, number, and special character (@$!%*?&)',
+    invalid: 'Password must be at least 8 characters long',
     required: 'Password is required',
     minLength: 'Password must be at least 8 characters',
     maxLength: 'Password cannot exceed 128 characters',

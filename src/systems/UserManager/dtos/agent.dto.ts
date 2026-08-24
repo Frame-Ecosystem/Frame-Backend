@@ -1,12 +1,12 @@
 import { IsString, IsOptional, IsBoolean, IsArray, ArrayNotEmpty, IsEmail, MinLength, Matches, IsMongoId } from 'class-validator';
 
 /**
- * Agent password strength rules: 8\u201364 chars, at least one uppercase, one lowercase,
- * one digit, and one special character. Mirrors the public CreateUserDto regex so
- * that agents (which are User documents with type='agent') can authenticate via
- * the standard /v1/auth/login flow.
+ * Agent password rules: 8\u201364 chars, no character-class requirements.
+ * Mirrors the relaxed public CreateUserDto regex so that agents (which are
+ * User documents with type='agent') can authenticate via the standard
+ * /v1/auth/login flow.
  */
-const AGENT_PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]).{8,64}$/;
+const AGENT_PASSWORD_REGEX = /^.{8,64}$/;
 
 /**
  * Payload accepted by `POST /v1/agents` (admin or lounge only).
@@ -24,7 +24,7 @@ export class CreateAgentDto {
   @IsString()
   @MinLength(8)
   @Matches(AGENT_PASSWORD_REGEX, {
-    message: 'Password must be 8\u201364 chars with at least one uppercase, lowercase, digit and special character',
+    message: 'Password must be 8\u201364 characters long',
   })
   password: string;
 
@@ -95,7 +95,7 @@ export class UpdateAgentDto {
   @IsString()
   @MinLength(8)
   @Matches(AGENT_PASSWORD_REGEX, {
-    message: 'Password must be 8\u201364 chars with at least one uppercase, lowercase, digit and special character',
+    message: 'Password must be 8\u201364 characters long',
   })
   password?: string;
 

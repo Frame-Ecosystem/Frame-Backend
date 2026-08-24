@@ -34,10 +34,10 @@ class CurrentUserController {
     try {
       const userId = req.user._id.toString();
       const passwordData = req.body;
-      await this.currentUserService.changePassword(userId, passwordData);
+      const { passwordStrength } = await this.currentUserService.changePassword(userId, passwordData);
       res.clearCookie('refreshToken', { path: '/' });
       res.clearCookie('csrf-token', { path: '/' });
-      res.status(200).json({ message: 'Password changed successfully. Please login again.' });
+      res.status(200).json({ message: 'Password changed successfully. Please login again.', passwordStrength });
     } catch (error) {
       next(error);
     }

@@ -14,6 +14,7 @@ import { logger, logSecurityEvent } from '@utils/logger';
 import { compare, hash } from 'bcrypt';
 import { BCRYPT_ROUNDS } from '@config/constants';
 import { isDisposableEmail, sendVerificationEmail } from '@utils/email';
+import { computePasswordStrength } from '@utils/passwordStrength';
 import UserManagementService from '@systems/UserManager/services/userManagement.service';
 import R2Service from '@shared/services/cloudflareR2.service';
 
@@ -86,7 +87,7 @@ class CurrentUserService {
   /**
    * Change current user's password
    */
-  public async changePassword(userId: string, passwordData: ChangePasswordDto): Promise<void> {
+  public async changePassword(userId: string, passwordData: ChangePasswordDto): Promise<{ passwordStrength: string }> {
     try {
       if (passwordData.newPassword !== passwordData.newPasswordConfirm) {
         throw new BadRequestException('New passwords do not match', 'PASSWORD_MISMATCH');
@@ -108,10 +109,12 @@ class CurrentUserService {
       }
 
       const hashedPassword = await hash(passwordData.newPassword, BCRYPT_ROUNDS);
+      const passwordStrength = computePasswordStrength(passwordData.newPassword);
 
       // Update password, revoke all sessions, reset lockout, and set passwordChangedAt
       await this.users.findByIdAndUpdate(userId, {
         password: hashedPassword,
+        passwordStrength,
         refreshTokens: [],
         failedLoginAttempts: 0,
         lockUntil: null,
@@ -126,6 +129,8 @@ class CurrentUserService {
         reason: 'Password changed - all sessions revoked',
       });
       logger.info(`Password changed for user: ${userId}`);
+
+      return { passwordStrength };
     } catch (error) {
       this.handleError(error, 'changePassword', userId, 'Failed to change password. Please try again');
     }

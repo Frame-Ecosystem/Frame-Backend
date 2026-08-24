@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import AuthController from '@systems/AuthSystem/controllers/auth.controller';
 import { CreateUserDto } from '@systems/UserManager/dtos/user.dto';
-import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto, SwitchSessionDto } from '@systems/AuthSystem/dtos/auth.dto';
+import { LoginUserDto, ForgotPasswordDto, ResetPasswordDto, SwitchSessionDto, SendVerificationEmailDto } from '@systems/AuthSystem/dtos/auth.dto';
 import { Routes } from '@interfaces/routes.interface';
 import authMiddleware from '@middlewares/auth.middleware';
 import csrfMiddleware from '@middlewares/csrf.middleware';
@@ -30,6 +30,12 @@ class AuthRoute implements Routes {
   private initializeRoutes() {
     // Auth endpoints with rate limiting
     this.router.post('/signup', signupRateLimiter, validationMiddleware(CreateUserDto, 'body'), this.authController.signUp);
+    this.router.post(
+      '/resend-verification',
+      signupRateLimiter,
+      validationMiddleware(SendVerificationEmailDto, 'body'),
+      this.authController.resendVerification,
+    );
     this.router.get('/csrf-token', generalRateLimiter, this.authController.getCsrfToken);
     this.router.get('/verify', generalRateLimiter, this.authController.verifyMagicLink);
     this.router.post('/login', loginRateLimiter, validationMiddleware(LoginUserDto, 'body'), this.authController.logIn);
