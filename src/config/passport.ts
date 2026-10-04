@@ -4,6 +4,7 @@ import { User } from '@systems/UserManager/interfaces/user.interface';
 import { Document } from 'mongoose';
 import userModel from '@systems/UserManager/models/user.model';
 import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REDIRECT_URI } from '@config';
+import { sanitizeGoogleSignupType } from '@utils/google-signup-type';
 import { logger } from '@utils/logger';
 
 /**
@@ -22,13 +23,41 @@ function buildGoogleOAuthData(profile: any) {
 /**
  * Sanitize legacy refreshTokens that may not match the current schema.
  * Removes only malformed entries instead of destroying all sessions.
+ *
+ * @returns true when malformed entries were removed (i.e. the field must be persisted).
  */
-function sanitizeRefreshTokens(user: any): void {
-  if (!Array.isArray(user.refreshTokens)) return;
+function sanitizeRefreshTokens(user: any): boolean {
+  if (!Array.isArray(user.refreshTokens)) return false;
   const original = user.refreshTokens.length;
   user.refreshTokens = user.refreshTokens.filter((s: any) => typeof s?.tokenHash === 'string' && s?.expiresAt instanceof Date);
-  if (user.refreshTokens.length < original) {
+  const pruned = user.refreshTokens.length !== original;
+  if (pruned) {
     logger.warn(`sanitizeRefreshTokens: removed ${original - user.refreshTokens.length} malformed tokens for user ${user._id}`);
+  }
+  return pruned;
+}
+
+/**
+ * Persist Google profile data on an existing account.
+ *
+ * Uses a scoped `$set` update instead of `document.save()` on purpose: `save()`
+ * validates the whole document, so any legacy/invalid field on the record (e.g.
+ * `passwordStrength: null` from an older schema) would block the OAuth login
+ * even though nothing about it is being written. Mongoose timestamps still keep
+ * `updatedAt` fresh.
+ */
+async function linkGoogleAccount(user: any, profile: any): Promise<void> {
+  const oauthData = buildGoogleOAuthData(profile);
+  user.oauth.google = oauthData;
+
+  const updates: Record<string, unknown> = { 'oauth.google': oauthData };
+  if (sanitizeRefreshTokens(user)) updates.refreshTokens = user.refreshTokens;
+
+  const result = await userModel.updateOne({ _id: user._id }, { $set: updates });
+  // `save()` used to throw when the document was gone; keep that failure mode so
+  // the flow does not continue with a user record that no longer exists.
+  if (result.matchedCount === 0) {
+    throw new Error(`Google OAuth linking failed: user ${user._id} no longer exists`);
   }
 }
 
@@ -60,9 +89,7 @@ passport.use(
           if (user.isBlocked) {
             return done(null, false, { message: 'account_blocked' });
           }
-          user.oauth.google = buildGoogleOAuthData(profile);
-          sanitizeRefreshTokens(user);
-          await user.save();
+          await linkGoogleAccount(user, profile);
           return done(null, user);
         }
 
@@ -77,9 +104,7 @@ passport.use(
             return done(null, false, { message: 'account_blocked' });
           }
           existingUser.oauth = existingUser.oauth || {};
-          existingUser.oauth.google = buildGoogleOAuthData(profile);
-          sanitizeRefreshTokens(existingUser);
-          await existingUser.save();
+          await linkGoogleAccount(existingUser, profile);
           return done(null, existingUser);
         }
 
@@ -88,7 +113,9 @@ passport.use(
           return done(null, false, { message: 'account_not_found' });
         }
 
-        const userType = state.startsWith('signup:') ? state.split(':')[1] || 'user' : 'user';
+        // The OAuth `state` is client-controlled, so re-validate the requested role
+        // here as well: this is the last gate before the account is created.
+        const userType = state.startsWith('signup:') ? sanitizeGoogleSignupType(state.split(':')[1]) : 'user';
 
         const newUser = await userModel.create({
           email: profile.emails?.[0]?.value,
@@ -100,7 +127,12 @@ passport.use(
 
         return done(null, newUser);
       } catch (error) {
-        logger.error('Google OAuth error:', error);
+        const err = error as { name?: string; message?: string; oauthError?: { code?: string; message?: string } };
+        logger.error(
+          `Google OAuth error: ${err?.name || 'Error'}: ${err?.message || 'unknown error'}` +
+            (err?.oauthError ? ` (oauthError=${err.oauthError.code || 'unknown'}: ${err.oauthError.message || ''})` : ''),
+          { stack: (error as Error)?.stack },
+        );
         return done(error, null);
       }
     },

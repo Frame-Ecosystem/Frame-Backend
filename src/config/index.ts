@@ -63,17 +63,30 @@ const withLocalNetworkHost = (baseUrl: string): string => {
   return baseUrl;
 };
 
+/**
+ * First entry of a possibly comma-separated list of origins.
+ *
+ * `FRONTEND_BASE_URL` doubles as a CORS allowlist in some deployments
+ * (e.g. `https://framebeauty.tn,https://www.framebeauty.tn`), but it is also
+ * used to build links and redirects. Interpolating the whole list produces
+ * broken URLs such as `https://framebeauty.tn,https://www.framebeauty.tn/auth/...`,
+ * which browsers reject with DNS_PROBE_FINISHED_NXDOMAIN. Normalizing here — at
+ * module evaluation, before anything can capture the value — keeps a single
+ * source of truth. Use `ORIGIN` for multi-origin CORS allowlists.
+ */
+const firstOrigin = (value: string | undefined): string => value?.split(',')[0]?.trim() ?? '';
+
 /** Base URL for backend links, callbacks, docs, and health checks. */
 export const BACKEND_BASE_URL =
   NODE_ENV === 'production'
     ? process.env.BACKEND_BASE_URL || PRODUCTION_BACKEND_BASE_URL
     : withLocalNetworkHost(process.env.BACKEND_BASE_URL || localBackendBaseUrl);
 
-/** Base URL for frontend links (emails, OAuth redirects). */
+/** Base URL for frontend links (emails, OAuth redirects). Always a single origin. */
 export const FRONTEND_BASE_URL =
   NODE_ENV === 'production'
-    ? process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || PRODUCTION_FRONTEND_BASE_URL
-    : withLocalNetworkHost(process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || localFrontendBaseUrl);
+    ? firstOrigin(process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || PRODUCTION_FRONTEND_BASE_URL)
+    : withLocalNetworkHost(firstOrigin(process.env.FRONTEND_BASE_URL || process.env.GOOGLE_BASE_URL || localFrontendBaseUrl));
 
 /** OAuth callback URL served by this backend. */
 export const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${BACKEND_BASE_URL}/v1/auth/google/callback`;
@@ -86,5 +99,5 @@ export const GOOGLE_REDIRECT_URI = process.env.GOOGLE_REDIRECT_URI || `${BACKEND
  */
 export const MAGIC_LINK_BASE_URL =
   NODE_ENV === 'production'
-    ? process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL
-    : withLocalNetworkHost(process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL);
+    ? firstOrigin(process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL)
+    : withLocalNetworkHost(firstOrigin(process.env.MAGIC_LINK_BASE_URL || FRONTEND_BASE_URL));

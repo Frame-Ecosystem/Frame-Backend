@@ -226,9 +226,16 @@ const userSchema: Schema = new Schema(
       type: Date,
       default: null,
     },
+    /**
+     * `null` is a valid value: passwordless accounts (Google OAuth) have no
+     * password to score. The field keeps `default: null`, so every document
+     * load defines this path — the enum must accept `null` or Mongoose rejects
+     * `save()`/`create()` with "passwordStrength: `null` is not a valid enum
+     * value for path `passwordStrength`".
+     */
     passwordStrength: {
       type: String,
-      enum: ['weak', 'medium', 'strong'],
+      enum: ['weak', 'medium', 'strong', null],
       default: null,
       required: false,
     },

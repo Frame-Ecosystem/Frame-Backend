@@ -47,6 +47,9 @@ const validateEnv = () => {
     }
   };
 
+  /** First entry of a possibly comma-separated origin list (see @config firstOrigin). */
+  const firstOrigin = (value: string): string => value.split(',')[0].trim();
+
   // Validate Cloudflare R2 config if image upload is enabled
   if (env.ENABLE_IMAGE_UPLOAD) {
     const r2Configured = env.R2_ACCOUNT_ID && env.R2_ACCESS_KEY_ID && env.R2_SECRET_ACCESS_KEY && env.R2_BUCKET_NAME && env.R2_PUBLIC_URL;
@@ -89,14 +92,17 @@ const validateEnv = () => {
     }
 
     if (env.FRONTEND_BASE_URL && env.FRONTEND_BASE_URL.includes(',')) {
-      const first = env.FRONTEND_BASE_URL.split(',')[0].trim();
+      // Reported only: @config already normalizes this to the first entry at
+      // module evaluation, so mutating process.env here would be a no-op for
+      // every consumer that reads the exported constants.
       logger.warn(
-        `⚠️  FRONTEND_BASE_URL contains multiple values; using first entry "${first}" for email/link generation. Set ORIGIN for CORS origins.`,
+        `⚠️  FRONTEND_BASE_URL contains multiple values; using first entry "${firstOrigin(
+          env.FRONTEND_BASE_URL,
+        )}" for email/link generation. Set ORIGIN for CORS origins.`,
       );
-      process.env.FRONTEND_BASE_URL = first;
     }
 
-    const linkBase = env.MAGIC_LINK_BASE_URL || process.env.FRONTEND_BASE_URL || env.FRONTEND_BASE_URL;
+    const linkBase = firstOrigin(env.MAGIC_LINK_BASE_URL || env.FRONTEND_BASE_URL);
     if (!linkBase || !isValidAbsoluteUrl(linkBase)) {
       logger.error('❌ MAGIC_LINK_BASE_URL (or FRONTEND_BASE_URL fallback) must be a valid absolute http/https URL in production');
       throw new Error('Invalid magic link base URL for production');

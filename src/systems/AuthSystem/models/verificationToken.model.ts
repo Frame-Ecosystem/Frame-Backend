@@ -5,7 +5,7 @@ export interface VerificationTokenDocument extends Document {
   email: string;
   phoneNumber?: string;
   password?: string; // Optional for password_reset tokens
-  passwordStrength?: 'weak' | 'medium' | 'strong'; // Computed at signup, carried to user creation
+  passwordStrength?: 'weak' | 'medium' | 'strong' | null; // Computed at signup, carried to user creation
   type: string;
   tokenType: string;
   token: string;
@@ -33,7 +33,7 @@ const verificationTokenSchema: Schema = new Schema(
     },
     passwordStrength: {
       type: String,
-      enum: ['weak', 'medium', 'strong'],
+      enum: ['weak', 'medium', 'strong', null],
       required: false,
     },
     type: {
