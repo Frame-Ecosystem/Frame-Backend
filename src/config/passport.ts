@@ -115,7 +115,7 @@ passport.use(
 
         // The OAuth `state` is client-controlled, so re-validate the requested role
         // here as well: this is the last gate before the account is created.
-        const userType = state.startsWith('signup:') ? sanitizeGoogleSignupType(state.split(':')[1]) : 'user';
+        const userType = state.startsWith('signup:') ? sanitizeGoogleSignupType(state.split(':')[1]) : 'client';
 
         const newUser = await userModel.create({
           email: profile.emails?.[0]?.value,

@@ -66,7 +66,7 @@ export interface OAuth {
 export interface User {
   _id?: any; // MongoDB ObjectId - optional since it's only present after DB operations
   email: string;
-  type: 'user' | 'client' | 'lounge' | 'admin' | 'agent';
+  type: 'client' | 'lounge' | 'admin' | 'agent';
   password?: string; // Optional for OAuth users
   phoneNumber?: string; // Optional
   gender?: 'male' | 'female' | 'unisex' | 'kids'; // Optional

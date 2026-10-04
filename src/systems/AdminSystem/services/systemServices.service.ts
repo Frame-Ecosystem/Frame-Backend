@@ -44,7 +44,7 @@ class SystemServicesService {
    */
   public async getAllAdminServices(): Promise<AdminStats> {
     try {
-      const [totalUsers, onlineUsers, blockedUsers, admin, client, lounge, agent, user] = await Promise.all([
+      const [totalUsers, onlineUsers, blockedUsers, admin, client, lounge, agent] = await Promise.all([
         this.users.countDocuments(),
         this.users.countDocuments({ 'sessionTrack.isOnline': true }),
         this.users.countDocuments({ isBlocked: true }),
@@ -52,7 +52,6 @@ class SystemServicesService {
         this.users.countDocuments({ type: 'client' }),
         this.users.countDocuments({ type: 'lounge' }),
         this.users.countDocuments({ type: 'agent' }),
-        this.users.countDocuments({ type: 'user' }),
       ]);
 
       const adminStats: AdminStats = {
@@ -64,7 +63,6 @@ class SystemServicesService {
           client,
           lounge,
           agent,
-          user,
         },
         timestamp: new Date(),
       };
@@ -156,7 +154,7 @@ class SystemServicesService {
       const now = new Date();
       const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-      const [totalUsers, newUsersThisMonth, onlineUsers, blockedUsers, admin, client, lounge, agent, user] = await Promise.all([
+      const [totalUsers, newUsersThisMonth, onlineUsers, blockedUsers, admin, client, lounge, agent] = await Promise.all([
         this.users.countDocuments(),
         this.users.countDocuments({ createdAt: { $gte: monthStart, $lte: now } }),
         this.users.countDocuments({ 'sessionTrack.isOnline': true }),
@@ -165,7 +163,6 @@ class SystemServicesService {
         this.users.countDocuments({ type: 'client' }),
         this.users.countDocuments({ type: 'lounge' }),
         this.users.countDocuments({ type: 'agent' }),
-        this.users.countDocuments({ type: 'user' }),
       ]);
 
       const stats: DashboardStats = {
@@ -178,7 +175,6 @@ class SystemServicesService {
           client,
           lounge,
           agent,
-          user,
         },
         timestamp: new Date(),
       };
