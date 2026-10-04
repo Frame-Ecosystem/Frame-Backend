@@ -21,7 +21,6 @@ import { Type } from 'class-transformer';
 // ENUMS
 
 export enum UserType {
-  USER = 'user',
   CLIENT = 'client',
   LOUNGE = 'lounge',
   AGENT = 'agent',
@@ -62,7 +61,7 @@ const VALIDATION_MESSAGES = {
     invalid: 'Gender must be one of: male, female, unisex, kids',
   },
   type: {
-    invalid: 'Type must be one of: user, client, lounge',
+    invalid: 'Type must be one of: client, lounge, agent',
   },
   location: {
     latitude: {

@@ -24,7 +24,7 @@ describe('SessionSwitchService', () => {
 
   beforeEach(() => {
     service = new SessionSwitchService();
-    mockTokenService = AuthTokenService as jest.Mocked<typeof AuthTokenService>;
+    mockTokenService = AuthTokenService as unknown as jest.Mocked<AuthTokenService>;
 
     // Create mock sessions
     session1 = {
@@ -55,7 +55,7 @@ describe('SessionSwitchService', () => {
     mockUser = {
       _id: 'user-123',
       email: 'test@example.com',
-      type: 'user',
+      type: 'client',
       firstName: 'John',
       lastName: 'Doe',
       sessionTrack: { isOnline: true, devices: [] },
@@ -132,7 +132,7 @@ describe('SessionSwitchService', () => {
   describe('switchSession', () => {
     it('should successfully switch to owned active session', async () => {
       (userModel.findById as jest.Mock).mockResolvedValue(mockUser);
-      const mockGenerateRefreshToken = jest.fn().mockResolvedValue('new-refresh-token');
+      const mockGenerateRefreshToken = jest.fn(() => Promise.resolve('new-refresh-token'));
       const mockTokenService = (AuthTokenService as any).mock.instances[0];
       if (mockTokenService) {
         mockTokenService.createToken = jest.fn().mockReturnValue({

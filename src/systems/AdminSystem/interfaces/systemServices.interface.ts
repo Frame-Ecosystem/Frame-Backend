@@ -9,7 +9,6 @@ export interface AdminStats {
     client: number;
     lounge: number;
     agent: number;
-    user: number;
   };
   timestamp: Date;
 }
@@ -53,7 +52,6 @@ export interface DashboardStats {
     client: number;
     lounge: number;
     agent: number;
-    user: number;
   };
   timestamp: Date;
 }

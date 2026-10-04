@@ -84,7 +84,7 @@ class AuthService {
         email: normalizedEmail,
         password: hashedPassword,
         passwordStrength,
-        type: userData.type || 'user',
+        type: userData.type || 'client',
         phoneNumber: userData.phoneNumber,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
       };

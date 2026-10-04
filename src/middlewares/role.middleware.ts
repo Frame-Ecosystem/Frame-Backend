@@ -65,7 +65,7 @@ export function requireRoles(...allowedRoles: string[]) {
 
       const hasRole = config.checkers.some(check => check(user as any));
       if (!hasRole) {
-        const userType = (user as any).type || 'user';
+        const userType = (user as any).type || 'client';
         logSecurityEvent({
           event: config.eventName,
           reason: `User does not have required role(s): ${config.accessLabel}`,

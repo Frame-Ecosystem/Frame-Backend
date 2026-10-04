@@ -2,33 +2,34 @@ import { GOOGLE_SIGNUP_ALLOWED_TYPES, sanitizeGoogleSignupType } from '@utils/go
 
 describe('sanitizeGoogleSignupType', () => {
   it('exposes only self-service signup roles', () => {
-    expect(GOOGLE_SIGNUP_ALLOWED_TYPES).toEqual(['user', 'agent']);
+    expect(GOOGLE_SIGNUP_ALLOWED_TYPES).toEqual(['client', 'lounge', 'agent']);
   });
 
-  it.each(['user', 'agent'])('keeps the allowed role %s', type => {
+  it.each(['client', 'lounge', 'agent'])('keeps the allowed role %s', type => {
     expect(sanitizeGoogleSignupType(type)).toBe(type);
   });
 
-  it.each(['admin', 'lounge', 'client', 'superAdmin', 'Admin'])('falls back to user for the privileged role %s', type => {
-    expect(sanitizeGoogleSignupType(type)).toBe('user');
+  it.each(['admin', 'superAdmin', 'Admin', 'user'])('falls back to client for the disallowed role %s', type => {
+    expect(sanitizeGoogleSignupType(type)).toBe('client');
   });
 
-  it('falls back to user for missing or empty values', () => {
-    expect(sanitizeGoogleSignupType(undefined)).toBe('user');
-    expect(sanitizeGoogleSignupType(null)).toBe('user');
-    expect(sanitizeGoogleSignupType('')).toBe('user');
-    expect(sanitizeGoogleSignupType('   ')).toBe('user');
+  it('falls back to client for missing or empty values', () => {
+    expect(sanitizeGoogleSignupType(undefined)).toBe('client');
+    expect(sanitizeGoogleSignupType(null)).toBe('client');
+    expect(sanitizeGoogleSignupType('')).toBe('client');
+    expect(sanitizeGoogleSignupType('   ')).toBe('client');
   });
 
-  it('falls back to user for non-string input', () => {
-    expect(sanitizeGoogleSignupType(42)).toBe('user');
-    expect(sanitizeGoogleSignupType({ toString: () => 'admin' })).toBe('user');
-    expect(sanitizeGoogleSignupType(['admin'])).toBe('user');
-    expect(sanitizeGoogleSignupType(['agent'])).toBe('agent');
+  it('falls back to client for non-string input', () => {
+    expect(sanitizeGoogleSignupType(42)).toBe('client');
+    expect(sanitizeGoogleSignupType({ toString: () => 'admin' })).toBe('client');
+    expect(sanitizeGoogleSignupType(['admin'])).toBe('client');
+    expect(sanitizeGoogleSignupType(['lounge'])).toBe('lounge');
   });
 
   it('normalizes case and surrounding whitespace for allowed roles', () => {
     expect(sanitizeGoogleSignupType(' Agent ')).toBe('agent');
-    expect(sanitizeGoogleSignupType('USER')).toBe('user');
+    expect(sanitizeGoogleSignupType('LOUNGE')).toBe('lounge');
+    expect(sanitizeGoogleSignupType(' Client ')).toBe('client');
   });
 });

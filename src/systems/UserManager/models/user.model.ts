@@ -15,8 +15,8 @@ const userSchema: Schema = new Schema(
     },
     type: {
       type: String,
-      enum: ['user', 'client', 'lounge', 'admin', 'agent'],
-      default: 'user',
+      enum: ['client', 'lounge', 'admin', 'agent'],
+      default: 'client',
       required: true,
     },
     password: {

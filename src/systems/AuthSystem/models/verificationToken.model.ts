@@ -39,8 +39,8 @@ const verificationTokenSchema: Schema = new Schema(
     type: {
       type: String,
       required: true,
-      enum: ['user', 'client', 'lounge', 'admin', 'agent'],
-      default: 'user',
+      enum: ['client', 'lounge', 'admin', 'agent'],
+      default: 'client',
     },
     tokenType: {
       type: String,
