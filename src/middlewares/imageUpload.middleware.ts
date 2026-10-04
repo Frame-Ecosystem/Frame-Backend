@@ -8,14 +8,19 @@ const storage = multer.memoryStorage();
  * Validates actual file content, not just the MIME type from the request header.
  * This prevents MIME spoofing attacks where attackers upload executable files.
  */
-const IMAGE_MAGIC_BYTES = [
+interface MagicByteSignature {
+  mime: string;
+  bytes: readonly number[];
+}
+
+const IMAGE_MAGIC_BYTES: readonly MagicByteSignature[] = [
   { mime: 'image/jpeg', bytes: [0xff, 0xd8, 0xff] }, // JPEG SOI marker
   { mime: 'image/png', bytes: [0x89, 0x50, 0x4e, 0x47] }, // PNG signature
   { mime: 'image/gif', bytes: [0x47, 0x49, 0x46] }, // GIF signature
   { mime: 'image/webp', bytes: [0x52, 0x49, 0x46, 0x46] }, // RIFF header (WebP)
-] as const;
+];
 
-const ALLOWED_MIMES = IMAGE_MAGIC_BYTES.map(m => m.mime);
+const ALLOWED_MIMES: string[] = IMAGE_MAGIC_BYTES.map(m => m.mime);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 /**

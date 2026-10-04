@@ -37,7 +37,7 @@ describe('Session Switch Integration Tests', () => {
     // Skip if MongoDB not available in test environment
     try {
       const mongoUrl = process.env.MONGODB_URI || 'mongodb://localhost:27017/frame-beauty-test';
-      dbConnection = await connect(mongoUrl);
+      dbConnection = (await connect(mongoUrl)) as unknown as Connection;
     } catch (error) {
       console.warn('MongoDB not available, skipping integration tests');
       return;

@@ -41,7 +41,7 @@ import {
  */
 const userOrIpKey = (req: Request): string => {
   const user = (req as any).user;
-  const ip = ipKeyGenerator(req);
+  const ip = ipKeyGenerator(req.ip || req.socket?.remoteAddress || '');
   return user?._id?.toString() || ip || req.socket?.remoteAddress || 'anonymous';
 };
 

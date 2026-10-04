@@ -77,6 +77,7 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
   isAdmin: (user: any) => user?.type === 'admin',
   isLounge: (user: any) => user?.type === 'lounge',
   isClient: (user: any) => user?.type === 'client',
+  isAgent: (user: any) => user?.type === 'agent',
 }));
 
 jest.mock('@systems/BookingSystem/services/booking.service', () => ({
@@ -93,6 +94,7 @@ jest.mock('@systems/BookingSystem/services/booking.service', () => ({
     deleteBooking: jest.fn().mockResolvedValue(undefined),
     getClientBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
     getLoungeBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
+    getBookingsByClientId: jest.fn().mockResolvedValue([]),
   })),
 }));
 
@@ -106,6 +108,7 @@ jest.mock('@systems/BookingSystem/services/queue.service', () => ({
     reorderPerson: jest.fn().mockResolvedValue({ _id: 'q1' }),
     removePersonFromQueue: jest.fn().mockResolvedValue({ _id: 'q1', persons: [] }),
     populateDailyQueues: jest.fn().mockResolvedValue({ created: 5, skipped: 2 }),
+    assertQueueMutationAccess: jest.fn().mockResolvedValue(undefined),
   })),
 }));
 

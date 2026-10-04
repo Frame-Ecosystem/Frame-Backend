@@ -75,6 +75,7 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
   isAdmin: (user: any) => user?.type === 'admin',
   isLounge: (user: any) => user?.type === 'lounge',
   isClient: (user: any) => user?.type === 'client',
+  isAgent: (user: any) => user?.type === 'agent',
 }));
 
 // NotificationService singleton mock
