@@ -1,5 +1,7 @@
 import rateLimit, { Options, ipKeyGenerator } from 'express-rate-limit';
+import { verify } from 'jsonwebtoken';
 import { Request, Response } from 'express';
+import { REFRESH_TOKEN_SECRET } from '@config';
 import { logger } from '@utils/logger';
 import {
   LOGIN_RATE_LIMIT_WINDOW_MS,
@@ -43,6 +45,22 @@ const userOrIpKey = (req: Request): string => {
   const user = (req as any).user;
   const ip = ipKeyGenerator(req.ip || req.socket?.remoteAddress || '');
   return user?._id?.toString() || ip || req.socket?.remoteAddress || 'anonymous';
+};
+
+const refreshTokenKey = (req: Request): string => {
+  const refreshToken = req.cookies?.refreshToken || req.body?.refreshToken;
+  if (typeof refreshToken === 'string') {
+    try {
+      const payload = verify(refreshToken, REFRESH_TOKEN_SECRET) as {
+        _id?: string;
+      };
+      if (payload._id) return `refresh-user:${payload._id}`;
+    } catch {
+      // Invalid/missing tokens share the IP fallback bucket.
+    }
+  }
+
+  return `refresh-ip:${ipKeyGenerator(req.ip || req.socket?.remoteAddress || '')}`;
 };
 
 /* ───────── Factory ───────── */
@@ -90,12 +108,13 @@ export const signupRateLimiter = createLimiter(
   'Too many accounts created. Please try again after an hour.',
 );
 
-/** 30 refreshes / 15 min */
+/** 60 refresh attempts / 15 min, isolated by account for valid refresh tokens. */
 export const refreshTokenRateLimiter = createLimiter(
   'refresh-token',
   REFRESH_RATE_LIMIT_WINDOW_MS,
   REFRESH_RATE_LIMIT_MAX,
   'Too many token refresh requests. Please try again later.',
+  { keyGenerator: refreshTokenKey },
 );
 
 /** 100 requests / 15 min — general endpoints */
@@ -118,7 +137,12 @@ export const strictRateLimiter = createLimiter(
 export const likeRateLimiter = createLimiter('like', LIKE_RATE_LIMIT_WINDOW_MS, LIKE_RATE_LIMIT_MAX, 'Too many like requests. Please slow down.');
 
 /** 30 rating writes / 15 min — rating spam prevention */
-export const ratingRateLimiter = createLimiter('rating', RATING_RATE_LIMIT_WINDOW_MS, RATING_RATE_LIMIT_MAX, 'Too many rating requests. Please slow down.');
+export const ratingRateLimiter = createLimiter(
+  'rating',
+  RATING_RATE_LIMIT_WINDOW_MS,
+  RATING_RATE_LIMIT_MAX,
+  'Too many rating requests. Please slow down.',
+);
 
 /** 30 follow/unfollow / 15 min — follow spam prevention */
 export const followRateLimiter = createLimiter(
