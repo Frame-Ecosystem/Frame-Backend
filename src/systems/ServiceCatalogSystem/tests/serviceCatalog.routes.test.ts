@@ -64,14 +64,19 @@ jest.mock('@middlewares/csrf.middleware', () => ({
 jest.mock('@middlewares/rateLimit.middleware', () => ({
   loginRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   signupRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  refreshTokenRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   forgotPasswordRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   generalRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   strictRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   likeRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  ratingRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   followRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   contentCreateRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   commentRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   reportRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedReadLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedDiscoveryLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  searchRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 jest.mock('@middlewares/imageUpload.middleware', () => ({
@@ -133,6 +138,16 @@ jest.mock('@systems/ServiceCatalogSystem/services/loungeServices.service', () =>
     updateLoungeService: jest.fn().mockResolvedValue({ _id: 'ls1', price: 30 }),
     deleteLoungeService: jest.fn().mockResolvedValue(undefined),
     getServicesByLounge: jest.fn().mockResolvedValue([]),
+    getAllLoungeServices: jest.fn().mockResolvedValue([]),
+    getLoungeServicesPaginated: jest.fn().mockResolvedValue({ services: [], total: 0 }),
+    getLoungeServicesByLoungeId: jest.fn().mockResolvedValue([]),
+    searchLoungeServices: jest.fn().mockResolvedValue([]),
+    getServiceNameById: jest.fn().mockResolvedValue('Service'),
+    toggleLoungeServiceStatus: jest.fn().mockResolvedValue({ _id: 'ls1', isActive: true }),
+    patchLoungeOpeningHours: jest.fn().mockResolvedValue({ openingHours: {} }),
+    getAgentsPerLounge: jest.fn().mockResolvedValue({ agents: [], total: 0 }),
+    updateLoungeProfile: jest.fn().mockResolvedValue({ _id: 'lounge1' }),
+    bulkCreateLoungeServices: jest.fn().mockResolvedValue([]),
   })),
 }));
 
@@ -153,6 +168,14 @@ jest.mock('@systems/ServiceCatalogSystem/services/serviceSuggestions.service', (
     createSuggestion: jest.fn().mockResolvedValue({ _id: 'sugg1', name: 'Facial', status: 'pending' }),
     updateSuggestionStatus: jest.fn().mockResolvedValue({ _id: 'sugg1', status: 'approved' }),
     deleteSuggestion: jest.fn().mockResolvedValue(undefined),
+    getServiceSuggestionsPaginated: jest.fn().mockResolvedValue({ suggestions: [], total: 0 }),
+    createServiceSuggestion: jest.fn().mockResolvedValue({ _id: 'sugg1', name: 'Facial', status: 'pending' }),
+    getServiceSuggestionById: jest.fn().mockResolvedValue({ _id: 'sugg1', status: 'pending' }),
+    updateServiceSuggestion: jest.fn().mockResolvedValue({ _id: 'sugg1' }),
+    updateServiceSuggestionStatus: jest.fn().mockResolvedValue({ _id: 'sugg1', status: 'approved' }),
+    adminUpdateServiceSuggestionStatus: jest.fn().mockResolvedValue({ _id: 'sugg1', status: 'approved' }),
+    deleteServiceSuggestion: jest.fn().mockResolvedValue({ _id: 'sugg1' }),
+    getServiceSuggestionsStats: jest.fn().mockResolvedValue({ pending: 0, approved: 0, rejected: 0, total: 0 }),
   })),
 }));
 

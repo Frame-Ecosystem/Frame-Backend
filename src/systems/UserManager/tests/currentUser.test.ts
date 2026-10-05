@@ -36,7 +36,7 @@ describe('changePassword', () => {
     (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(user);
     jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
     jest.spyOn(bcrypt, 'hash').mockImplementation(async () => 'hashed');
-    await expect(currentUserService.changePassword(userId, validDto)).resolves.toBeUndefined();
+    await expect(currentUserService.changePassword(userId, validDto)).resolves.toEqual({ passwordStrength: 'strong' });
   });
   it('should throw if new passwords do not match', async () => {
     await expect(currentUserService.changePassword(userId, { ...validDto, newPasswordConfirm: 'nope' })).rejects.toThrow(

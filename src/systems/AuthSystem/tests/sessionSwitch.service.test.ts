@@ -25,6 +25,10 @@ describe('SessionSwitchService', () => {
   beforeEach(() => {
     service = new SessionSwitchService();
     mockTokenService = AuthTokenService as unknown as jest.Mocked<AuthTokenService>;
+    const tokenService = (service as unknown as { tokenService: jest.Mocked<AuthTokenService> })
+      .tokenService;
+    tokenService.createToken.mockReturnValue({ token: 'new-access-token', expiresIn: 3600 } as never);
+    tokenService.generateRefreshToken.mockResolvedValue('new-refresh-token' as never);
 
     // Create mock sessions
     session1 = {
@@ -81,12 +85,12 @@ describe('SessionSwitchService', () => {
       });
     });
 
-    it('should mask email correctly (j***@example.com)', async () => {
+    it('should mask email correctly (t***@example.com)', async () => {
       (userModel.findById as jest.Mock).mockResolvedValue(mockUser);
 
       const sessions = await service.listSessions(mockUser);
 
-      expect(sessions[0].emailOrPhoneMasked).toMatch(/^j\*\*\*@example\.com$/);
+      expect(sessions[0].emailOrPhoneMasked).toMatch(/^t\*\*\*@example\.com$/);
     });
 
     it('should return empty array if no active sessions', async () => {

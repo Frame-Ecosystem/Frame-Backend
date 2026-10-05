@@ -101,7 +101,11 @@ jest.mock('@systems/UserManager/services/currentUser.service', () => ({
   default: jest.fn().mockImplementation(() => ({
     changePassword: jest.fn().mockResolvedValue(undefined),
     updateUser: jest.fn().mockResolvedValue({ _id: 'uid', email: 'client@test.com' }),
-    updateUserLocation: jest.fn().mockResolvedValue(undefined),
+    updateUserLocation: jest.fn().mockResolvedValue({
+      _id: 'uid',
+      email: 'client@test.com',
+      location: { latitude: 36.8, longitude: 10.1, address: '123 Main Street, Tunis' },
+    }),
     updateTheme: jest.fn().mockResolvedValue({ theme: 'dark' }),
     updateLanguage: jest.fn().mockResolvedValue({ language: 'ar' }),
     deleteUser: jest.fn().mockResolvedValue(undefined),

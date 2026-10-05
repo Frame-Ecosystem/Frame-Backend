@@ -43,7 +43,12 @@ class App {
     }
 
     // Connect to database before initializing routes
-    this.connectToDatabase();
+    // Tests mock the models and must never open a real MongoDB connection:
+    // repeated connect() calls in one process raise "openUri() on an active
+    // connection" and destabilise suites that share a worker.
+    if (this.env !== 'test') {
+      this.connectToDatabase();
+    }
     this.initializeMiddlewares();
     this.initializeRoutes(routes);
     this.initializeSwagger();

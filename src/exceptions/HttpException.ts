@@ -25,7 +25,7 @@ export class HttpException extends Error {
 
     // Maintains proper stack trace for where error was thrown
     Error.captureStackTrace(this, this.constructor);
-    Object.setPrototypeOf(this, HttpException.prototype);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 
   /**

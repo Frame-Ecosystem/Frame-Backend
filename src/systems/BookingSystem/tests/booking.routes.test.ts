@@ -80,23 +80,31 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
   isAgent: (user: any) => user?.type === 'agent',
 }));
 
-jest.mock('@systems/BookingSystem/services/booking.service', () => ({
-  __esModule: true,
-  default: jest.fn().mockImplementation(() => ({
-    createBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'pending' }),
-    createQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'in_queue' }),
-    createLoungeQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'in_queue' }),
-    getAllBookings: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
-    getAgentAvailability: jest.fn().mockResolvedValue({ slots: [] }),
-    getBookingHistory: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
-    getBookingById: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'pending' }),
-    updateBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'confirmed' }),
-    deleteBooking: jest.fn().mockResolvedValue(undefined),
-    getClientBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
-    getLoungeBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
-    getBookingsByClientId: jest.fn().mockResolvedValue([]),
-  })),
-}));
+jest.mock('@systems/BookingSystem/services/booking.service', () => {
+  const { testIds } = require('../../../tests/helpers/factories');
+  return {
+    __esModule: true,
+    default: jest.fn().mockImplementation(() => ({
+      createBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'pending' }),
+      createQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'in_queue' }),
+      createLoungeQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'in_queue' }),
+      getAllBookings: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
+      getAgentAvailability: jest.fn().mockResolvedValue({ slots: [] }),
+      getBookingHistory: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
+      getBookingById: jest.fn().mockResolvedValue({
+        _id: 'booking1',
+        status: 'pending',
+        clientId: { _id: testIds.client },
+        loungeId: { _id: testIds.lounge },
+      }),
+      updateBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'confirmed' }),
+      deleteBooking: jest.fn().mockResolvedValue(undefined),
+      getClientBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
+      getLoungeBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
+      getBookingsByClientId: jest.fn().mockResolvedValue([]),
+    })),
+  };
+});
 
 jest.mock('@systems/BookingSystem/services/queue.service', () => ({
   __esModule: true,
