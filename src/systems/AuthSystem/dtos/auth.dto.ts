@@ -58,19 +58,3 @@ export class LoginUserDto {
   @IsString()
   public deviceName?: string;
 }
-
-// SESSION ID DTO (for revoking sessions)
-
-export class SessionIdDto {
-  @IsString({ message: 'Session ID is required' })
-  @IsNotEmpty({ message: 'Session ID is required' })
-  public sessionId: string;
-}
-
-// SWITCH SESSION DTO (for multi-account session switching)
-
-export class SwitchSessionDto {
-  @IsString({ message: 'Session ID is required' })
-  @IsNotEmpty({ message: 'Session ID is required' })
-  public sessionId: string;
-}

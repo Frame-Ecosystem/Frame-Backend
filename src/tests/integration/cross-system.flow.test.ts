@@ -63,14 +63,19 @@ jest.mock('@middlewares/csrf.middleware', () => ({
 jest.mock('@middlewares/rateLimit.middleware', () => ({
   loginRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   signupRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  refreshTokenRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   forgotPasswordRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   generalRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   strictRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   likeRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  ratingRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   followRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   contentCreateRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   commentRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
   reportRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedReadLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  feedDiscoveryLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
+  searchRateLimiter: jest.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 jest.mock('@middlewares/imageUpload.middleware', () => ({
