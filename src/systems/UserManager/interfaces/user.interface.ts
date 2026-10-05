@@ -22,7 +22,6 @@ export interface DayOpeningHours {
 }
 
 export interface RefreshTokenSession {
-  sessionId: string; // Unique server-managed stable ID for session switching
   jti: string; // JWT ID for token rotation tracking
   tokenHash: string; // bcrypt hash of refresh token (never expose raw token)
   userAgent?: string;
@@ -30,7 +29,6 @@ export interface RefreshTokenSession {
   deviceName?: string;
   createdAt: Date;
   expiresAt: Date;
-  lastUsedAt?: Date; // Track last activity within this session
 }
 
 // Session tracking - consolidated online status and devices
