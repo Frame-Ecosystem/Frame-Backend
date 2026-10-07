@@ -10,10 +10,20 @@ import { HttpException, BadRequestException, NotFoundException, ForbiddenExcepti
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
 import { AuthorType } from '@systems/FeedContentSystem/interfaces/content.interface';
+import { stat, unlink } from 'fs/promises';
+import ReelMediaService from '@systems/FeedContentSystem/services/reelMedia.service';
+import {
+  MAX_REEL_CAPTION_LENGTH,
+  MAX_REEL_DURATION_SECONDS,
+  MAX_REEL_HASHTAGS,
+  MAX_REEL_THUMBNAIL_BYTES,
+  MAX_REEL_VIDEO_BYTES,
+  REEL_THUMBNAIL_MIME_TYPES,
+  REEL_VIDEO_MIME_TYPES,
+} from '@systems/FeedContentSystem/contentLimits';
 
 class ReelService {
   private static readonly MIN_REEL_DURATION_SECONDS = 1;
-  private static readonly MAX_REEL_DURATION_SECONDS = 300;
 
   private readonly posts = postModel;
   private readonly reels = reelModel;
@@ -29,55 +39,180 @@ class ReelService {
     authorId: string,
     authorType: string,
     data: { caption?: string; duration: number; hashtags?: string[] },
-    files: { video?: Express.Multer.File[]; thumbnail?: Express.Multer.File[] },
+    files: { video?: Express.Multer.File[]; thumbnail?: Express.Multer.File[] } = {},
   ) {
+    const generatedTemporaryFiles: string[] = [];
     try {
       const videoFile = files.video?.[0];
       if (!videoFile) throw new BadRequestException('Video file is required', 'VIDEO_REQUIRED');
-
-      if (!Number.isFinite(data.duration)) {
-        throw new BadRequestException('Duration is required and must be numeric', 'INVALID_DURATION');
+      if (!videoFile.path || !Number.isFinite(videoFile.size) || videoFile.size <= 0) {
+        throw new BadRequestException('Video upload is empty or invalid', 'VIDEO_UPLOAD_INCOMPLETE');
+      }
+      if (videoFile.size > MAX_REEL_VIDEO_BYTES) {
+        throw new BadRequestException('Video must be 90 MB or smaller', 'UPLOAD_FILE_TOO_LARGE');
       }
 
-      if (data.duration < ReelService.MIN_REEL_DURATION_SECONDS || data.duration > ReelService.MAX_REEL_DURATION_SECONDS) {
-        throw new BadRequestException('Duration must be between 1 and 300 seconds', 'INVALID_DURATION');
+      if (!REEL_VIDEO_MIME_TYPES.includes(videoFile.mimetype)) {
+        throw new BadRequestException('Unsupported video format', 'INVALID_UPLOAD_FILE_TYPE');
+      }
+
+      const videoStats = await stat(videoFile.path);
+      if (!videoStats.isFile() || videoStats.size !== videoFile.size) {
+        throw new BadRequestException('Video upload is incomplete', 'VIDEO_UPLOAD_INCOMPLETE');
+      }
+
+      let videoMetadata: Awaited<ReturnType<typeof ReelMediaService.getVideoMetadata>>;
+      try {
+        videoMetadata = await ReelMediaService.getVideoMetadata(videoFile.path);
+      } catch (error: any) {
+        if (error.code === 'ENOENT') {
+          logger.error('ReelService.createReel: FFmpeg is unavailable; reinstall backend dependencies or install FFmpeg on the server');
+          throw new InternalServerException('Video processing is unavailable');
+        }
+        logger.warn(`ReelService.createReel: unable to read uploaded video metadata: ${error.message}`);
+        throw new BadRequestException('Unable to read video metadata', 'INVALID_VIDEO_METADATA');
+      }
+
+      if (videoMetadata.duration < ReelService.MIN_REEL_DURATION_SECONDS || videoMetadata.duration > MAX_REEL_DURATION_SECONDS) {
+        throw new BadRequestException('Video duration must be 3 minutes or less', 'INVALID_DURATION');
+      }
+      if (data.caption !== undefined && (typeof data.caption !== 'string' || data.caption.length > MAX_REEL_CAPTION_LENGTH)) {
+        throw new BadRequestException('Caption exceeds the maximum length', 'INVALID_CAPTION');
+      }
+      if (
+        data.hashtags &&
+        (!Array.isArray(data.hashtags) || data.hashtags.length > MAX_REEL_HASHTAGS || data.hashtags.some(tag => typeof tag !== 'string'))
+      ) {
+        throw new BadRequestException(`Reels support up to ${MAX_REEL_HASHTAGS} hashtags`, 'INVALID_HASHTAGS');
+      }
+      const customThumbnail = files.thumbnail?.[0];
+      const thumbnailTypes: Record<string, string[]> = {
+        'image/jpeg': ['mjpeg', 'jpeg'],
+        'image/png': ['png'],
+        'image/webp': ['webp'],
+      };
+      if (customThumbnail) {
+        if (Number.isFinite(customThumbnail.size) && customThumbnail.size > MAX_REEL_THUMBNAIL_BYTES) {
+          throw new BadRequestException('Thumbnail must be 5 MB or smaller', 'THUMBNAIL_FILE_TOO_LARGE');
+        }
+        if (!customThumbnail.path || !Number.isFinite(customThumbnail.size) || customThumbnail.size <= 0) {
+          throw new BadRequestException('Thumbnail upload is incomplete', 'THUMBNAIL_UPLOAD_INCOMPLETE');
+        }
+        if (!REEL_THUMBNAIL_MIME_TYPES.includes(customThumbnail.mimetype) || !thumbnailTypes[customThumbnail.mimetype]) {
+          throw new BadRequestException('Unsupported thumbnail format', 'INVALID_UPLOAD_FILE_TYPE');
+        }
+        const thumbnailStats = await stat(customThumbnail.path);
+        if (!thumbnailStats.isFile() || thumbnailStats.size !== customThumbnail.size) {
+          throw new BadRequestException('Thumbnail upload is incomplete', 'THUMBNAIL_UPLOAD_INCOMPLETE');
+        }
+        try {
+          const imageMetadata = await ReelMediaService.getImageMetadata(customThumbnail.path);
+          if (!thumbnailTypes[customThumbnail.mimetype].includes(imageMetadata.codec)) {
+            throw new Error(`Thumbnail content does not match ${customThumbnail.mimetype}`);
+          }
+        } catch (error: any) {
+          logger.warn(`ReelService.createReel: unable to read custom thumbnail metadata: ${error.message}`);
+          throw new BadRequestException('Unable to read thumbnail image', 'INVALID_THUMBNAIL_METADATA');
+        }
       }
 
       const tempId = `${authorId}-${Date.now()}`;
+      const uploadedPublicIds: string[] = [];
+      let persisted = false;
 
-      // Upload video to R2
-      const videoResult = await R2Service.uploadReelVideo(videoFile.buffer, tempId);
+      try {
+        const videoResult = await R2Service.uploadReelVideoFile(videoFile.path, videoFile.mimetype, videoFile.size, tempId);
+        uploadedPublicIds.push(videoResult.publicId);
 
-      // Upload optional thumbnail
-      let thumbnailResult: { url: string; publicId: string } | undefined;
-      if (files.thumbnail?.[0]) {
-        thumbnailResult = await R2Service.uploadReelThumbnail(files.thumbnail[0].buffer, tempId);
+        let thumbnailResult: { url: string; publicId: string } | undefined;
+        if (customThumbnail) {
+          thumbnailResult = await R2Service.uploadReelThumbnailFile(customThumbnail.path, customThumbnail.mimetype, customThumbnail.size, tempId);
+          uploadedPublicIds.push(thumbnailResult.publicId);
+        } else {
+          try {
+            const generated = await ReelMediaService.generateThumbnail(videoFile.path, Math.min(2, videoMetadata.duration * 0.1));
+            generatedTemporaryFiles.push(generated.path);
+            if (generated.size > MAX_REEL_THUMBNAIL_BYTES) {
+              throw new Error('Generated thumbnail exceeds the configured size limit');
+            }
+            thumbnailResult = await R2Service.uploadReelThumbnailFile(generated.path, 'image/jpeg', generated.size, tempId);
+            uploadedPublicIds.push(thumbnailResult.publicId);
+          } catch (error: any) {
+            logger.warn(`ReelService.createReel: automatic thumbnail generation failed; creating reel without a thumbnail: ${error.message}`);
+          }
+        }
+
+        const hashtags = this.normalizeHashtags(data.hashtags);
+        const reel = await this.reels.create({
+          authorId,
+          authorType: authorType as AuthorType,
+          caption: data.caption || '',
+          videoUrl: videoResult.url,
+          videoPublicId: videoResult.publicId,
+          thumbnailUrl: thumbnailResult?.url || '',
+          thumbnailPublicId: thumbnailResult?.publicId || '',
+          duration: videoMetadata.duration,
+          hashtags,
+        });
+        persisted = true;
+
+        try {
+          await this.syncHashtags(hashtags, []);
+        } catch (error: any) {
+          logger.error(`ReelService.createReel: reel ${reel._id} was saved but hashtag counts could not be updated: ${error.message}`);
+        }
+
+        let populated;
+        try {
+          populated = await this.reels.findById(reel._id).populate('authorId', 'firstName lastName loungeTitle profileImage type').lean().exec();
+        } catch (error: any) {
+          logger.warn(`ReelService.createReel: could not populate saved reel ${reel._id}: ${error.message}`);
+        }
+
+        logger.info(`ReelService.createReel: reel ${reel._id} created by ${authorType} ${authorId}`);
+        return populated || reel.toObject();
+      } catch (error: any) {
+        if (!persisted) {
+          await Promise.all(
+            uploadedPublicIds.map(async publicId => {
+              try {
+                await R2Service.deleteImage(publicId);
+              } catch (cleanupError: any) {
+                logger.error(`ReelService.createReel: failed to clean up ${publicId}: ${cleanupError.message}`);
+              }
+            }),
+          );
+        }
+        throw error;
       }
-
-      const hashtags = this.normalizeHashtags(data.hashtags);
-
-      const reel = await this.reels.create({
-        authorId,
-        authorType: authorType as AuthorType,
-        caption: data.caption || '',
-        videoUrl: videoResult.url,
-        videoPublicId: videoResult.publicId,
-        thumbnailUrl: thumbnailResult?.url || '',
-        thumbnailPublicId: thumbnailResult?.publicId || '',
-        duration: data.duration,
-        hashtags,
-      });
-
-      await this.syncHashtags(hashtags, []);
-
-      const populated = await this.reels.findById(reel._id).populate('authorId', 'firstName lastName loungeTitle profileImage type').lean().exec();
-
-      logger.info(`ReelService.createReel: reel ${reel._id} created by ${authorType} ${authorId}`);
-      return populated;
     } catch (error: any) {
       if (error instanceof HttpException) throw error;
       logger.error(`ReelService.createReel error: ${error.message}`, { stack: error.stack });
       throw new InternalServerException('Unable to create reel');
+    } finally {
+      await Promise.all(
+        [...(files.video ?? []), ...(files.thumbnail ?? [])].map(async file => {
+          if (!file.path) return;
+          try {
+            await unlink(file.path);
+          } catch (error: any) {
+            if (error.code !== 'ENOENT') {
+              logger.warn(`ReelService.createReel: failed to remove temporary upload ${file.path}: ${error.message}`);
+            }
+          }
+        }),
+      );
+      await Promise.all(
+        generatedTemporaryFiles.map(async filePath => {
+          try {
+            await unlink(filePath);
+          } catch (error: any) {
+            if (error.code !== 'ENOENT') {
+              logger.warn(`ReelService.createReel: failed to remove generated thumbnail ${filePath}: ${error.message}`);
+            }
+          }
+        }),
+      );
     }
   }
 

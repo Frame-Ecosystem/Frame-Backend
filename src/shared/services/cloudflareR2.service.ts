@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { createReadStream } from 'fs';
 import { HttpException } from '@exceptions/HttpException';
 import { logger } from '@utils/logger';
 import crypto from 'crypto';
@@ -116,12 +117,12 @@ class CloudflareR2Service {
     return this.upload(fileBuffer, `posts/${postId}`, 'img');
   }
 
-  public async uploadReelVideo(fileBuffer: Buffer, reelId: string) {
-    return this.upload(fileBuffer, `reels/${reelId}`, 'video');
+  public async uploadReelVideoFile(filePath: string, contentType: string, contentLength: number, reelId: string) {
+    return this.uploadFileStream(filePath, contentType, contentLength, `reels/${reelId}`, 'video');
   }
 
-  public async uploadReelThumbnail(fileBuffer: Buffer, reelId: string) {
-    return this.upload(fileBuffer, `reels/${reelId}`, 'thumb');
+  public async uploadReelThumbnailFile(filePath: string, contentType: string, contentLength: number, reelId: string) {
+    return this.uploadFileStream(filePath, contentType, contentLength, `reels/${reelId}`, 'thumb');
   }
 
   /* ───────── Marketplace ───────── */
@@ -185,6 +186,41 @@ class CloudflareR2Service {
     if (buffer.toString('ascii', 0, 4) === 'GIF8') return 'image/gif';
     if (buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
     return 'application/octet-stream';
+  }
+
+  private async uploadFileStream(
+    filePath: string,
+    contentType: string,
+    contentLength: number,
+    folder: string,
+    prefix: string,
+  ): Promise<{ url: string; publicId: string }> {
+    const client = this.ensureClient();
+    const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+    const key = `${folder}/${prefix}-${uniqueSuffix}`;
+    const stream = createReadStream(filePath);
+
+    try {
+      await client.send(
+        new PutObjectCommand({
+          Bucket: R2_BUCKET_NAME,
+          Key: key,
+          Body: stream,
+          ContentLength: contentLength,
+          ContentType: contentType,
+          CacheControl: 'public, max-age=31536000, immutable',
+        }),
+      );
+
+      const url = `${R2_PUBLIC_URL.replace(/\/+$/, '')}/${key}`;
+      logger.info(`[CloudflareR2Service] Uploaded: ${url}`);
+      return { url, publicId: key };
+    } catch (error) {
+      logger.error(`[CloudflareR2Service] Stream upload failed: ${error.message}`);
+      throw new HttpException(500, `Failed to upload file: ${error.message}`);
+    } finally {
+      stream.destroy();
+    }
   }
 }
 

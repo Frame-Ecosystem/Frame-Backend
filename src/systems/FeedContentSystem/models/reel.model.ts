@@ -1,5 +1,6 @@
 import { model, Schema, Document } from 'mongoose';
 import { Reel, AuthorType } from '@systems/FeedContentSystem/interfaces/content.interface';
+import { MAX_REEL_DURATION_SECONDS } from '@systems/FeedContentSystem/contentLimits';
 
 const reelSchema = new Schema(
   {
@@ -10,7 +11,7 @@ const reelSchema = new Schema(
     videoPublicId: { type: String, required: true },
     thumbnailUrl: { type: String, default: '' },
     thumbnailPublicId: { type: String, default: '' },
-    duration: { type: Number, required: true, min: 1, max: 300 },
+    duration: { type: Number, required: true, min: 1, max: MAX_REEL_DURATION_SECONDS },
     hashtags: { type: [String], default: [] },
     likeCount: { type: Number, default: 0 },
     commentCount: { type: Number, default: 0 },
