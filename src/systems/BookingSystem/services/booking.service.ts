@@ -399,6 +399,8 @@ class BookingService {
         filter.clientId = userId;
       } else if (userType === 'lounge') {
         filter.loungeId = userId;
+      } else if (userType === 'agent') {
+        filter.agentIds = userId;
       }
       // admin: no extra filter — gets all history bookings
 
@@ -417,6 +419,18 @@ class BookingService {
       return await this.populateBooking(this.bookings.find({ loungeId })).sort({ bookingDate: -1 });
     } catch (error) {
       logger.error(`Error fetching bookings for lounge ${loungeId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  public async getBookingsByAgentId(agentId: string): Promise<Booking[]> {
+    try {
+      if (!mongoose.Types.ObjectId.isValid(agentId)) {
+        throw new BadRequestException('Invalid agent ID format', 'INVALID_AGENT_ID');
+      }
+      return await this.populateBooking(this.bookings.find({ agentIds: agentId })).sort({ bookingDate: -1 });
+    } catch (error) {
+      logger.error(`Error fetching bookings for agent ${agentId}: ${error.message}`);
       throw error;
     }
   }
@@ -496,12 +510,13 @@ class BookingService {
       }
       const clientId = booking.clientId?.toString();
       const loungeId = booking.loungeId?.toString();
+      const agentIds = (booking.agentIds ?? []).map((agentId: any) => agentId.toString());
 
       // Remove from queue if this booking has a queue entry
       await this.queueService.removePersonByBookingId(bookingId);
 
       await this.bookings.findByIdAndDelete(bookingId);
-      this.socketService.emitBookingDeleted(bookingId, clientId, loungeId);
+      this.socketService.emitBookingDeleted(bookingId, clientId, loungeId, agentIds);
       logger.info(`Booking deleted: ${bookingId}`);
     } catch (error) {
       logger.error(`Error deleting booking ${bookingId}: ${error.message}`);

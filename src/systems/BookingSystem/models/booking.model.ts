@@ -71,6 +71,7 @@ const bookingSchema: Schema = new Schema(
 // Indexes for better performance
 bookingSchema.index({ clientId: 1 });
 bookingSchema.index({ loungeId: 1 });
+bookingSchema.index({ agentIds: 1 });
 bookingSchema.index({ loungeServiceIds: 1 });
 bookingSchema.index({ status: 1 });
 bookingSchema.index({ bookingDate: 1 });
