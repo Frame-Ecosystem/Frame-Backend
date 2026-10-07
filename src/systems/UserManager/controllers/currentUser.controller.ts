@@ -46,7 +46,13 @@ class CurrentUserController {
   public getMe = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const user = req.user;
-      res.status(200).json({ data: stripSensitiveFields(user), message: 'User retrieved successfully' });
+      res.status(200).json({
+        data: {
+          ...stripSensitiveFields(user),
+          hasPassword: Boolean(user.password),
+        },
+        message: 'User retrieved successfully',
+      });
     } catch (error) {
       next(error);
     }

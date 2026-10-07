@@ -102,7 +102,10 @@ class AuthController {
     const isMobile = req.headers['x-client-type'] === 'mobile';
     if (isMobile) {
       res.status(200).json({
-        data: stripSensitiveFields(userData),
+        data: {
+          ...stripSensitiveFields(userData),
+          hasPassword: Boolean(userData.password),
+        },
         accessToken: tokenData.token,
         refreshToken,
         expiresIn: tokenData.expiresIn,
@@ -116,7 +119,10 @@ class AuthController {
       const isDevWebOrigin = NODE_ENV !== 'production' && typeof origin === 'string' && origin.startsWith('http://');
 
       res.status(200).json({
-        data: stripSensitiveFields(userData),
+        data: {
+          ...stripSensitiveFields(userData),
+          hasPassword: Boolean(userData.password),
+        },
         token: tokenData.token,
         expiresIn: tokenData.expiresIn,
         ...(NODE_ENV !== 'production' && isDevWebOrigin ? { refreshToken } : {}),
@@ -300,7 +306,10 @@ class AuthController {
       const isMobile = req.headers['x-client-type'] === 'mobile';
       if (isMobile) {
         res.status(200).json({
-          data: stripSensitiveFields(user),
+          data: {
+            ...stripSensitiveFields(user),
+            hasPassword: Boolean(user.password),
+          },
           accessToken: tokenData.token,
           refreshToken,
           expiresIn: tokenData.expiresIn,
@@ -315,7 +324,6 @@ class AuthController {
       next(error);
     }
   };
-
 }
 
 export default AuthController;

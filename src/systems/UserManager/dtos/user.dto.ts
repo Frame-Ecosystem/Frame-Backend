@@ -309,9 +309,10 @@ export class UpdateUserDto {
 // CHANGE PASSWORD DTO
 
 export class ChangePasswordDto {
+  @IsOptional()
   @IsString({ message: 'Current password is required' })
   @IsNotEmpty({ message: 'Current password is required' })
-  public currentPassword: string;
+  public currentPassword?: string;
 
   @IsString({ message: VALIDATION_MESSAGES.password.required })
   @IsNotEmpty({ message: VALIDATION_MESSAGES.password.required })
