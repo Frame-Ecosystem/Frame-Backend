@@ -51,6 +51,8 @@ const notificationSchema: Schema = new Schema(
       targetType: { type: String, enum: ['post', 'reel', 'comment'], required: false },
       // Social
       followerId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+      actorId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
+      actorType: { type: String, enum: ['client', 'lounge', 'agent'], required: false },
       ratingScore: { type: Number, required: false },
       // Admin
       suggestionId: { type: Schema.Types.ObjectId, ref: 'ServiceSuggestion', required: false },

@@ -6,6 +6,7 @@
   NOTIFICATION_CATEGORY_MAP,
 } from '@systems/NotificationSystem/interfaces/notification.interface';
 import notificationModel from '@systems/NotificationSystem/models/notification.model';
+import userModel from '@systems/UserManager/models/user.model';
 import SocketService from '@systems/NotificationSystem/services/socket.service';
 import PushNotificationService from '@systems/NotificationSystem/services/push.service';
 import { logger } from '@utils/logger';
@@ -13,6 +14,7 @@ import { logger } from '@utils/logger';
 class NotificationService {
   private static instance: NotificationService;
   private notifications = notificationModel;
+  private users = userModel;
   private socketService = SocketService.getInstance();
   private pushService = PushNotificationService.getInstance();
 
@@ -48,6 +50,8 @@ class NotificationService {
       this.notifications.countDocuments(filter),
       this.notifications.countDocuments({ userId, isRead: false }),
     ]);
+
+    await this.addSocialProfileRoutes(notifications);
 
     return { notifications, total, unreadCount };
   }
@@ -147,7 +151,12 @@ class NotificationService {
       if (data.metadata?.bookingId) pushData.bookingId = data.metadata.bookingId;
       if (data.metadata?.loungeId) pushData.loungeId = data.metadata.loungeId;
       if (data.metadata?.postId) pushData.postId = data.metadata.postId;
+      if (data.metadata?.reelId) pushData.reelId = data.metadata.reelId;
       if (data.metadata?.commentId) pushData.commentId = data.metadata.commentId;
+      if (data.metadata?.targetType) pushData.targetType = data.metadata.targetType;
+      if (data.metadata?.actorId) pushData.actorId = data.metadata.actorId;
+      if (data.metadata?.actorType) pushData.actorType = data.metadata.actorType;
+      if (data.metadata?.followerId) pushData.followerId = data.metadata.followerId;
 
       this.pushService
         .sendToUser(data.userId, { title: data.title, body: data.body, data: pushData, imageUrl: data.imageUrl })
@@ -438,15 +447,21 @@ class NotificationService {
   /**
    * Notify a user that someone followed them.
    */
-  public async notifyNewFollower(targetUserId: string, followerId: string, followerName: string, followerImage?: string): Promise<void> {
+  public async notifyNewFollower(
+    targetUserId: string,
+    followerId: string,
+    followerType: 'client' | 'lounge' | 'agent',
+    followerName: string,
+    followerImage?: string,
+  ): Promise<void> {
     await this.create({
       userId: targetUserId,
       actorId: followerId,
       title: 'New Follower',
       body: `${followerName} started following you`,
       type: NotificationType.NEW_FOLLOWER,
-      metadata: { followerId },
-      actionUrl: `/profile/${followerId}`,
+      metadata: { followerId, actorId: followerId, actorType: followerType },
+      actionUrl: this.getUserProfilePath(followerId, followerType),
       imageUrl: followerImage,
     });
   }
@@ -454,15 +469,21 @@ class NotificationService {
   /**
    * Notify a lounge that a user liked them.
    */
-  public async notifyLoungeLiked(loungeId: string, likerId: string, likerName: string, likerImage?: string): Promise<void> {
+  public async notifyLoungeLiked(
+    loungeId: string,
+    likerId: string,
+    likerType: 'client' | 'lounge' | 'agent',
+    likerName: string,
+    likerImage?: string,
+  ): Promise<void> {
     await this.create({
       userId: loungeId,
       actorId: likerId,
       title: 'New Like',
       body: `${likerName} liked your lounge`,
       type: NotificationType.LOUNGE_LIKED,
-      metadata: { actorId: likerId, loungeId },
-      actionUrl: `/profile/${likerId}`,
+      metadata: { actorId: likerId, actorType: likerType, loungeId },
+      actionUrl: this.getUserProfilePath(likerId, likerType),
       imageUrl: likerImage,
     });
   }
@@ -470,15 +491,21 @@ class NotificationService {
   /**
    * Notify an agent that a user liked them.
    */
-  public async notifyAgentLiked(agentId: string, likerId: string, likerName: string, likerImage?: string): Promise<void> {
+  public async notifyAgentLiked(
+    agentId: string,
+    likerId: string,
+    likerType: 'client' | 'lounge' | 'agent',
+    likerName: string,
+    likerImage?: string,
+  ): Promise<void> {
     await this.create({
       userId: agentId,
       actorId: likerId,
       title: 'New Like',
       body: `${likerName} liked you`,
       type: NotificationType.AGENT_LIKED,
-      metadata: { actorId: likerId, agentId },
-      actionUrl: `/profile/${likerId}`,
+      metadata: { actorId: likerId, actorType: likerType, agentId },
+      actionUrl: this.getUserProfilePath(likerId, likerType),
       imageUrl: likerImage,
     });
   }
@@ -486,15 +513,22 @@ class NotificationService {
   /**
    * Notify a lounge that a user rated them.
    */
-  public async notifyLoungeRated(loungeId: string, raterId: string, raterName: string, score: number, raterImage?: string): Promise<void> {
+  public async notifyLoungeRated(
+    loungeId: string,
+    raterId: string,
+    raterType: 'client' | 'lounge' | 'agent',
+    raterName: string,
+    score: number,
+    raterImage?: string,
+  ): Promise<void> {
     await this.create({
       userId: loungeId,
       actorId: raterId,
       title: 'New Rating',
       body: `${raterName} rated your lounge ${score}/5`,
       type: NotificationType.LOUNGE_RATED,
-      metadata: { actorId: raterId, loungeId, ratingScore: score },
-      actionUrl: `/profile/${raterId}`,
+      metadata: { actorId: raterId, actorType: raterType, loungeId, ratingScore: score },
+      actionUrl: this.getUserProfilePath(raterId, raterType),
       imageUrl: raterImage,
     });
   }
@@ -502,15 +536,22 @@ class NotificationService {
   /**
    * Notify an agent that a user rated them.
    */
-  public async notifyAgentRated(agentId: string, raterId: string, raterName: string, score: number, raterImage?: string): Promise<void> {
+  public async notifyAgentRated(
+    agentId: string,
+    raterId: string,
+    raterType: 'client' | 'lounge' | 'agent',
+    raterName: string,
+    score: number,
+    raterImage?: string,
+  ): Promise<void> {
     await this.create({
       userId: agentId,
       actorId: raterId,
       title: 'New Rating',
       body: `${raterName} rated you ${score}/5`,
       type: NotificationType.AGENT_RATED,
-      metadata: { actorId: raterId, agentId, ratingScore: score },
-      actionUrl: `/profile/${raterId}`,
+      metadata: { actorId: raterId, actorType: raterType, agentId, ratingScore: score },
+      actionUrl: this.getUserProfilePath(raterId, raterType),
       imageUrl: raterImage,
     });
   }
@@ -711,6 +752,67 @@ class NotificationService {
     const clientId = this.extractId(booking.clientId);
     if (!clientId) return;
     await this.notifyUser(clientId, booking, opts);
+  }
+
+  private getUserProfilePath(userId: string, userType: 'client' | 'lounge' | 'agent'): string {
+    const profilePaths = {
+      client: '/clients',
+      lounge: '/lounges',
+      agent: '/agents',
+    };
+    return `${profilePaths[userType]}/${encodeURIComponent(userId)}`;
+  }
+
+  private async addSocialProfileRoutes(notifications: Notification[]): Promise<void> {
+    const socialTypes = new Set<NotificationType>([
+      NotificationType.NEW_FOLLOWER,
+      NotificationType.LOUNGE_LIKED,
+      NotificationType.AGENT_LIKED,
+      NotificationType.LOUNGE_RATED,
+      NotificationType.AGENT_RATED,
+    ]);
+    const userIds = new Set<string>();
+
+    for (const notification of notifications) {
+      if (!socialTypes.has(notification.type)) continue;
+      const actorId = notification.metadata?.actorId ?? notification.metadata?.followerId ?? notification.actorId;
+      if (actorId && !notification.metadata?.actorType) {
+        userIds.add(actorId.toString());
+      }
+    }
+
+    const actorTypes = new Map<string, 'client' | 'lounge' | 'agent'>();
+    if (userIds.size > 0) {
+      const actors = await this.users
+        .find({ _id: { $in: [...userIds] } })
+        .select('_id type')
+        .lean()
+        .exec();
+
+      for (const actor of actors) {
+        if (actor.type === 'client' || actor.type === 'lounge' || actor.type === 'agent') {
+          actorTypes.set(actor._id.toString(), actor.type);
+        }
+      }
+    }
+
+    for (const notification of notifications) {
+      if (!socialTypes.has(notification.type)) continue;
+      const actorId = notification.metadata?.actorId ?? notification.metadata?.followerId ?? notification.actorId;
+      if (!actorId) continue;
+
+      const actorIdString = actorId.toString();
+      const actorType = notification.metadata?.actorType ?? actorTypes.get(actorIdString);
+      if (!actorType) continue;
+
+      notification.metadata = {
+        ...notification.metadata,
+        actorId: actorIdString,
+        actorType,
+        ...(notification.type === NotificationType.NEW_FOLLOWER ? { followerId: actorIdString } : {}),
+      };
+      notification.actionUrl = this.getUserProfilePath(actorIdString, actorType);
+    }
   }
 
   public extractId(ref: any): string | undefined {

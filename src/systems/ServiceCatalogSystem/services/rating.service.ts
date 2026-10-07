@@ -41,10 +41,7 @@ class RatingService {
     const raterType = rater.type as SocialUserType;
 
     if (!isAllowedSocialPair(raterType, targetType)) {
-      throw new BadRequestException(
-        `A ${raterType} cannot rate a ${targetType}`,
-        'INVALID_RATING_PAIR',
-      );
+      throw new BadRequestException(`A ${raterType} cannot rate a ${targetType}`, 'INVALID_RATING_PAIR');
     }
 
     const rating = await this.ratings.findOneAndUpdate(
@@ -64,11 +61,13 @@ class RatingService {
     const raterImage = rater?.profileImage?.url;
 
     if (targetType === 'lounge') {
-      this.notificationService.notifyLoungeRated(dto.targetId, raterId, raterName, dto.score, raterImage)
-        .catch((err) => logger.error(`RatingService: failed to send lounge rated notification: ${err.message}`));
+      this.notificationService
+        .notifyLoungeRated(dto.targetId, raterId, raterType, raterName, dto.score, raterImage)
+        .catch(err => logger.error(`RatingService: failed to send lounge rated notification: ${err.message}`));
     } else {
-      this.notificationService.notifyAgentRated(dto.targetId, raterId, raterName, dto.score, raterImage)
-        .catch((err) => logger.error(`RatingService: failed to send agent rated notification: ${err.message}`));
+      this.notificationService
+        .notifyAgentRated(dto.targetId, raterId, raterType, raterName, dto.score, raterImage)
+        .catch(err => logger.error(`RatingService: failed to send agent rated notification: ${err.message}`));
     }
 
     logger.info(`RatingService.upsertRating: ${raterType}=${raterId} -> ${targetType}=${dto.targetId} score=${dto.score}`);
