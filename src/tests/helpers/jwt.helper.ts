@@ -16,6 +16,9 @@ export const clientToken = () => jwt.sign({ _id: testIds.client }, secret(), { e
 /** Generate an access token for a lounge user */
 export const loungeToken = () => jwt.sign({ _id: testIds.lounge }, secret(), { expiresIn: '1h' });
 
+/** Generate an access token for an agent user */
+export const agentToken = () => jwt.sign({ _id: testIds.agent }, secret(), { expiresIn: '1h' });
+
 /** Generate an access token for an admin user */
 export const adminToken = () => jwt.sign({ _id: testIds.admin }, secret(), { expiresIn: '1h' });
 

@@ -75,6 +75,8 @@ class BookingController {
         bookings = await this.bookingService.getBookingsByClientId(userId);
       } else if (req.user.type === 'lounge') {
         bookings = await this.bookingService.getBookingsByLoungeId(userId);
+      } else if (req.user.type === 'agent') {
+        bookings = await this.bookingService.getBookingsByAgentId(userId);
       } else if (req.user.type === 'admin') {
         bookings = await this.bookingService.getAllBookings();
       } else {
@@ -100,11 +102,14 @@ class BookingController {
       const userId = req.user._id.toString();
 
       // Check permissions
-      if (req.user.type === 'client' && (booking.clientId as any)._id.toString() !== userId) {
+      if (req.user.type === 'client' && this.relatedId(booking.clientId) !== userId) {
         throw new HttpException(403, 'You can only view your own bookings');
       }
-      if (req.user.type === 'lounge' && (booking.loungeId as any)._id.toString() !== userId) {
+      if (req.user.type === 'lounge' && this.relatedId(booking.loungeId) !== userId) {
         throw new HttpException(403, 'You can only view bookings for your lounge');
+      }
+      if (req.user.type === 'agent' && !this.bookingHasAgent(booking, userId)) {
+        throw new HttpException(403, 'You can only view bookings assigned to you');
       }
 
       res.status(200).json({
@@ -145,8 +150,8 @@ class BookingController {
   private enforceUpdatePermissions(user: any, booking: any, bookingData: any): void {
     const userType = user.type;
     const userId = user._id.toString();
-    const clientId = booking.clientId._id.toString();
-    const loungeId = booking.loungeId._id.toString();
+    const clientId = this.relatedId(booking.clientId);
+    const loungeId = this.relatedId(booking.loungeId);
 
     if (bookingData.status === 'cancelled') {
       const cancelledByName = this.deriveCancelledByName(user);
@@ -171,9 +176,22 @@ class BookingController {
       if (loungeId !== userId) {
         throw new HttpException(403, 'You can only update bookings for your lounge');
       }
+    } else if (userType === 'agent') {
+      if (!this.bookingHasAgent(booking, userId)) {
+        throw new HttpException(403, 'You can only update bookings assigned to you');
+      }
     } else if (userType !== 'admin') {
       throw new HttpException(403, 'Unauthorized to update bookings');
     }
+  }
+
+  private relatedId(value: any): string {
+    return (value?._id ?? value?.id ?? value)?.toString();
+  }
+
+  private bookingHasAgent(booking: any, agentId: string): boolean {
+    const assignedAgents = booking.agentIds ?? (booking.agentId ? [booking.agentId] : []);
+    return assignedAgents.some((agent: any) => this.relatedId(agent) === agentId);
   }
 
   private deriveCancelledByName(user: any): string {
@@ -182,6 +200,9 @@ class BookingController {
     }
     if (user.type === 'lounge') {
       return user.loungeTitle || [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Lounge';
+    }
+    if (user.type === 'agent') {
+      return user.agentName || [user.firstName, user.lastName].filter(Boolean).join(' ') || 'Agent';
     }
     return 'Admin';
   }
@@ -210,7 +231,7 @@ class BookingController {
       const userId = req.user._id.toString();
       const userType = req.user.type;
 
-      if (!['client', 'lounge', 'admin'].includes(userType)) {
+      if (!['client', 'lounge', 'agent', 'admin'].includes(userType)) {
         throw new HttpException(403, 'Unauthorized access');
       }
 

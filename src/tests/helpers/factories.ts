@@ -60,6 +60,22 @@ export const makeLoungeUser = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+export const makeAgentUser = (overrides: Record<string, unknown> = {}) => ({
+  _id: testIds.agent,
+  email: 'agent@test.com',
+  type: 'agent',
+  firstName: 'Test',
+  lastName: 'Agent',
+  agentName: 'Test Agent',
+  parentLounge: testIds.lounge,
+  isBlocked: false,
+  isEmailVerified: true,
+  passwordChangedAt: undefined,
+  sessionTrack: { isOnline: true, devices: [] },
+  refreshTokens: [],
+  ...overrides,
+});
+
 export const makeAdminUser = (overrides: Record<string, unknown> = {}) => ({
   _id: testIds.admin,
   email: 'admin@test.com',

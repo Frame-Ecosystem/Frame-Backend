@@ -43,6 +43,7 @@ export const SocketEvents = {
  * - booking:{bookingId}          → single booking subscribers
  * - bookings:client:{clientId}   → client's bookings list
  * - bookings:lounge:{loungeId}   → lounge's bookings list
+ * - bookings:agent:{agentId}     → agent's assigned bookings list
  * - bookings:admin               → admin bookings list (all)
  * - notifications:{userId}        → user's notification feed
  * - chat:{conversationId}         → conversation participants
@@ -147,6 +148,13 @@ class SocketService {
               continue;
             }
           }
+          if (room.startsWith('bookings:agent:')) {
+            const agentId = room.slice('bookings:agent:'.length);
+            if (socket.data.user?.type !== 'agent' || socket.data.user._id !== agentId) {
+              logger.warn(`Socket ${socket.id} denied booking room join: ${room}`);
+              continue;
+            }
+          }
           socket.join(room);
           logger.info(`Socket ${socket.id} joined room: ${room}`);
         }
@@ -212,9 +220,13 @@ class SocketService {
   public emitBookingCreated(booking: any): void {
     const clientId = this.extractId(booking.clientId);
     const loungeId = this.extractId(booking.loungeId);
-    const rooms = [clientId && `bookings:client:${clientId}`, loungeId && `bookings:lounge:${loungeId}`, 'bookings:admin'].filter(
-      Boolean,
-    ) as string[];
+    const agentIds = (booking.agentIds ?? []).map((agent: any) => this.extractId(agent)).filter(Boolean);
+    const rooms = [
+      clientId && `bookings:client:${clientId}`,
+      loungeId && `bookings:lounge:${loungeId}`,
+      ...agentIds.map((agentId: string) => `bookings:agent:${agentId}`),
+      'bookings:admin',
+    ].filter(Boolean) as string[];
     this.emit(rooms, SocketEvents.BOOKING_CREATED, { data: booking });
   }
 
@@ -222,18 +234,26 @@ class SocketService {
     const bookingId = booking._id || booking.id;
     const clientId = this.extractId(booking.clientId);
     const loungeId = this.extractId(booking.loungeId);
+    const agentIds = (booking.agentIds ?? []).map((agent: any) => this.extractId(agent)).filter(Boolean);
     const rooms = [
       `booking:${bookingId}`,
       clientId && `bookings:client:${clientId}`,
       loungeId && `bookings:lounge:${loungeId}`,
+      ...agentIds.map((agentId: string) => `bookings:agent:${agentId}`),
       'bookings:admin',
     ].filter(Boolean) as string[];
     this.emit(rooms, SocketEvents.BOOKING_UPDATED, { data: booking });
   }
 
-  public emitBookingDeleted(bookingId: string, clientId?: string, loungeId?: string): void {
+  public emitBookingDeleted(bookingId: string, clientId?: string, loungeId?: string, agentIds: string[] = []): void {
     this.emit(
-      [`booking:${bookingId}`, clientId && `bookings:client:${clientId}`, loungeId && `bookings:lounge:${loungeId}`, 'bookings:admin'],
+      [
+        `booking:${bookingId}`,
+        clientId && `bookings:client:${clientId}`,
+        loungeId && `bookings:lounge:${loungeId}`,
+        ...agentIds.map(agentId => `bookings:agent:${agentId}`),
+        'bookings:admin',
+      ],
       SocketEvents.BOOKING_DELETED,
       { bookingId },
     );

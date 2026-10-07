@@ -19,6 +19,11 @@
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
 
+const mockGetBookingById = jest.fn();
+const mockGetBookingHistory = jest.fn();
+const mockGetBookingsByAgentId = jest.fn();
+const mockUpdateBooking = jest.fn();
+
 jest.mock('mongoose', () => ({
   ...jest.requireActual('mongoose'),
   connect: jest.fn().mockResolvedValue({}),
@@ -81,7 +86,6 @@ jest.mock('@systems/UserManager/models/user.model', () => ({
 }));
 
 jest.mock('@systems/BookingSystem/services/booking.service', () => {
-  const { testIds } = require('../../../tests/helpers/factories');
   return {
     __esModule: true,
     default: jest.fn().mockImplementation(() => ({
@@ -90,18 +94,15 @@ jest.mock('@systems/BookingSystem/services/booking.service', () => {
       createLoungeQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'in_queue' }),
       getAllBookings: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
       getAgentAvailability: jest.fn().mockResolvedValue({ slots: [] }),
-      getBookingHistory: jest.fn().mockResolvedValue({ bookings: [], total: 0 }),
-      getBookingById: jest.fn().mockResolvedValue({
-        _id: 'booking1',
-        status: 'pending',
-        clientId: { _id: testIds.client },
-        loungeId: { _id: testIds.lounge },
-      }),
-      updateBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'confirmed' }),
+      getBookingHistory: mockGetBookingHistory,
+      getBookingById: mockGetBookingById,
+      updateBooking: mockUpdateBooking,
       deleteBooking: jest.fn().mockResolvedValue(undefined),
       getClientBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
       getLoungeBookingStats: jest.fn().mockResolvedValue({ total: 0, completed: 0, cancelled: 0 }),
       getBookingsByClientId: jest.fn().mockResolvedValue([]),
+      getBookingsByLoungeId: jest.fn().mockResolvedValue([]),
+      getBookingsByAgentId: mockGetBookingsByAgentId,
     })),
   };
 });
@@ -127,21 +128,22 @@ import App from '@/app';
 import BookingRoute from '@systems/BookingSystem/routes/booking.route';
 import QueueRoute from '@systems/BookingSystem/routes/queue.route';
 import userModel from '@systems/UserManager/models/user.model';
-import { makeClientUser, makeLoungeUser, makeAdminUser, testIds } from '../../../tests/helpers/factories';
-import { clientToken, loungeToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
+import { makeClientUser, makeLoungeUser, makeAgentUser, makeAdminUser, testIds } from '../../../tests/helpers/factories';
+import { clientToken, loungeToken, agentToken, adminToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
 import { expectRouteOk } from '../../../tests/helpers/assertions';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const mockClient = makeClientUser();
 const mockLounge = makeLoungeUser();
+const mockAgent = makeAgentUser();
 const mockAdmin = makeAdminUser();
 
 let server: Express.Application;
 
 beforeAll(() => {
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.lounge ? mockLounge : id === testIds.admin ? mockAdmin : mockClient;
+    const user = id === testIds.lounge ? mockLounge : id === testIds.agent ? mockAgent : id === testIds.admin ? mockAdmin : mockClient;
     return { select: jest.fn().mockResolvedValue(user) };
   });
   server = new App([new BookingRoute(), new QueueRoute()]).getServer();
@@ -150,9 +152,19 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.lounge ? mockLounge : id === testIds.admin ? mockAdmin : mockClient;
+    const user = id === testIds.lounge ? mockLounge : id === testIds.agent ? mockAgent : id === testIds.admin ? mockAdmin : mockClient;
     return { select: jest.fn().mockResolvedValue(user) };
   });
+  mockGetBookingHistory.mockResolvedValue([]);
+  mockGetBookingById.mockResolvedValue({
+    _id: 'booking1',
+    status: 'pending',
+    clientId: { _id: testIds.client },
+    loungeId: { _id: testIds.lounge },
+    agentIds: [{ _id: testIds.agent }],
+  });
+  mockGetBookingsByAgentId.mockResolvedValue([]);
+  mockUpdateBooking.mockResolvedValue({ _id: 'booking1', status: 'confirmed' });
 });
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -205,6 +217,21 @@ describe('BookingSystem — Route Tests', () => {
         const res = await request(server).get('/v1/bookings').set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
       });
+
+      it('returns only assigned bookings for agent accounts', async () => {
+        const res = await request(server).get('/v1/bookings').set('Authorization', bearerHeader(agentToken()));
+        expectRouteOk(res.status);
+        expect(res.body.data).toEqual([]);
+        expect(mockGetBookingsByAgentId).toHaveBeenCalledWith(testIds.agent);
+      });
+    });
+
+    describe('GET /v1/bookings/history', () => {
+      it('allows agents to fetch their booking history', async () => {
+        const res = await request(server).get('/v1/bookings/history').set('Authorization', bearerHeader(agentToken()));
+        expectRouteOk(res.status);
+        expect(mockGetBookingHistory).toHaveBeenCalledWith(testIds.agent, 'agent');
+      });
     });
 
     describe('GET /v1/bookings/availability', () => {
@@ -221,6 +248,48 @@ describe('BookingSystem — Route Tests', () => {
       it('returns 200 for a valid booking', async () => {
         const res = await request(server).get(`/v1/bookings/${testIds.booking}`).set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
+      });
+
+      it('allows an agent to view a booking assigned to them', async () => {
+        const res = await request(server).get(`/v1/bookings/${testIds.booking}`).set('Authorization', bearerHeader(agentToken()));
+        expectRouteOk(res.status);
+      });
+
+      it('denies an agent access to a booking assigned to another agent', async () => {
+        mockGetBookingById.mockResolvedValueOnce({
+          _id: 'booking1',
+          clientId: { _id: testIds.client },
+          loungeId: { _id: testIds.lounge },
+          agentIds: [{ _id: testIds.client2 }],
+        });
+        const res = await request(server).get(`/v1/bookings/${testIds.booking}`).set('Authorization', bearerHeader(agentToken()));
+        expect(res.status).toBe(403);
+      });
+    });
+
+    describe('PUT /v1/bookings/:id', () => {
+      it('allows an agent to manage an assigned booking', async () => {
+        const res = await request(server)
+          .put(`/v1/bookings/${testIds.booking}`)
+          .set('Authorization', bearerHeader(agentToken()))
+          .send({ status: 'confirmed' });
+        expectRouteOk(res.status);
+        expect(mockUpdateBooking).toHaveBeenCalledWith(testIds.booking, expect.objectContaining({ status: 'confirmed' }));
+      });
+
+      it('denies an agent from managing a booking assigned to another agent', async () => {
+        mockGetBookingById.mockResolvedValueOnce({
+          _id: 'booking1',
+          clientId: { _id: testIds.client },
+          loungeId: { _id: testIds.lounge },
+          agentIds: [{ _id: testIds.client2 }],
+        });
+        const res = await request(server)
+          .put(`/v1/bookings/${testIds.booking}`)
+          .set('Authorization', bearerHeader(agentToken()))
+          .send({ status: 'confirmed' });
+        expect(res.status).toBe(403);
+        expect(mockUpdateBooking).not.toHaveBeenCalled();
       });
     });
 
