@@ -92,20 +92,26 @@ class CurrentUserService {
       if (passwordData.newPassword !== passwordData.newPasswordConfirm) {
         throw new BadRequestException('New passwords do not match', 'PASSWORD_MISMATCH');
       }
-      if (passwordData.currentPassword === passwordData.newPassword) {
-        throw new BadRequestException('New password must be different from current password', 'SAME_PASSWORD');
-      }
 
       const user = await this.findUserByIdOrFail(userId);
 
-      const isPasswordValid = await compare(passwordData.currentPassword, user.password);
-      if (!isPasswordValid) {
-        logSecurityEvent({
-          event: 'LOGIN_FAILED',
-          reason: 'Invalid current password during password change',
-          userId: String(user._id),
-        });
-        throw new UnauthorizedException('Current password is incorrect', 'INVALID_PASSWORD');
+      if (user.password) {
+        if (!passwordData.currentPassword) {
+          throw new BadRequestException('Current password is required', 'CURRENT_PASSWORD_REQUIRED');
+        }
+        if (passwordData.currentPassword === passwordData.newPassword) {
+          throw new BadRequestException('New password must be different from current password', 'SAME_PASSWORD');
+        }
+
+        const isPasswordValid = await compare(passwordData.currentPassword, user.password);
+        if (!isPasswordValid) {
+          logSecurityEvent({
+            event: 'LOGIN_FAILED',
+            reason: 'Invalid current password during password change',
+            userId: String(user._id),
+          });
+          throw new UnauthorizedException('Current password is incorrect', 'INVALID_PASSWORD');
+        }
       }
 
       const hashedPassword = await hash(passwordData.newPassword, BCRYPT_ROUNDS);

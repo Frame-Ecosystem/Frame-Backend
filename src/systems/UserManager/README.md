@@ -255,6 +255,8 @@ erDiagram
 | `POST` | `/verify-email` | `validation(VerifyEmailCodeDto)` | Verify email with code |
 | `DELETE` | `/reels/:reelId` | — | Delete own reel |
 
+For accounts with an existing password, `currentPassword` is required. Passwordless Google OAuth accounts can omit it to create their first app password.
+
 ### Client Routes — `/v1/client` (auth + adminOrLoungeOrClient)
 
 | Method | Endpoint | Description |
@@ -359,7 +361,7 @@ The array includes every lounge in the platform, ordered from most completed boo
 | `UpdateUserDto` | All fields optional from CreateUserDto | `@IsOptional()` on each |
 | `DeleteAccountDto` | password | `@IsString()` |
 | `UpdateClientProfileDto` | firstName?, lastName?, bio?, phoneNumber?, gender? | All `@IsString() @IsOptional()` |
-| `ChangePasswordDto` | currentPassword, newPassword | `@IsString()`, `@MinLength(8)` |
+| `ChangePasswordDto` | currentPassword?, newPassword, newPasswordConfirm | Current password required only when one is already set; new password fields are validated |
 | `UpdateLoungeProfileDto` | loungeTitle?, bio?, phoneNumber?, firstName?, lastName? | All optional |
 | `LocationDto` | lat, lng, address?, placeId?, placeName? | `@IsNumber()` for coords |
 | `OpeningHoursDto` | openingHours[] | `@IsArray()` of `DayOpeningHoursDto` |

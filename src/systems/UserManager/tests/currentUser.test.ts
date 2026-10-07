@@ -38,6 +38,31 @@ describe('changePassword', () => {
     jest.spyOn(bcrypt, 'hash').mockImplementation(async () => 'hashed');
     await expect(currentUserService.changePassword(userId, validDto)).resolves.toEqual({ passwordStrength: 'strong' });
   });
+  it('should let a passwordless Google user create a password without a current password', async () => {
+    (userModel.findById as jest.Mock).mockResolvedValue({ _id: userId, oauth: { google: { id: 'google-id' } } });
+    (userModel.findByIdAndUpdate as jest.Mock).mockResolvedValue(user);
+    const compareSpy = jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+    jest.spyOn(bcrypt, 'hash').mockImplementation(async () => 'hashed');
+
+    await expect(
+      currentUserService.changePassword(userId, {
+        newPassword: validDto.newPassword,
+        newPasswordConfirm: validDto.newPasswordConfirm,
+      }),
+    ).resolves.toEqual({ passwordStrength: 'strong' });
+    expect(compareSpy).not.toHaveBeenCalled();
+    expect(userModel.findByIdAndUpdate).toHaveBeenCalledWith(userId, expect.objectContaining({ password: 'hashed' }));
+  });
+  it('should require the current password when one is already set', async () => {
+    (userModel.findById as jest.Mock).mockResolvedValue(user);
+
+    await expect(
+      currentUserService.changePassword(userId, {
+        newPassword: validDto.newPassword,
+        newPasswordConfirm: validDto.newPasswordConfirm,
+      }),
+    ).rejects.toThrow('Current password is required');
+  });
   it('should throw if new passwords do not match', async () => {
     await expect(currentUserService.changePassword(userId, { ...validDto, newPasswordConfirm: 'nope' })).rejects.toThrow(
       'New passwords do not match',
