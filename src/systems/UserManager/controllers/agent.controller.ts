@@ -6,6 +6,8 @@ import QueueService from '@systems/BookingSystem/services/queue.service';
 import { AddToQueueDto, UpdateQueuePersonDto, ReorderQueuePersonDto } from '@systems/BookingSystem/dtos/queue.dto';
 import { QueuePersonStatus } from '@systems/BookingSystem/interfaces/queue.interface';
 import { BadRequestException } from '@exceptions/HttpException';
+import BookingService from '@systems/BookingSystem/services/booking.service';
+import { CreateAgentQueueBookingDto } from '@systems/BookingSystem/dtos/booking.dto';
 
 /**
  * AgentController exposes two surfaces:
@@ -20,6 +22,7 @@ import { BadRequestException } from '@exceptions/HttpException';
 class AgentController {
   public agentService = new AgentService();
   private queueService = new QueueService();
+  private bookingService = new BookingService();
 
   /** If the caller is a Lounge, return their id so the service can scope by it. */
   private getLoungeOwnership(req: RequestWithUser): string | undefined {
@@ -173,7 +176,7 @@ class AgentController {
     try {
       const agentId = this.getAgentSelfId(req);
       const date = req.query.date ? new Date(req.query.date as string) : undefined;
-      const queue = await this.queueService.getQueueByAgent(agentId, date);
+      const queue = await this.queueService.getOrCreateQueueByAgent(agentId, date);
       res.status(200).json({ data: queue, message: 'Queue retrieved successfully' });
     } catch (error) {
       next(error);
@@ -225,11 +228,7 @@ class AgentController {
   public callNextInQueue = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const agentId = this.getAgentSelfId(req);
-      const today = new Date();
-      today.setUTCHours(0, 0, 0, 0);
-      const queue = await this.queueService.getQueueByAgent(agentId, today);
-
-      if (!queue) throw new BadRequestException('No queue exists for today', 'QUEUE_NOT_FOUND');
+      const queue = await this.queueService.getOrCreateQueueByAgent(agentId);
 
       // Complete the current in-service person (if any)
       const inService = queue.persons.find((p: any) => p.status === QueuePersonStatus.IN_SERVICE);
@@ -243,7 +242,7 @@ class AgentController {
         .sort((a: any, b: any) => a.position - b.position)[0];
 
       if (!nextWaiting) {
-        const updated = await this.queueService.getQueueByAgent(agentId, today);
+        const updated = await this.queueService.getOrCreateQueueByAgent(agentId);
         return res.status(200).json({ data: updated, message: 'No more waiting persons' });
       }
 
@@ -270,8 +269,8 @@ class AgentController {
   public getMyQueueStats = async (req: RequestWithUser, res: Response, next: NextFunction) => {
     try {
       const agentId = this.getAgentSelfId(req);
-      const queue = await this.queueService.getQueueByAgent(agentId);
-      const persons = queue?.persons ?? [];
+      const queue = await this.queueService.getOrCreateQueueByAgent(agentId);
+      const persons = queue.persons;
       const stats = {
         total: persons.length,
         waiting: persons.filter((p: any) => p.status === QueuePersonStatus.WAITING).length,
@@ -280,6 +279,17 @@ class AgentController {
         absent: persons.filter((p: any) => p.status === QueuePersonStatus.ABSENT).length,
       };
       res.status(200).json({ data: stats, message: 'Queue stats retrieved successfully' });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /** POST /v1/agents/me/queue/bookings — add a client or walk-in to own queue */
+  public addClientOrVisitorToMyQueue = async (req: RequestWithUser, res: Response, next: NextFunction) => {
+    try {
+      const agentId = this.getAgentSelfId(req);
+      const booking = await this.bookingService.createAgentQueueBooking(agentId, req.body as CreateAgentQueueBookingDto);
+      res.status(201).json({ data: booking, message: 'Client or visitor added to queue successfully' });
     } catch (error) {
       next(error);
     }

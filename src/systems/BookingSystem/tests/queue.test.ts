@@ -35,7 +35,8 @@ const mockBookingDoc = (overrides: any = {}) => ({
 });
 
 beforeEach(() => {
-  jest.clearAllMocks();
+  jest.restoreAllMocks();
+  jest.resetAllMocks();
 });
 
 describe('QueueService', () => {
@@ -76,6 +77,34 @@ describe('QueueService', () => {
 
       const result = await queueService.getQueueByAgent('agent1');
       expect(result).toHaveProperty('agentId', 'agent1');
+    });
+
+    describe('getOrCreateQueueByAgent', () => {
+      it('should create a missing queue and return its populated form', async () => {
+        const queue = mockQueueDoc();
+        const createQueue = jest.spyOn(queueService, 'createQueue').mockResolvedValue(queue as any);
+        const getQueueByAgent = jest.spyOn(queueService, 'getQueueByAgent').mockResolvedValue(queue as any);
+
+        const result = await queueService.getOrCreateQueueByAgent('agent1');
+
+        expect(createQueue).toHaveBeenCalledWith('agent1', undefined);
+        expect(getQueueByAgent).toHaveBeenCalledWith('agent1', undefined);
+        expect(result).toBe(queue);
+      });
+    });
+
+    describe('ensurePersonInQueue', () => {
+      it('should treat an existing booking entry as already populated', async () => {
+        const queue = mockQueueDoc({ persons: [{ bookingId: { toString: () => 'booking1' } }] });
+        (queueModel.findOne as jest.Mock).mockResolvedValue(queue);
+        const getQueueByAgent = jest.spyOn(queueService, 'getQueueByAgent').mockResolvedValue(queue as any);
+        const addPersonToQueue = jest.spyOn(queueService, 'addPersonToQueue');
+
+        await expect(queueService.ensurePersonInQueue('agent1', 'booking1')).resolves.toBe(queue);
+
+        expect(getQueueByAgent).toHaveBeenCalledWith('agent1', expect.any(Date));
+        expect(addPersonToQueue).not.toHaveBeenCalled();
+      });
     });
 
     it('should throw BadRequestException if agentId is empty', async () => {
@@ -209,6 +238,7 @@ describe('QueueService', () => {
         persons: [{ bookingId: { toString: () => 'booking1' }, position: 1, status: QueuePersonStatus.WAITING }],
       });
       (queueModel.findOne as jest.Mock).mockResolvedValueOnce(queue);
+      (queueModel.findOneAndUpdate as jest.Mock).mockResolvedValue(mockQueueDoc());
 
       const populateChain = { populate: jest.fn().mockReturnThis() };
       populateChain.populate
@@ -218,13 +248,32 @@ describe('QueueService', () => {
       (queueModel.findOne as jest.Mock).mockReturnValueOnce(populateChain);
 
       const result = await queueService.updatePersonStatus('agent1', 'booking1', { status: QueuePersonStatus.IN_SERVICE });
-      expect(queue.save).toHaveBeenCalled();
+      expect(queueModel.findOneAndUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          _id: 'queue1',
+          $and: expect.any(Array),
+        }),
+        {
+          $set: expect.objectContaining({
+            'persons.$[target].status': QueuePersonStatus.IN_SERVICE,
+            'persons.$[target].inServiceAt': expect.any(Date),
+          }),
+        },
+        expect.objectContaining({ arrayFilters: [{ 'target.bookingId': 'booking1', 'target.status': QueuePersonStatus.WAITING }] }),
+      );
       expect(result.persons[0].status).toBe(QueuePersonStatus.IN_SERVICE);
     });
 
     it('should update person status from inService to completed', async () => {
       const queue = mockQueueDoc({
-        persons: [{ bookingId: { toString: () => 'booking1' }, position: 1, status: QueuePersonStatus.IN_SERVICE }],
+        persons: [
+          {
+            bookingId: { toString: () => 'booking1' },
+            position: 1,
+            status: QueuePersonStatus.IN_SERVICE,
+            inServiceAt: new Date(),
+          },
+        ],
       });
       (queueModel.findOne as jest.Mock).mockResolvedValueOnce(queue);
 
@@ -238,6 +287,25 @@ describe('QueueService', () => {
       const result = await queueService.updatePersonStatus('agent1', 'booking1', { status: QueuePersonStatus.COMPLETED });
       expect(queue.save).toHaveBeenCalled();
       expect(result.persons[0].status).toBe(QueuePersonStatus.COMPLETED);
+      expect(queue.persons[0].inServiceAt).toBeUndefined();
+    });
+
+    it('should not start a second person while another is in service', async () => {
+      const queue = mockQueueDoc({
+        persons: [
+          { bookingId: { toString: () => 'booking1' }, position: 0, status: QueuePersonStatus.IN_SERVICE },
+          { bookingId: { toString: () => 'booking2' }, position: 1, status: QueuePersonStatus.WAITING },
+        ],
+      });
+      (queueModel.findOne as jest.Mock).mockResolvedValueOnce(queue);
+
+      const populateChain = { populate: jest.fn().mockReturnThis() };
+      populateChain.populate.mockReturnValueOnce(populateChain).mockReturnValueOnce(populateChain).mockResolvedValueOnce(mockQueueDoc());
+      (queueModel.findOne as jest.Mock).mockReturnValueOnce(populateChain);
+
+      await expect(queueService.updatePersonStatus('agent1', 'booking2', { status: QueuePersonStatus.IN_SERVICE })).rejects.toThrow(
+        'Another person is already in service',
+      );
     });
 
     it('should update person status from waiting to absent', async () => {
@@ -256,6 +324,7 @@ describe('QueueService', () => {
       const result = await queueService.updatePersonStatus('agent1', 'booking1', { status: QueuePersonStatus.ABSENT });
       expect(queue.save).toHaveBeenCalled();
       expect(result.persons[0].status).toBe(QueuePersonStatus.ABSENT);
+      expect(bookingModel.findByIdAndUpdate).toHaveBeenCalledWith('booking1', { status: BookingStatus.ABSENT });
     });
 
     it('should update person status from absent back to waiting', async () => {
@@ -274,6 +343,7 @@ describe('QueueService', () => {
       const result = await queueService.updatePersonStatus('agent1', 'booking1', { status: QueuePersonStatus.WAITING });
       expect(queue.save).toHaveBeenCalled();
       expect(result.persons[0].status).toBe(QueuePersonStatus.WAITING);
+      expect(bookingModel.findByIdAndUpdate).toHaveBeenCalledWith('booking1', { status: BookingStatus.IN_QUEUE });
     });
 
     it('should throw NotFoundException if queue not found', async () => {
@@ -370,6 +440,23 @@ describe('QueueService', () => {
 
   // ─── populateDailyQueues ──────────────────────────────────────
   describe('populateDailyQueues', () => {
+    it('should keep a booking retryable when queue insertion fails', async () => {
+      const booking = mockBookingDoc({
+        status: BookingStatus.CONFIRMED,
+        agentIds: ['agent1'],
+      });
+      (bookingModel.find as jest.Mock).mockResolvedValue([booking]);
+      jest.spyOn(QueueService.prototype, 'ensurePersonInQueue').mockRejectedValue(new Error('Queue insertion failed'));
+
+      const result = await queueService.populateDailyQueues();
+
+      expect(result.errors).toHaveLength(1);
+      expect(booking.status).toBe(BookingStatus.IN_QUEUE);
+      expect(booking.save).toHaveBeenCalled();
+      expect(result.processed).toBe(0);
+      expect(bookingModel.find).toHaveBeenCalledWith(expect.objectContaining({ status: { $in: [BookingStatus.CONFIRMED, BookingStatus.IN_QUEUE] } }));
+    });
+
     it('should process confirmed bookings for today and add to agent queues', async () => {
       const booking = mockBookingDoc({
         _id: 'booking1',
@@ -378,28 +465,13 @@ describe('QueueService', () => {
       });
 
       (bookingModel.find as jest.Mock).mockResolvedValue([booking]);
-
-      // Mock addPersonToQueue internals
-      (bookingModel.findById as jest.Mock).mockResolvedValue({
-        ...booking,
-        status: BookingStatus.IN_QUEUE,
-        agentIds: ['agent1'],
-      });
-
-      const queue = mockQueueDoc({ persons: [] });
-      (queueModel.findOne as jest.Mock).mockResolvedValueOnce(queue);
-
-      const populateChain = { populate: jest.fn().mockReturnThis() };
-      populateChain.populate
-        .mockReturnValueOnce(populateChain)
-        .mockReturnValueOnce(populateChain)
-        .mockResolvedValueOnce(mockQueueDoc({ persons: [{ bookingId: 'booking1', position: 1 }] }));
-      (queueModel.findOne as jest.Mock).mockReturnValueOnce(populateChain);
+      const ensurePerson = jest.spyOn(QueueService.prototype, 'ensurePersonInQueue').mockResolvedValue(mockQueueDoc() as any);
 
       const result = await queueService.populateDailyQueues();
       expect(result.processed).toBe(1);
       expect(booking.save).toHaveBeenCalled();
       expect(booking.status).toBe(BookingStatus.IN_QUEUE);
+      expect(ensurePerson).toHaveBeenCalledWith('agent1', 'booking1');
     });
 
     it('should return 0 processed when no confirmed bookings exist for today', async () => {
@@ -419,27 +491,32 @@ describe('QueueService', () => {
 
       (bookingModel.find as jest.Mock).mockResolvedValue([booking]);
 
-      // For each addPersonToQueue call, mock the internals
-      (bookingModel.findById as jest.Mock).mockResolvedValue({
-        ...booking,
-        status: BookingStatus.IN_QUEUE,
-        agentIds: ['agent1', 'agent2'],
-      });
-
-      const queue1 = mockQueueDoc({ agentId: 'agent1', persons: [] });
-      const queue2 = mockQueueDoc({ agentId: 'agent2', persons: [] });
-
-      const populateChain = { populate: jest.fn().mockReturnThis() };
-      populateChain.populate.mockReturnThis().mockResolvedValue(mockQueueDoc({ persons: [{ bookingId: 'booking1' }] }));
-
-      (queueModel.findOne as jest.Mock)
-        .mockResolvedValueOnce(queue1) // addPersonToQueue for agent1
-        .mockReturnValueOnce(populateChain) // getQueueByAgent for agent1
-        .mockResolvedValueOnce(queue2) // addPersonToQueue for agent2
-        .mockReturnValueOnce(populateChain); // getQueueByAgent for agent2
+      const ensurePerson = jest.spyOn(QueueService.prototype, 'ensurePersonInQueue').mockResolvedValue(mockQueueDoc() as any);
 
       const result = await queueService.populateDailyQueues();
       expect(result.processed).toBe(1);
+      expect(ensurePerson).toHaveBeenNthCalledWith(1, 'agent1', 'booking1');
+      expect(ensurePerson).toHaveBeenNthCalledWith(2, 'agent2', 'booking1');
+    });
+
+    it('should leave partial multi-agent population retryable', async () => {
+      const booking = mockBookingDoc({
+        _id: 'booking1',
+        status: BookingStatus.CONFIRMED,
+        agentIds: ['agent1', 'agent2'],
+      });
+      (bookingModel.find as jest.Mock).mockResolvedValue([booking]);
+      const ensurePerson = jest
+        .spyOn(QueueService.prototype, 'ensurePersonInQueue')
+        .mockResolvedValueOnce(mockQueueDoc() as any)
+        .mockRejectedValueOnce(new Error('Second queue unavailable'));
+
+      const result = await queueService.populateDailyQueues();
+
+      expect(booking.status).toBe(BookingStatus.IN_QUEUE);
+      expect(result.processed).toBe(0);
+      expect(result.errors).toEqual([expect.stringContaining('Second queue unavailable')]);
+      expect(ensurePerson).toHaveBeenCalledTimes(2);
     });
 
     it('should collect errors without stopping processing', async () => {
@@ -457,19 +534,7 @@ describe('QueueService', () => {
 
       (bookingModel.find as jest.Mock).mockResolvedValue([booking1, booking2]);
 
-      // booking2 succeeds
-      (bookingModel.findById as jest.Mock).mockResolvedValue({
-        ...booking2,
-        status: BookingStatus.IN_QUEUE,
-        agentIds: ['agent1'],
-      });
-
-      const queue = mockQueueDoc({ persons: [] });
-      (queueModel.findOne as jest.Mock).mockResolvedValueOnce(queue);
-
-      const populateChain = { populate: jest.fn().mockReturnThis() };
-      populateChain.populate.mockReturnThis().mockResolvedValue(mockQueueDoc({ persons: [{ bookingId: 'booking2' }] }));
-      (queueModel.findOne as jest.Mock).mockReturnValueOnce(populateChain);
+      jest.spyOn(QueueService.prototype, 'ensurePersonInQueue').mockResolvedValue(mockQueueDoc() as any);
 
       const result = await queueService.populateDailyQueues();
       expect(result.errors.length).toBeGreaterThan(0);

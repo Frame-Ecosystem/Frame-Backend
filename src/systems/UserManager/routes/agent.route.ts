@@ -8,6 +8,7 @@ import upload, { optionalUpload } from '@middlewares/imageUpload.middleware';
 import validationMiddleware from '@middlewares/validation.middleware';
 import { UpdateAgentDto, UpdateAgentSelfDto, ToggleAvailabilityDto } from '@systems/UserManager/dtos/agent.dto';
 import { ReorderQueuePersonDto } from '@systems/BookingSystem/dtos/queue.dto';
+import { CreateAgentQueueBookingDto } from '@systems/BookingSystem/dtos/booking.dto';
 
 /**
  * /v1/agents
@@ -56,6 +57,14 @@ class AgentRoute implements Routes {
 
     this.router.get('/me/queue', authMiddleware, agentMiddleware, this.agentController.getMyQueue);
     this.router.get('/me/queue/stats', authMiddleware, agentMiddleware, this.agentController.getMyQueueStats);
+    this.router.post(
+      '/me/queue/bookings',
+      authMiddleware,
+      agentMiddleware,
+      csrfMiddleware,
+      validationMiddleware(CreateAgentQueueBookingDto, 'body'),
+      this.agentController.addClientOrVisitorToMyQueue,
+    );
 
     this.router.post('/me/queue/persons', authMiddleware, agentMiddleware, csrfMiddleware, this.agentController.addToMyQueue);
 
@@ -106,7 +115,14 @@ class AgentRoute implements Routes {
       this.agentController.updateAgent,
     );
     this.router.delete('/:agentId', authMiddleware, adminOrLoungeMiddleware, csrfMiddleware, this.agentController.deleteAgent);
-    this.router.put('/:agentId/image', authMiddleware, adminOrLoungeMiddleware, csrfMiddleware, upload.single('image'), this.agentController.uploadProfileImage);
+    this.router.put(
+      '/:agentId/image',
+      authMiddleware,
+      adminOrLoungeMiddleware,
+      csrfMiddleware,
+      upload.single('image'),
+      this.agentController.uploadProfileImage,
+    );
   }
 }
 

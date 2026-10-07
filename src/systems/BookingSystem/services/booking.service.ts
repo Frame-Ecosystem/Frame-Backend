@@ -4,7 +4,7 @@ import bookingModel from '@systems/BookingSystem/models/booking.model';
 import userModel from '@systems/UserManager/models/user.model';
 import { isEmpty } from '@utils/util';
 import { logger } from '@utils/logger';
-import { CreateBookingDto, UpdateBookingDto } from '@systems/BookingSystem/dtos/booking.dto';
+import { CreateAgentQueueBookingDto, CreateBookingDto, UpdateBookingDto } from '@systems/BookingSystem/dtos/booking.dto';
 import mongoose from 'mongoose';
 import QueueService from '@systems/BookingSystem/services/queue.service';
 import SocketService from '@systems/NotificationSystem/services/socket.service';
@@ -203,20 +203,49 @@ class BookingService {
   }
 
   /**
+   * Agent-initiated walk-in/client queue booking, scoped to the authenticated
+   * agent's own lounge and qualified services.
+   */
+  public async createAgentQueueBooking(agentId: string, bookingData: CreateAgentQueueBookingDto): Promise<Booking> {
+    const agent = await this.users.findOne({ _id: agentId, type: 'agent', isBlocked: false });
+    if (!agent?.parentLounge) {
+      throw new NotFoundException('Agent or parent lounge not found', 'AGENT_NOT_FOUND');
+    }
+
+    const qualifiedServiceIds = (agent.services ?? []).map((service: any) => service.toString());
+    const requestedServiceIds = bookingData.loungeServiceIds ?? [];
+    if (requestedServiceIds.some(serviceId => !qualifiedServiceIds.includes(serviceId))) {
+      throw new BadRequestException('Selected services are not assigned to this agent', 'AGENT_SERVICE_MISMATCH');
+    }
+
+    return this.createLoungeQueueBooking(
+      {
+        ...bookingData,
+        loungeId: agent.parentLounge.toString(),
+        agentId,
+      },
+      false,
+    );
+  }
+
+  /**
    * Lounge-initiated queue booking.
    * Two cases:
    *   1. Visitor (walk-in): no account — uses visitorName
    *   2. Existing client: looked up by clientPhone or clientEmail
    */
-  public async createLoungeQueueBooking(bookingData: {
-    loungeId: string;
-    agentId: string;
-    visitorName?: string;
-    clientPhone?: string;
-    clientEmail?: string;
-    loungeServiceIds?: string[];
-    notes?: string;
-  }): Promise<Booking> {
+  public async createLoungeQueueBooking(
+    bookingData: {
+      loungeId: string;
+      agentId: string;
+      visitorName?: string;
+      clientPhone?: string;
+      clientEmail?: string;
+      loungeServiceIds?: string[];
+      notes?: string;
+    },
+    enforceQueueAvailability = true,
+  ): Promise<Booking> {
     try {
       if (isEmpty(bookingData)) {
         throw new BadRequestException('Booking data is required');
@@ -244,7 +273,7 @@ class BookingService {
 
       // Check if agent accepts queue bookings
       const agent = await this.users.findOne({ _id: bookingData.agentId, type: 'agent' });
-      if (!agent.acceptQueueBooking) {
+      if (enforceQueueAvailability && !agent.acceptQueueBooking) {
         throw new BadRequestException('This agent does not accept queue bookings', 'QUEUE_BOOKING_DISABLED');
       }
 

@@ -141,6 +141,15 @@ class QueueService {
     return queue;
   }
 
+  public async getOrCreateQueueByAgent(agentId: string, date?: Date): Promise<Queue> {
+    await this.createQueue(agentId, date);
+    return this.getQueueByAgent(agentId, date);
+  }
+
+  public async publishQueueUpdate(agentId: string, date?: Date): Promise<Queue> {
+    return this.fetchAndEmit(agentId, date);
+  }
+
   public async getQueuesByLounge(loungeId: string, date?: Date): Promise<Queue[]> {
     if (isEmpty(loungeId)) throw new BadRequestException('Lounge ID is required', 'MISSING_LOUNGE_ID');
 
@@ -208,13 +217,127 @@ class QueueService {
     return this.saveAndEmit(agentId, queue, queueDate);
   }
 
+  public async ensurePersonInQueue(agentId: string, bookingId: string): Promise<Queue> {
+    if (isEmpty(agentId) || isEmpty(bookingId)) {
+      throw new BadRequestException('Agent ID and Booking ID are required', 'MISSING_IDS');
+    }
+
+    const queueDate = getStartOfToday();
+    const existingQueue = await this.queues.findOne({ agentId, date: queueDate });
+    if (existingQueue?.persons.some((person: any) => person.bookingId.toString() === bookingId)) {
+      return this.getQueueByAgent(agentId, queueDate);
+    }
+
+    const booking = await this.bookings.findById(bookingId);
+    if (!booking) throw new NotFoundException('Booking not found', 'BOOKING_NOT_FOUND');
+    if (booking.status !== BookingStatus.IN_QUEUE) {
+      throw new BadRequestException('Only bookings with inQueue status can be added to the queue', 'INVALID_BOOKING_STATUS');
+    }
+
+    const agentAssigned = booking.agentIds?.some(id => id.toString() === agentId);
+    if (!agentAssigned) {
+      throw new BadRequestException('Agent is not assigned to this booking', 'AGENT_NOT_ASSIGNED');
+    }
+
+    await this.createQueue(agentId, queueDate);
+    const queue = await this.queues.findOne({ agentId, date: queueDate });
+    if (!queue) throw new NotFoundException('Queue not found for this agent on this date', 'QUEUE_NOT_FOUND');
+
+    if (queue.persons.some((person: any) => person.bookingId.toString() === bookingId)) {
+      return this.getQueueByAgent(agentId, queueDate);
+    }
+
+    const position = queue.persons.reduce((max: number, person: any) => Math.max(max, person.position), 0) + 1;
+    const clientId = (booking as any).clientId?.toString();
+    const visitorName = (booking as any).visitorName;
+    const updatedQueue = await this.queues.findOneAndUpdate(
+      {
+        _id: queue._id,
+        persons: { $not: { $elemMatch: { bookingId } } },
+      },
+      {
+        $push: {
+          persons: {
+            bookingId,
+            ...(clientId && { clientId }),
+            ...(visitorName && { visitorName }),
+            position,
+            status: QueuePersonStatus.WAITING,
+            joinedAt: new Date(),
+            reminderSent: false,
+          },
+        },
+      },
+      { new: true },
+    );
+
+    if (!updatedQueue) {
+      const latestQueue = await this.queues.findOne({ agentId, date: queueDate });
+      if (!latestQueue?.persons.some((person: any) => person.bookingId.toString() === bookingId)) {
+        throw new BadRequestException('Queue changed while adding booking. Retry population.', 'QUEUE_CHANGED');
+      }
+    }
+
+    logger.info(`QueueService.ensurePersonInQueue: booking ${bookingId} ensured for agent ${agentId}`);
+    return this.fetchAndEmit(agentId, queueDate);
+  }
+
   public async updatePersonStatus(agentId: string, bookingId: string, data: UpdateQueuePersonDto): Promise<Queue> {
     const queueDate = getStartOfToday();
     const queue = await this.findQueueOrThrow(agentId, queueDate);
     const person = this.findPersonOrThrow(queue, bookingId);
 
     validateStatusTransition(person.status, data.status);
+
+    if (data.status === QueuePersonStatus.IN_SERVICE) {
+      const anotherInService = queue.persons.some(
+        (candidate: any) => candidate.bookingId.toString() !== bookingId && candidate.status === QueuePersonStatus.IN_SERVICE,
+      );
+      if (anotherInService) {
+        throw new BadRequestException('Another person is already in service', 'QUEUE_PERSON_ALREADY_IN_SERVICE');
+      }
+
+      const updatedQueue = await this.queues.findOneAndUpdate(
+        {
+          _id: queue._id,
+          $and: [
+            { persons: { $elemMatch: { bookingId, status: person.status } } },
+            {
+              persons: {
+                $not: {
+                  $elemMatch: { bookingId: { $ne: bookingId }, status: QueuePersonStatus.IN_SERVICE },
+                },
+              },
+            },
+          ],
+        },
+        {
+          $set: {
+            'persons.$[target].status': QueuePersonStatus.IN_SERVICE,
+            'persons.$[target].inServiceAt': new Date(),
+          },
+        },
+        {
+          new: true,
+          arrayFilters: [{ 'target.bookingId': bookingId, 'target.status': person.status }],
+        },
+      );
+
+      if (!updatedQueue) {
+        throw new BadRequestException('Queue changed while starting service. Refresh and try again.', 'QUEUE_CHANGED');
+      }
+
+      await this.handlePersonStatusSideEffects(bookingId, data.status, agentId);
+      logger.info(`QueueService.updatePersonStatus: booking ${bookingId} → ${data.status}`);
+      return this.fetchAndEmit(agentId, queueDate);
+    }
+
+    if (data.status === QueuePersonStatus.ABSENT) {
+      await this.bookings.findByIdAndUpdate(bookingId, { status: BookingStatus.ABSENT });
+    }
+
     person.status = data.status;
+    if (person.inServiceAt) person.inServiceAt = undefined;
 
     // When completed, set position to 0 and shift remaining persons up
     let shiftedPersons: any[] = [];
@@ -367,33 +490,32 @@ class QueueService {
    * Handle booking status update + notifications triggered by a queue status change.
    *
    * - COMPLETED  → finalise booking as completed
-   * - ABSENT     → notification only (booking stays inQueue; actual absent is set via remove with markAbsent)
+   * - ABSENT     → update the booking to absent while retaining its queue record
    * - IN_SERVICE → notification only (booking stays inQueue)
    * - WAITING    → restore booking to inQueue + notification
    */
   private async handlePersonStatusSideEffects(bookingId: string, status: QueuePersonStatus, agentId: string): Promise<void> {
-    try {
-      switch (status) {
-        case QueuePersonStatus.COMPLETED:
-          await finalizeBooking(bookingId, BookingStatus.COMPLETED, { notify: 'completed', agentId });
-          break;
-        case QueuePersonStatus.ABSENT:
-          // Booking stays inQueue — actual absent status is set via removePersonFromQueue(markAbsent).
-          // Still notify the client so they know they were marked absent in the queue.
+    switch (status) {
+      case QueuePersonStatus.COMPLETED:
+        await finalizeBooking(bookingId, BookingStatus.COMPLETED, { notify: 'completed', agentId });
+        break;
+      case QueuePersonStatus.ABSENT:
+        try {
           await this.notifyWithoutStatusChange(bookingId, agentId, booking => this.notificationService.notifyBookingAbsent(booking));
-          break;
-        case QueuePersonStatus.IN_SERVICE:
-          // Only notify — booking status remains inQueue
+        } catch (err: any) {
+          logger.warn(`QueueService.handlePersonStatusSideEffects: absent notification failed for booking ${bookingId}: ${err.message}`);
+        }
+        break;
+      case QueuePersonStatus.IN_SERVICE:
+        try {
           await this.notifyWithoutStatusChange(bookingId, agentId, booking => this.notificationService.notifyQueueInService(booking));
-          break;
-        case QueuePersonStatus.WAITING:
-          await this.updateBookingAndNotify(bookingId, BookingStatus.IN_QUEUE, agentId, booking =>
-            this.notificationService.notifyBackInQueue(booking),
-          );
-          break;
-      }
-    } catch (err: any) {
-      logger.warn(`QueueService.handlePersonStatusSideEffects: failed for booking ${bookingId}: ${err.message}`);
+        } catch (err: any) {
+          logger.warn(`QueueService.handlePersonStatusSideEffects: in-service notification failed for booking ${bookingId}: ${err.message}`);
+        }
+        break;
+      case QueuePersonStatus.WAITING:
+        await this.updateBookingAndNotify(bookingId, BookingStatus.IN_QUEUE, agentId, booking => this.notificationService.notifyBackInQueue(booking));
+        break;
     }
   }
 
@@ -405,11 +527,15 @@ class QueueService {
     notify: (booking: any) => void,
   ): Promise<void> {
     await this.bookings.findByIdAndUpdate(bookingId, { status: bookingStatus });
-    const booking = await populateBookingForNotify(bookingId);
-    if (booking) {
-      (booking as any).agentId = agentId;
-      this.socketService.emitBookingUpdated(booking);
-      notify(booking);
+    try {
+      const booking = await populateBookingForNotify(bookingId);
+      if (booking) {
+        (booking as any).agentId = agentId;
+        this.socketService.emitBookingUpdated(booking);
+        notify(booking);
+      }
+    } catch (err: any) {
+      logger.warn(`QueueService.updateBookingAndNotify: notification failed for booking ${bookingId}: ${err.message}`);
     }
   }
 

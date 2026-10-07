@@ -136,6 +136,13 @@ jest.mock('@systems/UserManager/services/agent.service', () => ({
   })),
 }));
 
+jest.mock('@systems/BookingSystem/services/booking.service', () => ({
+  __esModule: true,
+  default: jest.fn().mockImplementation(() => ({
+    createAgentQueueBooking: jest.fn().mockResolvedValue({ _id: 'booking1', status: 'inQueue' }),
+  })),
+}));
+
 jest.mock('@systems/UserManager/services/client.service', () => ({
   __esModule: true,
   default: jest.fn().mockImplementation(() => ({
@@ -176,19 +183,20 @@ import ClientRoute from '@systems/UserManager/routes/client.route';
 import FollowRoute from '@systems/UserManager/routes/follow.route';
 import userModel from '@systems/UserManager/models/user.model';
 import { makeClientUser, makeLoungeUser, testIds } from '../../../tests/helpers/factories';
-import { clientToken, loungeToken, bearerHeader } from '../../../tests/helpers/jwt.helper';
+import { clientToken, loungeToken, bearerHeader, makeToken } from '../../../tests/helpers/jwt.helper';
 import { expectRouteOk } from '../../../tests/helpers/assertions';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 
 const mockClient = makeClientUser();
 const mockLounge = makeLoungeUser();
+const mockAgent = { ...makeClientUser(), _id: testIds.agent, type: 'agent', parentLounge: testIds.lounge };
 
 let server: Express.Application;
 
 beforeAll(() => {
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.lounge ? mockLounge : mockClient;
+    const user = id === testIds.lounge ? mockLounge : id === testIds.agent ? mockAgent : mockClient;
     return { select: jest.fn().mockResolvedValue(user) };
   });
   server = new App([new CurrentUserRoute(), new AgentRoute(), new ClientRoute(), new FollowRoute()]).getServer();
@@ -197,7 +205,7 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   (userModel.findById as jest.Mock).mockImplementation((id: string) => {
-    const user = id === testIds.lounge ? mockLounge : mockClient;
+    const user = id === testIds.lounge ? mockLounge : id === testIds.agent ? mockAgent : mockClient;
     return { select: jest.fn().mockResolvedValue(user) };
   });
 });
@@ -265,6 +273,37 @@ describe('UserManager — Route Tests', () => {
       it('returns 200 with agents list (client token)', async () => {
         const res = await request(server).get('/v1/agents').set('Authorization', bearerHeader(clientToken()));
         expectRouteOk(res.status);
+      });
+
+      describe('POST /v1/agents/me/queue/bookings', () => {
+        it('allows the authenticated agent to add a visitor to their queue', async () => {
+          const agentToken = makeToken({ _id: testIds.agent });
+          const res = await request(server)
+            .post('/v1/agents/me/queue/bookings')
+            .set('Authorization', bearerHeader(agentToken))
+            .send({ visitorName: 'Walk-in Guest' });
+
+          expectRouteOk(res.status);
+        });
+
+        it('allows the authenticated agent to add an existing client to their queue', async () => {
+          const agentToken = makeToken({ _id: testIds.agent });
+          const res = await request(server)
+            .post('/v1/agents/me/queue/bookings')
+            .set('Authorization', bearerHeader(agentToken))
+            .send({ clientPhone: '+21612345678', clientEmail: 'client@example.com' });
+
+          expectRouteOk(res.status);
+        });
+
+        it('rejects a lounge from using the agent-only queue booking endpoint', async () => {
+          const res = await request(server)
+            .post('/v1/agents/me/queue/bookings')
+            .set('Authorization', bearerHeader(loungeToken()))
+            .send({ visitorName: 'Walk-in Guest' });
+
+          expect(res.status).toBe(403);
+        });
       });
 
       it('returns 401 without token', async () => {
