@@ -56,7 +56,7 @@ export interface Reel {
   videoPublicId: string;
   thumbnailUrl?: string;
   thumbnailPublicId?: string;
-  duration: number; // seconds (max 300)
+  duration: number; // seconds (max 180)
   hashtags: string[];
   likeCount: number;
   commentCount: number;

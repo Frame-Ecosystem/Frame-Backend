@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsArray, IsNumber, MaxLength, ArrayMaxSize, Min, Max } from 'class-validator';
+import { MAX_REEL_DURATION_SECONDS } from '@systems/FeedContentSystem/contentLimits';
 
 export class CreateReelDto {
   @IsOptional()
@@ -8,7 +9,7 @@ export class CreateReelDto {
 
   @IsNumber()
   @Min(1)
-  @Max(300)
+  @Max(MAX_REEL_DURATION_SECONDS)
   duration!: number;
 
   @IsOptional()

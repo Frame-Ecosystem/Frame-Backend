@@ -9,18 +9,28 @@ You are updating the Feed creation UX for Frame Beauty.
 Implement the following backend-aligned constraints and error handling in the frontend:
 
 1. Reel duration limit
-- New max reel duration is 5 minutes (300 seconds).
-- Keep minimum duration as 1 second.
-- Prevent submit when duration is outside 1-300.
-- Show inline error: "Duration must be between 1 and 300 seconds".
 
-2. Post media limit
+- New max reel duration is 3 minutes (180 seconds).
+- Keep minimum duration as 1 second.
+- Prevent submit when duration is outside 1-180.
+- Show inline error: "Duration must be between 1 and 180 seconds".
+- The backend derives the saved duration from the uploaded video's metadata.
+
+2. Reel upload limits and thumbnail
+
+- Limit video uploads to 90 MiB and custom thumbnails to 5 MiB.
+- Custom thumbnails are optional; the backend automatically selects and stores a representative video frame when one is omitted.
+- Keep the existing supported video and image formats; recommend vertical 9:16 without rejecting other aspect ratios.
+
+3. Post media limit
+
 - New max image count for a photo post is 20 images.
 - Keep max image size at 10 MB per image.
 - Prevent selecting more than 20 images.
 - Show inline error: "You can upload up to 20 images".
 
-3. Handle backend error codes from API responses
+4. Handle backend error codes from API responses
+
 - INVALID_DURATION: show duration validation UI on reel form.
 - POST_MEDIA_LIMIT_EXCEEDED: show media count error on post form.
 - UPLOAD_FILE_TOO_LARGE: show "One or more files exceed the size limit".
@@ -28,21 +38,24 @@ Implement the following backend-aligned constraints and error handling in the fr
 - UPLOAD_UNEXPECTED_FIELD: show "Invalid upload payload".
 - INVALID_HASHTAGS: show "Hashtags format is invalid".
 
-4. UX details
+5. UX details
+
 - Disable submit button while there are validation errors.
 - For multipart requests, validate files client-side before upload to reduce failed requests.
 - Preserve server-side errors in a top-level alert area and map known codes to field-level errors.
 - Keep API payload shape unchanged.
 
-5. Rate limit handling (feed routes)
+6. Rate limit handling (feed routes)
+
 - Feed endpoints return `429` with `{ message, code: "RATE_LIMIT_EXCEEDED", retryAfter }` when the limit is exceeded.
 - Read the `retryAfter` value (seconds) from the response body and show a non-blocking banner: "Too many requests — please wait {retryAfter}s before refreshing the feed."
 - Disable the pull-to-refresh / load-more trigger for the duration of `retryAfter`.
 - Do not show a 429 as a generic error; map `RATE_LIMIT_EXCEEDED` to the feed-level banner only.
 - The `RateLimit-Remaining` response header can be used to proactively slow down polling before a 429 is reached.
 
-6. QA checklist
-- Reel at 300 seconds uploads successfully.
+7. QA checklist
+
+- Reel at 180 seconds uploads successfully.
 - Reel at 301 seconds is blocked client-side and correctly handled if returned from backend.
 - Post with 20 images uploads successfully.
 - Post with 21 images is blocked client-side and correctly handled if returned from backend.

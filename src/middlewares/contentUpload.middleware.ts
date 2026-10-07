@@ -1,13 +1,17 @@
 import multer, { Multer } from 'multer';
 import { Request, Response, NextFunction } from 'express';
+import { randomUUID } from 'crypto';
+import { tmpdir } from 'os';
+import { extname } from 'path';
 import { HttpException } from '@exceptions/HttpException';
+import { MAX_REEL_VIDEO_BYTES, REEL_THUMBNAIL_MIME_TYPES, REEL_VIDEO_MIME_TYPES } from '@systems/FeedContentSystem/contentLimits';
 
 const POST_MAX_IMAGES = 20;
 const POST_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
-const REEL_VIDEO_MAX_BYTES = 50 * 1024 * 1024;
 
 const handleUploadError = (err: any, next: NextFunction, fallbackCode: string) => {
   if (!err) return next();
+  if (err instanceof HttpException) return next(err);
 
   if (err?.name === 'MulterError') {
     if (err.code === 'LIMIT_FILE_SIZE') {
@@ -48,22 +52,22 @@ const postUpload: Multer = multer({
 /* ───────── Reel video (1 video + optional thumbnail) ───────── */
 
 const videoFilter = (_req: any, file: Express.Multer.File, cb: any) => {
-  const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  const videoTypes = ['video/mp4', 'video/quicktime', 'video/webm'];
-
-  if (file.fieldname === 'video' && videoTypes.includes(file.mimetype)) {
+  if (file.fieldname === 'video' && REEL_VIDEO_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
-  } else if (file.fieldname === 'thumbnail' && imageTypes.includes(file.mimetype)) {
+  } else if (file.fieldname === 'thumbnail' && REEL_THUMBNAIL_MIME_TYPES.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file type for field "${file.fieldname}"`), false);
+    cb(new HttpException(400, 'Unsupported reel media file type', 'INVALID_UPLOAD_FILE_TYPE'), false);
   }
 };
 
 const reelUpload: Multer = multer({
-  storage,
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, tmpdir()),
+    filename: (_req, file, cb) => cb(null, `${randomUUID()}${extname(file.originalname)}`),
+  }),
   fileFilter: videoFilter,
-  limits: { fileSize: REEL_VIDEO_MAX_BYTES }, // 50 MB for video
+  limits: { fileSize: MAX_REEL_VIDEO_BYTES, files: 2, fields: 5, parts: 7 },
 });
 
 /* ───────── Middleware exports ───────── */

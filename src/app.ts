@@ -29,6 +29,7 @@ class App {
   constructor(routes: Routes[]) {
     this.app = express();
     this.httpServer = createServer(this.app);
+    this.httpServer.requestTimeout = 15 * 60 * 1000;
     this.env = NODE_ENV || 'development';
     this.port = PORT || 3000;
 

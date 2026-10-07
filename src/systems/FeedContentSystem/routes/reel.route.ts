@@ -20,7 +20,7 @@ class ReelRoute implements Routes {
     /**
      * @route   POST /v1/reels
      * @desc    Create a new reel (video + optional thumbnail)
-     * @access  Private (Client or Lounge)
+     * @access  Private (Client, Lounge, or Agent)
      */
     this.router.post(
       '/',
