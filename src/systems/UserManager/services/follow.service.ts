@@ -5,6 +5,7 @@ import { BadRequestException, NotFoundException } from '@exceptions/HttpExceptio
 import { assertObjectId } from '@utils/validators';
 import { logger } from '@utils/logger';
 import { POPULATE_FOLLOW_USER } from '@utils/social-matrix';
+import type { SocialUserType } from '@utils/social-matrix';
 
 /** Allowed follow relationships between client, lounge, and agent user types. */
 const ALLOWED_FOLLOW_PAIRS = new Set([
@@ -56,6 +57,10 @@ class FollowService {
     if (!ALLOWED_FOLLOW_PAIRS.has(pairKey)) {
       throw new BadRequestException(`A ${followerType} cannot follow a ${targetType}`, 'INVALID_FOLLOW_PAIR');
     }
+    const followerProfileType = this.getSocialUserType(followerType);
+    if (!followerProfileType) {
+      throw new BadRequestException(`A ${followerType} cannot follow a ${targetType}`, 'INVALID_FOLLOW_PAIR');
+    }
 
     // Check if already following
     const existing = await this.follows.findOne({ followerId, followingId: targetId }).lean().exec();
@@ -85,8 +90,9 @@ class FollowService {
     const follower = await this.users.findById(followerId).select('firstName lastName loungeTitle profileImage type').lean().exec();
     const followerName = this.notificationService.extractName(follower);
     const followerImage = follower?.profileImage?.url;
-    this.notificationService.notifyNewFollower(targetId, followerId, followerName, followerImage)
-      .catch((err) => logger.error(`FollowService: failed to send new follower notification: ${err.message}`));
+    this.notificationService
+      .notifyNewFollower(targetId, followerId, followerProfileType, followerName, followerImage)
+      .catch(err => logger.error(`FollowService: failed to send new follower notification: ${err.message}`));
 
     logger.info(`FollowService.follow: ${followerType} ${followerId} → ${targetType} ${targetId}`);
     return { following: true };
@@ -232,6 +238,17 @@ class FollowService {
       this.users.findByIdAndUpdate(followerId, { followingCount: followerFollowingCount }),
       this.users.findByIdAndUpdate(followingId, { followersCount: followingFollowersCount }),
     ]);
+  }
+
+  private getSocialUserType(type: string): SocialUserType | null {
+    switch (type) {
+      case 'client':
+      case 'lounge':
+      case 'agent':
+        return type;
+      default:
+        return null;
+    }
   }
 }
 

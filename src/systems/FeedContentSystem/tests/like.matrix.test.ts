@@ -11,6 +11,9 @@
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
 
+const mockNotifyLoungeLiked = jest.fn().mockResolvedValue(undefined);
+const mockNotifyAgentLiked = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('mongoose', () => ({
   ...jest.requireActual('mongoose'),
   connect: jest.fn().mockResolvedValue({}),
@@ -28,8 +31,8 @@ jest.mock('@systems/NotificationSystem/services/notification.service', () => ({
   default: {
     getInstance: jest.fn().mockReturnValue({
       extractName: jest.fn().mockReturnValue('Test User'),
-      notifyLoungeLiked: jest.fn().mockResolvedValue(undefined),
-      notifyAgentLiked: jest.fn().mockResolvedValue(undefined),
+      notifyLoungeLiked: mockNotifyLoungeLiked,
+      notifyAgentLiked: mockNotifyAgentLiked,
     }),
   },
 }));
@@ -154,6 +157,7 @@ describe('LikeService — Like Matrix & Toggle', () => {
       const result = await svc.toggleLike(userId, targetId);
       expect(result.liked).toBe(true);
       expect(mockLikeCreate).toHaveBeenCalled();
+      expect(mockNotifyLoungeLiked).toHaveBeenCalledWith(targetId, userId, 'client', 'Test User', undefined);
     });
 
     it('creates a like for client → agent', async () => {
@@ -164,6 +168,7 @@ describe('LikeService — Like Matrix & Toggle', () => {
 
       const result = await svc.toggleLike(userId, targetId);
       expect(result.liked).toBe(true);
+      expect(mockNotifyAgentLiked).toHaveBeenCalledWith(targetId, userId, 'client', 'Test User', undefined);
     });
 
     it('creates a like for lounge → agent', async () => {

@@ -39,10 +39,7 @@ class LikeService {
     const likerType = liker.type as SocialUserType;
 
     if (!isAllowedSocialPair(likerType, targetType)) {
-      throw new BadRequestException(
-        `A ${likerType} cannot like a ${targetType}`,
-        'INVALID_LIKE_PAIR',
-      );
+      throw new BadRequestException(`A ${likerType} cannot like a ${targetType}`, 'INVALID_LIKE_PAIR');
     }
 
     const existing = await this.likes.findOne({ likerId: userId, targetId }).select('_id').lean().exec();
@@ -61,11 +58,13 @@ class LikeService {
     const likerImage = liker?.profileImage?.url;
 
     if (targetType === 'lounge') {
-      this.notificationService.notifyLoungeLiked(targetId, userId, likerName, likerImage)
-        .catch((err) => logger.error(`LikeService: failed to send lounge liked notification: ${err.message}`));
+      this.notificationService
+        .notifyLoungeLiked(targetId, userId, likerType, likerName, likerImage)
+        .catch(err => logger.error(`LikeService: failed to send lounge liked notification: ${err.message}`));
     } else {
-      this.notificationService.notifyAgentLiked(targetId, userId, likerName, likerImage)
-        .catch((err) => logger.error(`LikeService: failed to send agent liked notification: ${err.message}`));
+      this.notificationService
+        .notifyAgentLiked(targetId, userId, likerType, likerName, likerImage)
+        .catch(err => logger.error(`LikeService: failed to send agent liked notification: ${err.message}`));
     }
 
     logger.info(`LikeService.toggleLike: like ${likerType}=${userId} -> ${targetType}=${targetId}`);

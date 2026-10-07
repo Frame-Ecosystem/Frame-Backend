@@ -125,6 +125,7 @@ export interface NotificationMetadata {
   // Social
   followerId?: string;
   actorId?: string;
+  actorType?: 'client' | 'lounge' | 'agent';
   ratingScore?: number;
 
   // Admin

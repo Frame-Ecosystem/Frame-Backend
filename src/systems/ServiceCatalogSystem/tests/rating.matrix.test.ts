@@ -11,6 +11,9 @@
 
 // ── Hoist mocks ───────────────────────────────────────────────────────────────
 
+const mockNotifyLoungeRated = jest.fn().mockResolvedValue(undefined);
+const mockNotifyAgentRated = jest.fn().mockResolvedValue(undefined);
+
 jest.mock('mongoose', () => ({
   ...jest.requireActual('mongoose'),
   connect: jest.fn().mockResolvedValue({}),
@@ -28,8 +31,8 @@ jest.mock('@systems/NotificationSystem/services/notification.service', () => ({
   default: {
     getInstance: jest.fn().mockReturnValue({
       extractName: jest.fn().mockReturnValue('Test User'),
-      notifyLoungeRated: jest.fn().mockResolvedValue(undefined),
-      notifyAgentRated: jest.fn().mockResolvedValue(undefined),
+      notifyLoungeRated: mockNotifyLoungeRated,
+      notifyAgentRated: mockNotifyAgentRated,
     }),
   },
 }));
@@ -78,9 +81,7 @@ const id = () => new Types.ObjectId().toHexString();
 const chainable = (val: any) => {
   const obj: any = {};
   for (const m of ['lean', 'select', 'populate', 'sort', 'skip', 'limit', 'exec']) {
-    obj[m] = jest
-      .fn()
-      .mockReturnValue(typeof val?.then === 'function' ? val : obj);
+    obj[m] = jest.fn().mockReturnValue(typeof val?.then === 'function' ? val : obj);
   }
   obj.then = (resolve: any, reject?: any) => Promise.resolve(val).then(resolve, reject);
   return obj;
@@ -159,6 +160,7 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
       const result = await svc.upsertRating(raterId, { targetId, score: 5 });
       expect(result.score).toBe(5);
       expect(mockRatingFindOneAndUpdate).toHaveBeenCalled();
+      expect(mockNotifyLoungeRated).toHaveBeenCalledWith(targetId, raterId, 'client', 'Test User', 5, undefined);
     });
 
     it('creates a rating for client → agent', async () => {
@@ -168,6 +170,7 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
 
       const result = await svc.upsertRating(raterId, { targetId, score: 4 });
       expect(result.score).toBe(4);
+      expect(mockNotifyAgentRated).toHaveBeenCalledWith(targetId, raterId, 'client', 'Test User', 4, undefined);
     });
 
     it('creates a rating for agent → lounge', async () => {
@@ -283,7 +286,10 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
   describe('getTargetRatings', () => {
     it('returns paginated ratings for a target', async () => {
       const targetId = id();
-      const ratings = [{ _id: id(), score: 5 }, { _id: id(), score: 4 }];
+      const ratings = [
+        { _id: id(), score: 5 },
+        { _id: id(), score: 4 },
+      ];
 
       mockRatingFind.mockReturnValue(ok(ratings));
       mockRatingCountDocuments.mockReturnValue(ok(2));
@@ -297,7 +303,7 @@ describe('RatingService — Rating Matrix & Aggregation', () => {
   // ── getMyRating ───────────────────────────────────────────────────────────
 
   describe('getMyRating', () => {
-    it('returns the rater\'s rating for a target', async () => {
+    it("returns the rater's rating for a target", async () => {
       const raterId = id();
       const targetId = id();
       const rating = { _id: id(), score: 5 };
