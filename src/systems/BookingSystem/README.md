@@ -139,9 +139,11 @@ erDiagram
 | `position` | Number | Position in queue (1-based) |
 | `status` | String | `waiting`, `inService`, `completed`, `absent` |
 | `joinedAt` | Date | When added to queue |
+| `inServiceAt` | Date | When service started; used for remaining-wait estimates |
 | `reminderSent` | Boolean | Whether reminder notification was sent |
 
 **Unique constraint:** `{ agentId }` — one active queue per agent
+**Queue invariants:** A person marked absent remains in the queue for history and their booking is also marked absent. At most one person per agent queue may be `inService`.
 
 ---
 
@@ -275,23 +277,27 @@ Real-time queue management with Socket.IO integration.
 
 | Event | Payload | Trigger |
 |-------|---------|---------|
-| `queueUpdated` | `{ agentId, queue }` | Any queue mutation |
-| `bookingCreated` | `{ booking }` | New booking |
-| `bookingUpdated` | `{ booking }` | Status change |
-| `bookingDeleted` | `{ bookingId }` | Cancellation |
+| `queue:updated` | `{ agentId, data, timestamp }` | Queue mutation in an agent room |
+| `queue:lounge:updated` | `{ loungeId, data, timestamp }` | Queue mutation for a lounge |
+| `booking:created` | `{ data, timestamp }` | New booking |
+| `booking:updated` | `{ data, timestamp }` | Booking update |
+| `booking:deleted` | `{ bookingId, timestamp }` | Booking deletion |
+
+Queue views use one REST request for their initial date-specific snapshot, then join `queue:agent:{agentId}` or `queue:lounge:{loungeId}` and apply the full queue snapshot from each event directly. Queue-change events should not trigger another queue GET. On socket reconnect, clients re-fetch the active queue snapshot once to cover any events missed while disconnected.
 
 ---
 
 ## Cron Jobs
 
-The QueueService registers four cron jobs via `node-cron`:
+The QueueService registers five cron jobs via `node-cron`:
 
 | Job | Schedule | Description |
 |-----|----------|-------------|
-| `cleanupPastQueues` | Daily at 02:00 | Remove queue entries with dates before today |
-| `sendQueueReminders` | Every 15 minutes | Send push notification to next-in-line persons (`position <= 2`, `reminderSent: false`) |
-| `cleanupClosedLoungeQueues` | Daily at 23:00 | Clear queues for lounges past their closing time |
-| `cleanupStaleInQueueBookings` | Every 30 minutes | Transition bookings stuck in `inQueue` for >4 hours to `absent` |
+| `populateDailyQueues` | Daily at 00:01 | Add confirmed same-day bookings to assigned agent queues; retry incomplete `inQueue` bookings |
+| `cleanupPastQueues` | Daily at 00:05 | Finalize active entries in queues dated before today |
+| `sendQueueReminders` | Every 10 minutes | Send queue reminders when a waiting person's estimate is near |
+| `cleanupClosedLoungeQueues` | Every 30 minutes | Finalize active queues for lounges that have closed |
+| `cleanupStaleInQueueBookings` | Daily at 00:10 | Complete stale inQueue bookings from past days |
 
 ```mermaid
 graph LR

@@ -151,3 +151,28 @@ export class CreateLoungeQueueBookingDto {
   @MaxLength(500, { message: 'Notes cannot exceed 500 characters' })
   notes?: string;
 }
+
+export class CreateAgentQueueBookingDto {
+  @IsOptional()
+  @IsString({ message: 'Visitor name must be a string' })
+  @MaxLength(100, { message: 'Visitor name cannot exceed 100 characters' })
+  visitorName?: string;
+
+  @IsOptional()
+  @IsString({ message: 'Client phone must be a string' })
+  clientPhone?: string;
+
+  @IsOptional()
+  @IsEmail({}, { message: 'Client email must be a valid email' })
+  clientEmail?: string;
+
+  @IsOptional()
+  @IsArray({ message: 'Lounge service IDs must be an array' })
+  @IsMongoId({ each: true, message: 'Each lounge service ID must be a valid MongoDB ID' })
+  loungeServiceIds?: string[];
+
+  @IsOptional()
+  @IsString({ message: 'Notes must be a string' })
+  @MaxLength(500, { message: 'Notes cannot exceed 500 characters' })
+  notes?: string;
+}

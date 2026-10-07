@@ -1,6 +1,11 @@
 import { Server as HTTPServer } from 'http';
 import { Server, Socket } from 'socket.io';
+import { verify } from 'jsonwebtoken';
+import { SECRET_KEY } from '@config';
 import { logger } from '@utils/logger';
+import userModel from '@systems/UserManager/models/user.model';
+import { DataStoredInToken } from '@systems/AuthSystem/interfaces/auth.interface';
+import { canJoinQueueRoom, SocketUser } from '@systems/NotificationSystem/services/socket-room-access';
 import { ChatSocketHandler } from '@systems/ChatSystem/socket/chat.socket';
 import { FRONTEND_BASE_URL, ORIGIN, NODE_ENV } from '@config';
 
@@ -88,18 +93,63 @@ class SocketService {
       pingInterval: 25000,
     });
 
+    this.io.use(async (socket, next) => {
+      const token = socket.handshake.auth?.token;
+      if (!token) {
+        socket.data.user = null;
+        return next();
+      }
+
+      try {
+        const decoded = verify(token, SECRET_KEY) as DataStoredInToken;
+        const user = await userModel.findById(decoded._id).select('_id type parentLounge isBlocked passwordChangedAt');
+        if (!user || user.isBlocked) return next(new Error('Authentication failed'));
+
+        if (user.passwordChangedAt && decoded.iat) {
+          const passwordChangedAt = Math.floor(new Date(user.passwordChangedAt).getTime() / 1000);
+          if (decoded.iat < passwordChangedAt) return next(new Error('Authentication failed'));
+        }
+
+        const socketUser: SocketUser = {
+          _id: user._id.toString(),
+          type: user.type,
+          parentLounge: user.parentLounge?.toString(),
+        };
+        socket.data.user = socketUser;
+        return next();
+      } catch (error: any) {
+        logger.warn(`Socket authentication failed: ${error.message}`);
+        return next(new Error('Authentication failed'));
+      }
+    });
+
     const chatHandler = new ChatSocketHandler(this.io);
 
     this.io.on('connection', (socket: Socket) => {
       logger.info(`Socket connected: ${socket.id}`);
 
       // General room join / leave (non-chat rooms: queues, bookings, notifications)
-      socket.on('join', (rooms: string | string[]) => {
+      socket.on('join', async (rooms: string | string[]) => {
         const roomList = Array.isArray(rooms) ? rooms : [rooms];
-        roomList.forEach(room => {
+        for (const room of roomList) {
+          if (typeof room !== 'string' || room.length === 0) continue;
+          if (room.startsWith('queue:')) {
+            let authorized = false;
+            try {
+              authorized = await canJoinQueueRoom(socket.data.user, room, async (agentId, loungeId) =>
+                Boolean(await userModel.exists({ _id: agentId, type: 'agent', parentLounge: loungeId })),
+              );
+            } catch (error: any) {
+              logger.warn(`Socket ${socket.id} could not authorize queue room ${room}: ${error.message}`);
+            }
+            if (!authorized) {
+              logger.warn(`Socket ${socket.id} denied queue room join: ${room}`);
+              continue;
+            }
+          }
           socket.join(room);
           logger.info(`Socket ${socket.id} joined room: ${room}`);
-        });
+        }
       });
 
       socket.on('leave', (rooms: string | string[]) => {

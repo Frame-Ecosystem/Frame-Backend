@@ -127,6 +127,7 @@ export async function finalizeQueuePerson(person: any, loungeInfo: { loungeId: s
 
     case QueuePersonStatus.IN_SERVICE:
       person.status = QueuePersonStatus.COMPLETED;
+      person.inServiceAt = undefined;
       await finalizeBooking(person.bookingId, BookingStatus.COMPLETED, { notify: 'completed', agentId });
       return true;
 

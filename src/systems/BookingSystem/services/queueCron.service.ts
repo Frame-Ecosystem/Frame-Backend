@@ -38,7 +38,7 @@ class QueueCronService {
     todayEnd.setDate(todayEnd.getDate() + 1);
 
     const bookings = await bookingModel.find({
-      status: BookingStatus.CONFIRMED,
+      status: { $in: [BookingStatus.CONFIRMED, BookingStatus.IN_QUEUE] },
       bookingDate: { $gte: todayStart, $lt: todayEnd },
     });
 
@@ -46,19 +46,30 @@ class QueueCronService {
 
     for (const booking of bookings) {
       try {
-        booking.status = BookingStatus.IN_QUEUE;
-        await booking.save();
+        const bookingId = (booking as any)._id.toString();
+        const agentIds = booking.agentIds ?? [];
+        if (agentIds.length === 0) {
+          result.errors.push(`Booking ${bookingId}: no agents are assigned`);
+          continue;
+        }
 
-        for (const agentId of booking.agentIds ?? []) {
+        if (booking.status === BookingStatus.CONFIRMED) {
+          booking.status = BookingStatus.IN_QUEUE;
+          await booking.save();
+        }
+
+        let allQueuesPopulated = true;
+        for (const agentId of agentIds) {
           try {
-            await queueService.addPersonToQueue(agentId.toString(), { bookingId: (booking as any)._id.toString() });
-          } catch (err) {
-            result.errors.push(`Booking ${(booking as any)._id} → agent ${agentId}: ${err.message}`);
+            await queueService.ensurePersonInQueue(agentId.toString(), bookingId);
+          } catch (err: any) {
+            allQueuesPopulated = false;
+            result.errors.push(`Booking ${bookingId} → agent ${agentId}: ${err.message}`);
           }
         }
 
-        result.processed++;
-      } catch (err) {
+        if (allQueuesPopulated) result.processed++;
+      } catch (err: any) {
         result.errors.push(`Booking ${(booking as any)._id}: ${err.message}`);
       }
     }
@@ -158,6 +169,9 @@ class QueueCronService {
         result.errors.push(...queueResult.errors);
 
         await queue.save();
+        if (queueResult.processed > 0) {
+          await this.publishQueueUpdate(queue.agentId.toString(), queue.date);
+        }
       } catch (err) {
         result.errors.push(`Queue ${(queue as any)._id}: ${err.message}`);
       }
@@ -182,9 +196,21 @@ class QueueCronService {
       result.processed += queueResult.processed;
       result.errors.push(...queueResult.errors);
       await queue.save();
+      if (queueResult.processed > 0) {
+        await this.publishQueueUpdate(queue.agentId.toString(), queue.date);
+      }
     }
 
     return result;
+  }
+
+  private async publishQueueUpdate(agentId: string, date: Date): Promise<void> {
+    try {
+      const QueueService = (await import('@systems/BookingSystem/services/queue.service')).default;
+      await new QueueService().publishQueueUpdate(agentId, date);
+    } catch (err: any) {
+      logger.warn(`QueueCron: failed to publish queue update for agent ${agentId}: ${err.message}`);
+    }
   }
 
   /** Finalize all non-terminal persons in a queue. */
@@ -238,7 +264,11 @@ class QueueCronService {
     if (!inServicePerson) return 0;
 
     const booking = await bookingModel.findById(inServicePerson.bookingId).lean();
-    return booking?.totalDuration ?? 0;
+    const duration = booking?.totalDuration ?? 0;
+    if (!inServicePerson.inServiceAt) return duration;
+
+    const elapsedMinutes = Math.max(0, Math.floor((Date.now() - new Date(inServicePerson.inServiceAt).getTime()) / 60000));
+    return Math.max(duration - elapsedMinutes, 0);
   }
 
   /** Batch-fetch durations for a list of persons. */
