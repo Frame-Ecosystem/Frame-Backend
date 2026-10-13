@@ -21,7 +21,15 @@ import {
 /** Populate fields for queue agent info */
 const QUEUE_POPULATE = {
   AGENT: 'agentName profileImage coverImage',
-  BOOKING: 'totalDuration totalPrice loungeServiceIds status bookingDate notes visitorName',
+  BOOKING: {
+    path: 'persons.bookingId',
+    select: 'totalDuration totalPrice loungeServiceIds status bookingDate notes visitorName',
+    populate: {
+      path: 'loungeServiceIds',
+      select: 'price duration description image serviceId',
+      populate: { path: 'serviceId', select: 'name' },
+    },
+  },
   CLIENT: 'firstName lastName email profileImage coverImage',
 } as const;
 
@@ -68,10 +76,7 @@ class QueueService {
 
   /** Apply the standard populate chain for fully-populated queue responses. */
   private populateQueue(query: any): any {
-    return query
-      .populate('agentId', QUEUE_POPULATE.AGENT)
-      .populate('persons.bookingId', QUEUE_POPULATE.BOOKING)
-      .populate('persons.clientId', QUEUE_POPULATE.CLIENT);
+    return query.populate('agentId', QUEUE_POPULATE.AGENT).populate(QUEUE_POPULATE.BOOKING).populate('persons.clientId', QUEUE_POPULATE.CLIENT);
   }
 
   /** Find the queue for a given agent on a given date (defaults to today). */
